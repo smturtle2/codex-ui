@@ -19,6 +19,8 @@ export class SecurityPolicy {
       sessionSecret: string;
       host: string;
       port: number;
+      allowedHosts?: string[];
+      allowedOrigins?: string[];
     },
   ) {}
 
@@ -52,12 +54,14 @@ export class SecurityPolicy {
       throw new HttpError(403, "Missing Host header.");
     }
 
-    const allowedHosts = new Set([
-      normalizeHost(`${this.options.host}:${this.options.port}`),
-      normalizeHost(`127.0.0.1:${this.options.port}`),
-      normalizeHost(`localhost:${this.options.port}`),
-      normalizeHost(`[::1]:${this.options.port}`),
-    ]);
+    const allowedHosts = new Set(
+      (this.options.allowedHosts ?? [
+        `${this.options.host}:${this.options.port}`,
+        `127.0.0.1:${this.options.port}`,
+        `localhost:${this.options.port}`,
+        `[::1]:${this.options.port}`,
+      ]).map(normalizeHost),
+    );
 
     if (!allowedHosts.has(normalizeHost(hostHeader))) {
       throw new HttpError(403, `Rejected Host header: ${hostHeader}`);
@@ -71,12 +75,14 @@ export class SecurityPolicy {
     }
 
     const parsed = new URL(origin);
-    const allowedOrigins = new Set([
-      `http://${this.options.host}:${this.options.port}`,
-      `http://127.0.0.1:${this.options.port}`,
-      `http://localhost:${this.options.port}`,
-      `http://[::1]:${this.options.port}`,
-    ]);
+    const allowedOrigins = new Set(
+      (this.options.allowedOrigins ?? [
+        `http://${this.options.host}:${this.options.port}`,
+        `http://127.0.0.1:${this.options.port}`,
+        `http://localhost:${this.options.port}`,
+        `http://[::1]:${this.options.port}`,
+      ]).map((value) => value.toLowerCase()),
+    );
 
     if (!allowedOrigins.has(`${parsed.protocol}//${parsed.host}`)) {
       throw new HttpError(403, `Rejected Origin header: ${origin}`);

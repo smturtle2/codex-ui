@@ -108,7 +108,10 @@ npm install
 npm run dev
 ```
 
-브라우저에서 `http://127.0.0.1:3000`을 엽니다.
+런처가 출력한 URL로 접속하면 됩니다.
+
+- macOS / Linux: 보통 `http://127.0.0.1:3000` 또는 `http://localhost:3000`
+- WSL: 보통 `http://172.x.x.x:3000` 형태의 Windows에서 접근 가능한 주소가 함께 출력됩니다.
 
 프로덕션 스타일 실행은 build를 자동으로 포함합니다.
 
@@ -118,7 +121,7 @@ npm run start
 
 ### 선택 가능한 환경 변수
 
-- `HOST` 기본값: `127.0.0.1`
+- `HOST` 기본값: macOS/Linux에서는 `127.0.0.1`, WSL에서는 `0.0.0.0`
 - `PORT` 기본값: `3000`
 - `CODEX_HOME`, `CODEX_SQLITE_HOME`을 직접 지정할 수 있음
 
@@ -198,7 +201,7 @@ node scripts/check-codex-schema.mjs
 
 이 앱은 로컬 환경 전용으로 설계되어 있습니다.
 
-- 기본적으로 `127.0.0.1`에만 bind
+- 기본적으로 macOS/Linux에서는 `127.0.0.1`에 bind하고, WSL에서는 Windows 브라우저 접근을 위해 `0.0.0.0`에 bind
 - 실행 시 무작위 session secret 생성
 - REST 요청은 `x-codex-webui-session`으로 보호
 - WebSocket upgrade는 session secret과 Origin 검사로 보호

@@ -108,7 +108,10 @@ npm install
 npm run dev
 ```
 
-Then open `http://127.0.0.1:3000`.
+Then open the URL printed by the launcher.
+
+- macOS / Linux: usually `http://127.0.0.1:3000` or `http://localhost:3000`
+- WSL: the launcher will print a Windows-reachable URL such as `http://172.x.x.x:3000`
 
 For a production-style run with an automatic build step:
 
@@ -118,7 +121,7 @@ npm run start
 
 ### Optional environment variables
 
-- `HOST` defaults to `127.0.0.1`
+- `HOST` defaults to `127.0.0.1` on macOS/Linux and `0.0.0.0` on WSL
 - `PORT` defaults to `3000`
 - `CODEX_HOME` and `CODEX_SQLITE_HOME` can be overridden if you manage Codex state outside the default location
 
@@ -198,7 +201,7 @@ node scripts/check-codex-schema.mjs
 
 The app is meant to stay local.
 
-- binds to `127.0.0.1` by default
+- binds to `127.0.0.1` by default on macOS/Linux, and `0.0.0.0` on WSL so Windows browsers can reach it
 - generates a random session secret on launch
 - protects REST calls with `x-codex-webui-session`
 - protects WebSocket upgrade with the session secret and Origin checks

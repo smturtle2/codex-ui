@@ -69,6 +69,18 @@ function detectWsl() {
   return Boolean(process.env.WSL_DISTRO_NAME) || os.release().toLowerCase().includes("microsoft");
 }
 
+function getInterfaceAddresses() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter(Boolean)
+    .filter((entry) => entry.family === "IPv4" && !entry.internal)
+    .map((entry) => entry.address);
+}
+
+function getDefaultHost() {
+  return detectWsl() ? "0.0.0.0" : "127.0.0.1";
+}
+
 function detectPlatformStatus() {
   const isWsl = detectWsl();
 
@@ -316,13 +328,43 @@ function openBrowser(url) {
   warn(`Could not find a browser opener. Open ${url} manually.`);
 }
 
+function getPublicUrls(host, port) {
+  if (host === "0.0.0.0") {
+    const urls = [`http://localhost:${port}`, `http://127.0.0.1:${port}`];
+    for (const address of getInterfaceAddresses()) {
+      urls.push(`http://${address}:${port}`);
+    }
+    return [...new Set(urls)];
+  }
+
+  if (host === "127.0.0.1") {
+    return [`http://127.0.0.1:${port}`, `http://localhost:${port}`];
+  }
+
+  return [`http://${host}:${port}`];
+}
+
+function getPreferredBrowserUrl(host, port) {
+  const urls = getPublicUrls(host, port);
+
+  if (detectWsl() && host === "0.0.0.0") {
+    return urls.find((url) => !url.includes("localhost") && !url.includes("127.0.0.1")) ?? urls[0];
+  }
+
+  return urls[0];
+}
+
 function launch(scriptName, options = {}) {
-  const host = process.env.HOST ?? "127.0.0.1";
+  const host = process.env.HOST ?? getDefaultHost();
   const port = process.env.PORT ?? "3000";
-  const fallbackUrl = `http://${host}:${port}`;
+  const publicUrls = getPublicUrls(host, port);
+  const fallbackUrl = getPreferredBrowserUrl(host, port);
   let browserOpened = false;
 
   log(`Starting Codex WebUI on ${fallbackUrl}`);
+  if (publicUrls.length > 1) {
+    log(`Available URLs: ${publicUrls.join(", ")}`);
+  }
 
   const child = spawn(NPM_COMMAND, ["run", scriptName], {
     cwd: ROOT_DIR,
@@ -342,7 +384,7 @@ function launch(scriptName, options = {}) {
     }
 
     browserOpened = true;
-    openBrowser(match[0]);
+    openBrowser(fallbackUrl);
   };
 
   child.stdout.on("data", (chunk) => {
