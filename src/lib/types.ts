@@ -210,6 +210,14 @@ export interface GlobalSnapshot {
   apps: unknown[];
 }
 
+export interface ConnectionInfo {
+  bindHost: string;
+  port: number;
+  preferredUrl: string;
+  reachableUrls: string[];
+  loopbackMode: "not_applicable" | "native" | "unavailable";
+}
+
 export interface ThreadDetailResponse {
   snapshot: ThreadViewState;
   availableApps: unknown[];
@@ -220,7 +228,9 @@ export interface ThreadsListResponse {
   nextCursor: string | null;
 }
 
-export interface BootstrapResponse extends GlobalSnapshot {}
+export interface BootstrapResponse extends GlobalSnapshot {
+  connection: ConnectionInfo;
+}
 
 export type ThreadRealtimeEvent =
   | { kind: "thread.upsert"; thread: CodexThread; header?: ThreadHeader | null }

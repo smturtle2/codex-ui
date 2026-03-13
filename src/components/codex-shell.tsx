@@ -43,7 +43,7 @@ function formatDate(timestamp: number) {
     return "-";
   }
 
-  return new Intl.DateTimeFormat("ko-KR", {
+  return new Intl.DateTimeFormat(undefined, {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(timestamp * 1000));
@@ -70,6 +70,34 @@ function latestReview(state: ThreadViewState | null) {
   }
   const turnIds = Object.keys(state.reviews);
   return turnIds.length > 0 ? state.reviews[turnIds[turnIds.length - 1]!] : null;
+}
+
+function connectionMessage(bootstrap: BootstrapResponse | null) {
+  if (!bootstrap) {
+    return null;
+  }
+
+  switch (bootstrap.connection.loopbackMode) {
+    case "unavailable":
+      return `Open this session through ${bootstrap.connection.preferredUrl}. Loopback access is not available right now.`;
+    default:
+      return null;
+  }
+}
+
+function connectionModeLabel(bootstrap: BootstrapResponse | null) {
+  if (!bootstrap) {
+    return "direct";
+  }
+
+  switch (bootstrap.connection.loopbackMode) {
+    case "native":
+      return "native loopback";
+    case "unavailable":
+      return "direct bind only";
+    default:
+      return "direct";
+  }
 }
 
 function requestLabel(request: PendingRequestRecord) {
@@ -160,6 +188,34 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function isPlanItem(item: CodexThreadItem): item is Extract<CodexThreadItem, { type: "plan" }> {
   return item.type === "plan" && typeof (item as { text?: unknown }).text === "string";
+}
+
+function itemTone(item: CodexThreadItem) {
+  if (isUserMessageItem(item)) {
+    return "user";
+  }
+
+  if (isAgentMessageItem(item)) {
+    return item.phase === "final_answer" ? "final" : "commentary";
+  }
+
+  if (isReasoningItem(item)) {
+    return "reasoning";
+  }
+
+  if (isCommandExecutionItem(item)) {
+    return "command";
+  }
+
+  if (isFileChangeItem(item)) {
+    return "file";
+  }
+
+  if (isReviewItem(item)) {
+    return "review";
+  }
+
+  return "neutral";
 }
 
 function renderItemBody(item: CodexThreadItem): ReactNode {
@@ -275,7 +331,7 @@ export function CodexShell() {
     const nextBootstrap = (await response.json()) as BootstrapResponse;
     sessionSecretRef.current = nextBootstrap.sessionSecret;
     setBootstrap(nextBootstrap);
-    setWorkspace(nextBootstrap.defaultWorkspace);
+    setWorkspace((current) => (current.trim() ? current : nextBootstrap.defaultWorkspace));
     setRuntimeError(null);
     return nextBootstrap;
   }
@@ -442,7 +498,6 @@ export function CodexShell() {
     }
     void (async () => {
       try {
-        await loadBootstrap({ cwd: workspace, threadId: selectedThreadId });
         await loadThread(selectedThreadId);
       } catch (error) {
         setRuntimeError(error instanceof Error ? error.message : "Failed to load the selected thread.");
@@ -467,6 +522,7 @@ export function CodexShell() {
     bootstrap?.compatibility.mode === "degraded"
       ? "Degraded compatibility mode: experimentalApi, request_user_input, persistExtendedHistory are disabled."
       : bootstrap?.compatibility.message;
+  const connectionBanner = connectionMessage(bootstrap);
 
   function clearComposer() {
     setMessage("");
@@ -537,6 +593,7 @@ export function CodexShell() {
       body: JSON.stringify({}),
     });
     setThreadDetail(response.snapshot);
+    setAvailableApps(response.availableApps);
     await loadThreads();
   }
 
@@ -616,7 +673,7 @@ export function CodexShell() {
         <div className="gate">
           <p className="brand-kicker">codex_webui</p>
           <h1 className="brand-title">Starting bridge</h1>
-          <p className="brand-copy">codex app-server handshake, account bootstrap, and workspace metadata are loading.</p>
+          <p className="brand-copy">Loading the app-server session, workspace metadata, and local bridge state.</p>
         </div>
       </main>
     );
@@ -630,10 +687,9 @@ export function CodexShell() {
         <div className="gate">
           <p className="brand-kicker">Authentication</p>
           <h1 className="brand-title">Codex account bootstrap required</h1>
-          <p className="brand-copy">
-            The local bridge is ready, but codex-cli reported `requiresOpenaiAuth=true` with no active account.
-          </p>
+          <p className="brand-copy">The local bridge is ready, but Codex still needs an authenticated account for this session.</p>
           {statusBanner ? <div className="status-banner">{statusBanner}</div> : null}
+          {connectionBanner ? <div className="status-banner">{connectionBanner}</div> : null}
           <div className="section" style={{ paddingInline: 0, borderBottom: "none" }}>
             <div className="button-row">
               {bootstrap.forcedLoginMethod !== "api" ? (
@@ -670,7 +726,7 @@ export function CodexShell() {
           <div className="sidebar-header">
             <p className="brand-kicker">codex_webui</p>
             <h1 className="brand-title">Local Agent Desk</h1>
-            <p className="brand-copy">Thread / turn / item / server-request를 raw stdout 없이 그대로 보여주는 local-first shell.</p>
+            <p className="brand-copy">A local-first shell for Codex threads, turns, items, approvals, diffs, and reviews.</p>
           </div>
 
           <div className="section">
@@ -688,9 +744,23 @@ export function CodexShell() {
               >
                 New thread
               </button>
-              <button className="ghost-button" onClick={() => void loadBootstrap({ cwd: workspace, threadId: selectedThreadId })}>
+              <button
+                className="ghost-button"
+                onClick={async () => {
+                  await loadBootstrap({ cwd: workspace });
+                  await loadThreads();
+                  if (selectedThreadId) {
+                    await loadThread(selectedThreadId);
+                  }
+                }}
+              >
                 Refresh
               </button>
+            </div>
+            <div className="connection-card">
+              <p className="section-title">Connection</p>
+              <p className="connection-primary">{bootstrap.connection.preferredUrl}</p>
+              <p className="connection-copy">{connectionModeLabel(bootstrap)}</p>
             </div>
           </div>
 
@@ -698,7 +768,7 @@ export function CodexShell() {
             <div className="section">
               <p className="section-title">Threads</p>
               {groupedThreads.length === 0 ? (
-                <div className="empty-state">아직 스레드가 없습니다.</div>
+                <div className="empty-state">No threads yet. Start a new conversation to begin.</div>
               ) : (
                 groupedThreads.map(([project, projectThreads]) => (
                   <div className="thread-group" key={project}>
@@ -746,6 +816,7 @@ export function CodexShell() {
           </div>
 
           {statusBanner ? <div className="section status-banner">{statusBanner}</div> : null}
+          {connectionBanner ? <div className="section status-banner">{connectionBanner}</div> : null}
           {runtimeError ? <div className="section status-banner error">{runtimeError}</div> : null}
           {threadDetail?.disconnected ? <div className="section status-banner error">{threadDetail.disconnectedReason || "Bridge disconnected."}</div> : null}
 
@@ -753,9 +824,8 @@ export function CodexShell() {
             {threadDetail ? (
               threadDetail.thread.turns.flatMap((turn) =>
                 turn.items.map((item) => {
-                  const messageTone = isAgentMessageItem(item) ? (item.phase === "final_answer" ? "final" : "commentary") : "";
                   return (
-                    <article className={`message-card ${messageTone}`} key={`${turn.id}:${item.id}`}>
+                    <article className={`message-card ${itemTone(item)}`} key={`${turn.id}:${item.id}`}>
                       <p className="item-title">
                         {itemTitle(item)} · {turn.id}
                       </p>
@@ -765,7 +835,7 @@ export function CodexShell() {
                 }),
               )
             ) : (
-              <div className="empty-state">왼쪽에서 thread를 선택하거나 새 thread를 시작하세요.</div>
+              <div className="empty-state">Select a thread from the left or start a new conversation.</div>
             )}
           </div>
 
@@ -920,12 +990,8 @@ export function CodexShell() {
         <aside className="right-panel">
           <div className="right-header">
             <p className="brand-kicker">Panels</p>
-            <h3 className="header-title" style={{ color: "var(--text-inverse)" }}>
-              Activity stack
-            </h3>
-            <p className="header-subtitle" style={{ color: "rgba(247, 244, 238, 0.72)" }}>
-              diff / review / pending requests / logs
-            </p>
+            <h3 className="header-title">Activity stack</h3>
+            <p className="header-subtitle">Diffs, review findings, approvals, and runtime logs.</p>
           </div>
 
           <div className="tab-row">
@@ -950,8 +1016,8 @@ export function CodexShell() {
                     onChange={(event) => void handleConfigWrite("model", event.target.value || null)}
                   >
                     <option value="">Default model</option>
-                    {(bootstrap.models as Array<{ model?: string; displayName?: string }>).map((model) => (
-                      <option key={model.model} value={model.model}>
+                    {(bootstrap.models as Array<{ model?: string; displayName?: string }>).map((model, index) => (
+                      <option key={`${model.model ?? "model"}-${index}`} value={model.model}>
                         {model.displayName ?? model.model}
                       </option>
                     ))}
@@ -987,20 +1053,28 @@ export function CodexShell() {
                     <option value="live">live</option>
                   </select>
                 </div>
+                <div className="connection-card">
+                  <p className="section-title">Verified URL</p>
+                  <p className="connection-primary">{bootstrap.connection.preferredUrl}</p>
+                  <p className="connection-copy">{bootstrap.connection.reachableUrls.join(" • ")}</p>
+                </div>
               </div>
             ) : null}
 
             {rightTab === "activity"
-              ? (threadDetail?.activity ?? []).slice().reverse().map((entry) => (
-                  <div className="right-card" key={entry.id}>
-                    <h4>{entry.title}</h4>
-                    <p>{entry.detail || entry.method || entry.kind}</p>
-                  </div>
-                ))
+              ? (threadDetail?.activity ?? []).length > 0
+                ? (threadDetail?.activity ?? []).slice().reverse().map((entry) => (
+                    <div className="right-card" key={entry.id}>
+                      <h4>{entry.title}</h4>
+                      <p>{entry.detail || entry.method || entry.kind}</p>
+                    </div>
+                  ))
+                : <div className="right-card empty-state">No activity yet for this thread.</div>
               : null}
 
             {rightTab === "pending"
-              ? pendingRequests.map((request) => {
+              ? pendingRequests.length > 0
+                ? pendingRequests.map((request) => {
                   const params = isObject(request.params) ? request.params : {};
                   const availableDecisions =
                     request.method === "item/commandExecution/requestApproval" && Array.isArray(params.availableDecisions)
@@ -1084,7 +1158,8 @@ export function CodexShell() {
                       </div>
                     </div>
                   );
-                })
+                  })
+                : <div className="right-card empty-state">No pending approvals or input requests.</div>
               : null}
 
             {rightTab === "diff" && latestDiff(threadDetail) ? (
@@ -1092,7 +1167,7 @@ export function CodexShell() {
                 <h4>Latest diff</h4>
                 <pre>{latestDiff(threadDetail)}</pre>
               </div>
-            ) : null}
+            ) : rightTab === "diff" ? <div className="right-card empty-state">No diff has been produced yet.</div> : null}
 
             {rightTab === "review" && latestReview(threadDetail) ? (
               <div className="right-card">
@@ -1106,21 +1181,23 @@ export function CodexShell() {
                   </p>
                 ))}
               </div>
-            ) : null}
+            ) : rightTab === "review" ? <div className="right-card empty-state">No review findings are available yet.</div> : null}
 
             {rightTab === "logs"
-              ? bootstrap.logs
-                  .slice()
-                  .reverse()
-                  .map((entry) => (
-                    <div className="right-card" key={entry.id}>
-                      <h4>
-                        {entry.source} · {entry.level}
-                      </h4>
-                      <p>{entry.message}</p>
-                      {entry.payload ? <pre>{JSON.stringify(entry.payload, null, 2)}</pre> : null}
-                    </div>
-                  ))
+              ? bootstrap.logs.length > 0
+                ? bootstrap.logs
+                    .slice()
+                    .reverse()
+                    .map((entry) => (
+                      <div className="right-card" key={entry.id}>
+                        <h4>
+                          {entry.source} · {entry.level}
+                        </h4>
+                        <p>{entry.message}</p>
+                        {entry.payload ? <pre>{JSON.stringify(entry.payload, null, 2)}</pre> : null}
+                      </div>
+                    ))
+                : <div className="right-card empty-state">No logs captured yet.</div>
               : null}
           </div>
         </aside>

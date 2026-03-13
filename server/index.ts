@@ -4,6 +4,7 @@ import next from "next";
 
 import { CodexBridge } from "@/server/bridge/codex-bridge";
 import { createApplicationServer } from "@/server/http";
+import { ConnectionManager } from "@/server/runtime/connection-manager";
 import { SecurityPolicy } from "@/server/security";
 
 function detectWsl() {
@@ -37,29 +38,14 @@ function getAllowedHosts(host: string, port: number) {
   return [...hosts];
 }
 
-function getAccessibleUrls(host: string, port: number) {
-  const urls = new Set<string>();
-
-  if (host === "0.0.0.0") {
-    urls.add(`http://localhost:${port}`);
-    urls.add(`http://127.0.0.1:${port}`);
-    for (const address of getInterfaceAddresses()) {
-      urls.add(`http://${address}:${port}`);
-    }
-    return [...urls];
-  }
-
-  urls.add(`http://${host}:${port}`);
-  if (host === "127.0.0.1") {
-    urls.add(`http://localhost:${port}`);
-  }
-  return [...urls];
-}
-
 async function main() {
   const host = process.env.HOST ?? getDefaultHost();
   const port = Number(process.env.PORT ?? "3000");
   const dev = process.env.NODE_ENV !== "production";
+  const connectionManager = new ConnectionManager({
+    host,
+    port,
+  });
   const allowedHosts = getAllowedHosts(host, port);
   const allowedOrigins = allowedHosts.map((value) => `http://${value}`);
 
@@ -75,6 +61,7 @@ async function main() {
     launcherCwd: process.cwd(),
     host,
     port,
+    getConnectionInfo: () => connectionManager.getConnectionInfo(),
   });
   const security = new SecurityPolicy({
     sessionSecret: bridge.getSessionSecret(),
@@ -92,6 +79,7 @@ async function main() {
   });
 
   const shutdown = async () => {
+    await connectionManager.stop();
     await bridge.stop();
     server.close();
     process.exit(0);
@@ -104,13 +92,22 @@ async function main() {
     void shutdown();
   });
 
-  server.listen(port, host, () => {
-    const urls = getAccessibleUrls(host, port);
-    console.log(`codex-ui listening on ${urls[0]}`);
-    if (urls.length > 1) {
-      console.log(`codex-ui accessible urls: ${urls.slice(1).join(", ")}`);
-    }
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, () => {
+      server.off("error", reject);
+      resolve();
+    });
   });
+
+  await connectionManager.initialize();
+  const connection = connectionManager.getConnectionInfo();
+  bridge.logger.info("bridge", "Connection info ready.", connection);
+
+  console.log(`codex-ui listening on ${connection.preferredUrl}`);
+  if (connection.reachableUrls.length > 1) {
+    console.log(`codex-ui accessible urls: ${connection.reachableUrls.filter((url) => url !== connection.preferredUrl).join(", ")}`);
+  }
 }
 
 void main();

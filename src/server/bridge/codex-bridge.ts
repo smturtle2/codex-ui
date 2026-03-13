@@ -8,6 +8,7 @@ import { getDefaultSourceKinds } from "@/lib/source-filter";
 import {
   BootstrapResponse,
   BrowserRealtimeServerMessage,
+  ConnectionInfo,
   CodexThread,
   CodexUserInput,
   CompatibilityState,
@@ -41,6 +42,7 @@ interface CreateBridgeOptions {
   launcherCwd: string;
   host: string;
   port: number;
+  getConnectionInfo: () => ConnectionInfo;
 }
 
 const TURN_NOTIFICATION_SCHEMA = z.object({
@@ -183,6 +185,7 @@ export class CodexBridge {
     const snapshot = await this.accountConfigService.buildBootstrap(cwd ?? null, threadId ?? null);
     return {
       ...snapshot,
+      connection: this.options.getConnectionInfo(),
       pendingRequests: this.pendingRequestRouter.list(),
       logs: this.logger.list(),
     };
