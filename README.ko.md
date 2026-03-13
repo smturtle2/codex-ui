@@ -13,6 +13,20 @@
 
 `codex-cli`를 위한 잘 만든 로컬 UI를 찾고 있다면 이 저장소가 출발점입니다. 도움이 된다면 스타를 눌러 주세요.
 
+## 가장 빠른 시작 방법
+
+```bash
+npm run up
+```
+
+이 한 줄이 다음을 처리합니다.
+
+- 로컬 런타임 점검
+- 필요 시 npm 의존성 설치
+- `codex-cli` 확인
+- 앱 실행
+- 서버 준비 후 브라우저 자동 열기
+
 ## 왜 필요한가
 
 대부분의 에이전트 래퍼는 모든 것을 일반적인 채팅 스트림으로 평탄화합니다. Codex에는 그 방식이 충분하지 않습니다.
@@ -67,24 +81,38 @@ codex --version
 
 full support를 받으려면 `0.114.x`가 필요합니다.
 
-### 2. 의존성 설치
+### 2. 원커맨드 실행
+
+```bash
+npm run up
+```
+
+의존성이 없으면 런처가 먼저 설치합니다.
+
+### 3. 선택 가능한 setup / 진단 명령
+
+```bash
+npm run setup
+npm run doctor
+```
+
+- `npm run setup`: 빠진 의존성을 설치하고 환경을 점검
+- `npm run doctor`: 이슈에 붙여 넣기 쉬운 진단 결과 출력
+
+### 4. 수동 실행 방식
+
+기존처럼 직접 설치하고 띄우고 싶다면:
 
 ```bash
 npm install
-```
-
-### 3. 앱 실행
-
-```bash
 npm run dev
 ```
 
 브라우저에서 `http://127.0.0.1:3000`을 엽니다.
 
-프로덕션 스타일 실행:
+프로덕션 스타일 실행은 build를 자동으로 포함합니다.
 
 ```bash
-npm run build
 npm run start
 ```
 
@@ -147,6 +175,10 @@ bridge 내부 모듈:
 ### 스크립트
 
 ```bash
+npm run setup
+npm run doctor
+npm run up
+npm run up -- --no-open
 npm run dev
 npm run build
 npm run start

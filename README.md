@@ -13,6 +13,20 @@ This project keeps Codex as the source of truth. It does not scrape raw stdout, 
 
 If you want a polished, open, local-first UI for `codex-cli`, start here. If this project is useful, star the repo and share it.
 
+## Fastest Start
+
+```bash
+npm run up
+```
+
+That command will:
+
+- verify your local runtime
+- install npm dependencies if needed
+- check `codex-cli`
+- start the app
+- open the browser automatically when the server is ready
+
 ## Why This Exists
 
 Most wrappers around coding agents flatten everything into a generic chat stream. That is not enough for Codex.
@@ -67,24 +81,38 @@ codex --version
 
 You should see `0.114.x` for full support.
 
-### 2. Install dependencies
+### 2. One-command launch
+
+```bash
+npm run up
+```
+
+If dependencies are missing, the launcher installs them first.
+
+### 3. Optional setup and diagnostics
+
+```bash
+npm run setup
+npm run doctor
+```
+
+- `npm run setup` installs missing dependencies and checks your environment
+- `npm run doctor` prints a support report you can paste into issues
+
+### 4. Manual flows
+
+If you want the older explicit flow:
 
 ```bash
 npm install
-```
-
-### 3. Start the app
-
-```bash
 npm run dev
 ```
 
 Then open `http://127.0.0.1:3000`.
 
-For a production-style run:
+For a production-style run with an automatic build step:
 
 ```bash
-npm run build
 npm run start
 ```
 
@@ -147,6 +175,10 @@ Bridge modules include:
 ### Scripts
 
 ```bash
+npm run setup
+npm run doctor
+npm run up
+npm run up -- --no-open
 npm run dev
 npm run build
 npm run start

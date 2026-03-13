@@ -3,10 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "tsx watch server/index.ts",
+    "setup": "node scripts/launcher.mjs setup",
+    "doctor": "node scripts/launcher.mjs doctor",
+    "up": "node scripts/launcher.mjs dev",
+    "up:prod": "node scripts/launcher.mjs start",
+    "dev": "node scripts/launcher.mjs dev",
+    "dev:raw": "tsx watch server/index.ts",
     "build": "next build",
-    "start": "NODE_ENV=production tsx server/index.ts",
+    "start": "node scripts/launcher.mjs start",
+    "start:raw": "NODE_ENV=production tsx server/index.ts",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
