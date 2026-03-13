@@ -1,0 +1,9 @@
+.next
+node_modules
+.node_modules_failed
+coverage
+dist
+.tmp
+.package-lock.failed
+tsconfig.tsbuildinfo
+*.log
