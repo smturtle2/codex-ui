@@ -211,6 +211,7 @@ export function CodexShell() {
   const [manualImagePath, setManualImagePath] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
@@ -267,24 +268,42 @@ export function CodexShell() {
     if (options?.threadId) {
       url.searchParams.set("threadId", options.threadId);
     }
-    const nextBootstrap = await fetch(url.toString()).then((response) => response.json() as Promise<BootstrapResponse>);
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const nextBootstrap = (await response.json()) as BootstrapResponse;
     sessionSecretRef.current = nextBootstrap.sessionSecret;
     setBootstrap(nextBootstrap);
     setWorkspace(nextBootstrap.defaultWorkspace);
+    setRuntimeError(null);
     return nextBootstrap;
   }
 
   async function loadThreads() {
     const response = await apiFetch<{ data: CodexThread[] }>("/api/threads");
     setThreads(response.data);
+    setRuntimeError(null);
     return response.data;
   }
 
   async function loadThread(threadId: string) {
-    const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(`/api/threads/${threadId}`);
-    setThreadDetail(response.snapshot);
-    setAvailableApps(response.availableApps);
-    return response.snapshot;
+    try {
+      const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(`/api/threads/${threadId}`);
+      setThreadDetail(response.snapshot);
+      setAvailableApps(response.availableApps);
+      setRuntimeError(null);
+      return response.snapshot;
+    } catch {
+      const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(`/api/threads/${threadId}/resume`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setThreadDetail(response.snapshot);
+      setAvailableApps(response.availableApps);
+      setRuntimeError(null);
+      return response.snapshot;
+    }
   }
 
   useEffect(() => {
@@ -312,6 +331,11 @@ export function CodexShell() {
         }
 
         setBootstrap(nextBootstrap);
+      } catch (error) {
+        if (!cancelled) {
+          setRuntimeError(error instanceof Error ? error.message : "Failed to load Codex WebUI.");
+          setThreadDetail(null);
+        }
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -340,7 +364,7 @@ export function CodexShell() {
     });
 
     socket.addEventListener("message", (event) => {
-      const payload = JSON.parse(event.data) as BrowserRealtimeServerMessage;
+      const payload = JSON.parse(String(event.data)) as BrowserRealtimeServerMessage;
       if (payload.type === "global.event") {
         const globalEvent = payload.event;
         switch (globalEvent.kind) {
@@ -404,7 +428,9 @@ export function CodexShell() {
     });
 
     return () => {
-      socket.send(JSON.stringify({ type: "unsubscribe", threadId: selectedThreadId }));
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "unsubscribe", threadId: selectedThreadId }));
+      }
       socket.close();
       socketRef.current = null;
     };
@@ -414,8 +440,15 @@ export function CodexShell() {
     if (!selectedThreadId) {
       return;
     }
-    void loadBootstrap({ cwd: workspace, threadId: selectedThreadId });
-    void loadThread(selectedThreadId);
+    void (async () => {
+      try {
+        await loadBootstrap({ cwd: workspace, threadId: selectedThreadId });
+        await loadThread(selectedThreadId);
+      } catch (error) {
+        setRuntimeError(error instanceof Error ? error.message : "Failed to load the selected thread.");
+        setThreadDetail(null);
+      }
+    })();
   }, [selectedThreadId]);
 
   const groupedThreads = useMemo(() => {
@@ -713,6 +746,7 @@ export function CodexShell() {
           </div>
 
           {statusBanner ? <div className="section status-banner">{statusBanner}</div> : null}
+          {runtimeError ? <div className="section status-banner error">{runtimeError}</div> : null}
           {threadDetail?.disconnected ? <div className="section status-banner error">{threadDetail.disconnectedReason || "Bridge disconnected."}</div> : null}
 
           <div className="messages-scroll">

@@ -61,8 +61,20 @@ const STRING_DELTA_SCHEMA = z.object({
   delta: z.string(),
 });
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
 function isThreadReadMaterializationError(error: unknown) {
-  return error instanceof Error && error.message.includes("includeTurns is unavailable before first user message");
+  return getErrorMessage(error).includes("includeTurns is unavailable before first user message");
+}
+
+function isThreadReadNotFoundError(error: unknown) {
+  return getErrorMessage(error).includes("thread not found:");
 }
 
 export class CodexBridge {
@@ -206,17 +218,41 @@ export class CodexBridge {
     try {
       raw = await this.rpc.request("thread/read", { threadId, includeTurns: true });
     } catch (error) {
-      if (!isThreadReadMaterializationError(error)) {
-        throw error;
+      const message = getErrorMessage(error);
+      this.logger.warn("bridge", "thread/read failed, trying compatibility fallback", {
+        threadId,
+        error: message,
+      });
+
+      if (!isThreadReadMaterializationError(error) && !isThreadReadNotFoundError(error)) {
+        return this.resumeThread(threadId);
       }
-      raw = await this.rpc.request("thread/read", { threadId, includeTurns: false });
+
+      try {
+        raw = await this.rpc.request("thread/read", { threadId, includeTurns: false });
+      } catch (fallbackError) {
+        this.logger.warn("bridge", "thread/read compatibility fallback failed, resuming thread instead", {
+          threadId,
+          error: getErrorMessage(fallbackError),
+        });
+        return this.resumeThread(threadId);
+      }
     }
-    const thread = decodeThreadResponse(raw);
-    const record = this.threadRegistry.hydrate(thread, runtime?.state.header ?? null, runtime?.loaded ?? false);
-    return {
-      snapshot: record.state,
-      availableApps: await this.accountConfigService.getApps(threadId),
-    };
+
+    try {
+      const thread = decodeThreadResponse(raw);
+      const record = this.threadRegistry.hydrate(thread, runtime?.state.header ?? null, runtime?.loaded ?? false);
+      return {
+        snapshot: record.state,
+        availableApps: await this.accountConfigService.getApps(threadId),
+      };
+    } catch (error) {
+      this.logger.warn("bridge", "thread/read payload decode failed, resuming thread instead", {
+        threadId,
+        error: getErrorMessage(error),
+      });
+      return this.resumeThread(threadId);
+    }
   }
 
   async startThread(body: Record<string, unknown>) {

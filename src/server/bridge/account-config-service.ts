@@ -9,6 +9,10 @@ interface AccountConfigServiceOptions {
   launcherCwd: string;
 }
 
+function isThreadNotFoundError(error: unknown) {
+  return error instanceof Error && error.message.includes("thread not found:");
+}
+
 export class AccountConfigService {
   private account: GlobalSnapshot["account"] = {
     account: null,
@@ -88,12 +92,19 @@ export class AccountConfigService {
   }
 
   async getApps(threadId?: string | null) {
-    const result = (await this.rpc.request("app/list", {
-      threadId: threadId ?? null,
-      limit: 100,
-      forceRefetch: false,
-    })) as { data?: unknown[] };
-    return result.data ?? [];
+    try {
+      const result = (await this.rpc.request("app/list", {
+        threadId: threadId ?? null,
+        limit: 100,
+        forceRefetch: false,
+      })) as { data?: unknown[] };
+      return result.data ?? [];
+    } catch (error) {
+      if (threadId && isThreadNotFoundError(error)) {
+        return [];
+      }
+      throw error;
+    }
   }
 
   async listRecentWorkspaces() {
