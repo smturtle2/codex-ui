@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "scripts": {
+    "up": "npm install --include=dev && npm run dev",
     "dev": "node ./node_modules/tsx/dist/cli.mjs server/index.ts",
     "build": "node ./node_modules/next/dist/bin/next build",
     "start": "NODE_ENV=production node ./node_modules/tsx/dist/cli.mjs server/index.ts",
-    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
+    "check": "npm run typecheck && npm run build"
   },
   "dependencies": {
     "next": "16.1.6",

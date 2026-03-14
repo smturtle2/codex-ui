@@ -2,83 +2,84 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Local-first WebUI for Codex.
+Terminal-faithful local WebUI for Codex.
 
-Codex WebUI is a browser interface built around real Codex workflow state. It does not flatten everything into a generic chat transcript, and it does not pretend Codex is just another prompt box. The product is designed for people who want a clean interface without giving up approvals, file changes, diffs, reviews, logs, and the rest of the workflow that actually matters.
+Codex WebUI runs a real `codex app-server` locally and puts a browser shell on top of it. The goal is not to turn Codex into a generic chat app. The goal is to keep the TUI workflow model visible in the browser: threads, turns, approvals, diffs, review, logs, and runtime state.
 
-## What Codex WebUI Is
+## Quick Start
 
-Codex WebUI is:
+Run this from the repository root:
 
-- a local-first web application for Codex
-- a single-user interface optimized for focused coding sessions
-- a product that keeps Codex-native concepts visible instead of hiding them behind abstraction
-- a shell that separates UI, local app logic, and Codex integration cleanly
+```bash
+npm run up
+```
 
-## Core Experience
+Then open `http://127.0.0.1:3000`.
 
-The interface is organized around one coherent working environment.
+`npm run up` installs dependencies if needed and starts the local bridge plus the Next.js app.
 
-- a sidebar for workspace and thread navigation
-- a central timeline for structured conversation and workflow events
-- a fixed composer for text, mentions, skills, and local media inputs
-- utility panels for approvals, diffs, reviews, logs, and runtime context
-- settings that expose the important local runtime controls without turning the UI into a control panel dump
+## Requirements
 
-## What The Product Exposes
+- Node.js 20 or newer
+- `codex` installed and available on `PATH`
+- a working local Codex login state
 
-Codex WebUI makes important workflow state visible.
+If `codex` is not installed or not authenticated, the WebUI cannot start because it talks to the real local `codex app-server`.
 
-- turns, items, and thread history
-- approval flows and follow-up questions
-- file changes and diffs
-- review output and review status
-- activity logs and runtime diagnostics
-- connection and session state
+## What Works Right Now
 
-## Product Principles
+- local Node bridge connected to `codex app-server --listen stdio://`
+- browser UI with a terminal-style shell
+- transcript timeline for thread and turn activity
+- bottom composer with slash commands
+- resume picker for existing local Codex sessions
+- model and reasoning effort picker
+- thread fork, inline review trigger, interrupt
+- approval and `request_user_input` modal handling
+- runtime status and bridge log overlay
 
-- Keep the Codex mental model intact.
-- Make state inspectable instead of magical.
-- Prefer local-first behavior by default.
-- Avoid fake simplicity that hides important system behavior.
-- Keep the product sharp, opinionated, and usable for real work.
+## How To Use It
 
-## How It Works
+1. Run `npm run up`.
+2. Open `http://127.0.0.1:3000`.
+3. Start a new thread or open `Resume` to load an existing local Codex session.
+4. Type directly in the composer, or use slash commands like `/new`, `/resume`, `/fork`, `/model`, `/review`, and `/status`.
+5. When Codex asks for approval or user input, answer it in the modal instead of the terminal.
 
-The product is built around a simple architecture.
+## UI Structure
 
-- the browser handles interaction, layout, and realtime presentation
-- a local application layer owns session state, transport, and browser-facing APIs
-- the Codex integration layer speaks the real Codex protocol and feeds structured state back into the UI
+- top bar for thread actions and runtime state
+- central transcript for thread, turn, reasoning, command, diff, and system events
+- bottom composer for new turns and slash commands
+- overlays for resume, models, transcript, shortcuts, and runtime status
+- modal surface for approvals and `request_user_input`
 
-This keeps the interface honest while still making the experience feel polished.
+## Keyboard Shortcuts
 
-## What It Optimizes For
+- `Enter` sends the current turn
+- `Shift+Enter` inserts a newline
+- `Ctrl/Cmd+T` opens the transcript overlay
+- `?` opens the shortcut panel
+- `Esc` closes overlays and interrupts an active turn from the composer
 
-Codex WebUI is tuned for practical day-to-day usage.
+## Commands
 
-- long-running local coding sessions
-- visibility into state transitions and side effects
-- smooth handling of approvals and interruptions
-- fast recovery when a session needs to reconnect or resync
-- enough structure that power users can trust what the UI is showing
+- `npm run up` installs dependencies if needed and starts the app
+- `npm run dev` starts the app when dependencies are already installed
+- `npm run typecheck` runs TypeScript checks
+- `npm run build` creates a production build
+- `npm run check` runs typecheck and build together
 
-## What It Does Not Try To Be
+## Architecture
 
-Codex WebUI is not trying to become:
+- Next.js renders the browser UI
+- a local Node server owns the browser-facing HTTP and WebSocket APIs
+- the bridge talks to Codex over stdio using the generated app-server types vendored in this repo
 
-- a cloud-first SaaS platform
-- a multi-user collaboration suite
-- a generic LLM chat client
-- a plugin marketplace
-- an over-abstracted layer that hides Codex-specific behavior
+This keeps the UI aligned with the real Codex protocol instead of inventing a separate fake state model.
 
-## Contributing
+## Notes
 
-Good contributions make the product clearer, tighter, and more trustworthy.
-
-- strengthen the core experience
-- improve visibility of real workflow state
-- reduce ambiguity between UI behavior and Codex behavior
-- keep the architecture readable as the product grows
+- The resume picker reads your local Codex sessions, so you may see existing threads from other repos in the same Codex home.
+- Default host and port are `127.0.0.1:3000`.
+- You can override the port with `PORT=3001 npm run up`.

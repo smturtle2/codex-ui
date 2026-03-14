@@ -2,83 +2,84 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Codex를 위한 로컬 우선 WebUI입니다.
+Codex를 위한 터미널 충실형 로컬 WebUI입니다.
 
-Codex WebUI는 실제 Codex 워크플로우 상태를 브라우저에서 그대로 다루기 위해 만들어진 인터페이스입니다. 모든 것을 일반적인 채팅 기록으로 평탄화하지 않고, 승인, 파일 변경, diff, review, logs 같은 흐름을 제품 안에서 명시적으로 드러냅니다. 익숙해 보이기만 하는 UI가 아니라, 실제 작업할 때 신뢰할 수 있는 UI를 목표로 합니다.
+Codex WebUI는 로컬에서 실제 `codex app-server`를 실행하고, 그 위에 브라우저 셸을 올리는 방식으로 동작합니다. 목표는 Codex를 일반적인 채팅 앱처럼 포장하는 것이 아니라, TUI의 워크플로우 모델을 브라우저에서도 그대로 유지하는 것입니다. thread, turn, approval, diff, review, logs, runtime state를 숨기지 않고 보여줍니다.
 
-## Codex WebUI가 무엇인가
+## 빠른 시작
 
-Codex WebUI는 다음과 같은 제품입니다.
+저장소 루트에서 아래 한 줄만 실행하면 됩니다.
 
-- Codex를 위한 로컬 우선 웹 애플리케이션
-- 한 명의 사용자가 집중해서 코딩 세션을 이어 가기 좋은 인터페이스
-- Codex 고유 개념을 가리지 않고 그대로 보여주는 제품
-- UI, 로컬 앱 로직, Codex 연동 레이어를 깔끔하게 나누는 구조
+```bash
+npm run up
+```
 
-## 핵심 경험
+그다음 브라우저에서 `http://127.0.0.1:3000` 을 엽니다.
 
-인터페이스는 하나의 일관된 작업 환경으로 구성됩니다.
+`npm run up`은 필요한 의존성을 설치한 뒤 로컬 브리지와 Next.js 앱을 함께 시작합니다.
 
-- workspace와 thread를 오가는 사이드바
-- 구조화된 대화와 워크플로우 이벤트를 보여주는 중앙 타임라인
-- text, mention, skill, local media 입력을 처리하는 고정 composer
-- approval, diff, review, logs, runtime context를 보여주는 유틸리티 패널
-- 중요한 로컬 런타임 제어만 드러내는 설정 영역
+## 요구사항
 
-## 제품이 드러내는 것
+- Node.js 20 이상
+- `PATH` 에서 실행 가능한 `codex`
+- 로컬에서 이미 사용할 수 있는 Codex 로그인 상태
 
-Codex WebUI는 중요한 워크플로우 상태를 숨기지 않습니다.
+`codex`가 설치되어 있지 않거나 인증되지 않은 상태라면, WebUI는 시작할 수 없습니다. 이 앱은 실제 로컬 `codex app-server`와 직접 통신합니다.
 
-- turn, item, thread history
-- approval 흐름과 후속 질문
-- 파일 변경과 diff
-- review 결과와 review 상태
-- activity logs와 runtime diagnostics
-- connection 및 session 상태
+## 지금 동작하는 것
 
-## 제품 원칙
+- `codex app-server --listen stdio://` 에 붙는 로컬 Node 브리지
+- 터미널 스타일의 브라우저 UI
+- thread/turn 활동을 보여주는 transcript timeline
+- slash command를 지원하는 하단 composer
+- 기존 로컬 Codex 세션을 여는 resume picker
+- model 및 reasoning effort picker
+- thread fork, inline review 시작, interrupt
+- approval 및 `request_user_input` 모달 처리
+- runtime status와 bridge log overlay
 
-- Codex의 멘탈 모델을 그대로 유지합니다.
-- 마법 같은 동작보다 읽히는 상태를 우선합니다.
-- 기본값은 로컬 우선입니다.
-- 중요한 시스템 동작을 가리는 가짜 단순함을 피합니다.
-- 실제 작업에 쓸 수 있도록 선명하고 단단한 제품을 지향합니다.
+## 사용 방법
 
-## 동작 방식
+1. `npm run up`을 실행합니다.
+2. `http://127.0.0.1:3000` 을 엽니다.
+3. 새 thread를 시작하거나 `Resume`으로 기존 로컬 Codex 세션을 엽니다.
+4. composer에 바로 입력하거나 `/new`, `/resume`, `/fork`, `/model`, `/review`, `/status` 같은 slash command를 사용합니다.
+5. Codex가 승인이나 추가 입력을 요청하면 터미널이 아니라 모달에서 응답합니다.
 
-제품은 단순한 구조를 중심으로 동작합니다.
+## UI 구조
 
-- 브라우저는 상호작용, 레이아웃, 실시간 표시를 담당합니다.
-- 로컬 애플리케이션 레이어는 세션 상태, 전송, 브라우저용 API를 담당합니다.
-- Codex 연동 레이어는 실제 Codex 프로토콜을 다루고 구조화된 상태를 UI에 전달합니다.
+- thread 액션과 런타임 상태를 보여주는 상단 바
+- thread, turn, reasoning, command, diff, system 이벤트를 보여주는 중앙 transcript
+- 새 turn과 slash command를 처리하는 하단 composer
+- resume, model, transcript, shortcuts, runtime status overlay
+- approval 및 `request_user_input` 전용 모달
 
-이 구조 덕분에 인터페이스는 정직하게 동작하면서도, 사용 경험은 매끄럽게 유지됩니다.
+## 키보드 단축키
 
-## 무엇에 최적화되어 있는가
+- `Enter` 현재 turn 전송
+- `Shift+Enter` 줄바꿈
+- `Ctrl/Cmd+T` transcript overlay 열기
+- `?` 단축키 패널 열기
+- `Esc` overlay 닫기, composer에서는 active turn interrupt
 
-Codex WebUI는 실제 일상 작업에 맞춰 설계됩니다.
+## 명령어
 
-- 길게 이어지는 로컬 코딩 세션
-- 상태 전이와 부작용에 대한 가시성
-- 승인과 인터럽트 처리의 매끄러움
-- reconnect나 resync가 필요할 때의 빠른 복구
-- 파워 유저도 신뢰할 수 있는 수준의 구조화된 UI
+- `npm run up` 필요 시 설치까지 하고 앱 시작
+- `npm run dev` 의존성 설치 후 개발 서버 시작
+- `npm run typecheck` TypeScript 검사
+- `npm run build` 프로덕션 빌드
+- `npm run check` typecheck와 build를 함께 실행
 
-## 무엇을 하려는 제품이 아닌가
+## 아키텍처
 
-Codex WebUI는 다음을 목표로 하지 않습니다.
+- Next.js가 브라우저 UI를 렌더링합니다.
+- 로컬 Node 서버가 브라우저용 HTTP와 WebSocket API를 가집니다.
+- 브리지는 이 저장소에 vendoring된 generated app-server 타입을 사용해 stdio로 Codex와 통신합니다.
 
-- 클라우드 우선 SaaS 플랫폼
-- 멀티유저 협업 제품
-- 범용 LLM 채팅 클라이언트
-- plugin marketplace
-- Codex 특유의 동작을 감춰 버리는 과도한 추상화 레이어
+즉, UI가 별도 상태 모델을 꾸며내는 대신 실제 Codex 프로토콜에 맞춰 동작합니다.
 
-## 기여
+## 참고
 
-좋은 기여는 제품을 더 선명하고 단단하고 신뢰 가능하게 만듭니다.
-
-- 핵심 경험을 강화하기
-- 실제 워크플로우 상태 가시성을 높이기
-- UI 동작과 Codex 동작 사이의 모호함 줄이기
-- 제품이 커져도 구조를 읽기 쉽게 유지하기
+- resume picker는 로컬 Codex 세션을 읽기 때문에, 같은 Codex home을 쓰는 다른 저장소 thread도 보일 수 있습니다.
+- 기본 주소는 `127.0.0.1:3000` 입니다.
+- 포트를 바꾸려면 `PORT=3001 npm run up`을 사용하면 됩니다.
