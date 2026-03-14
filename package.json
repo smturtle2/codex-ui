@@ -1,0 +1,30 @@
+{
+  "name": "codex-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.9.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node ./node_modules/tsx/dist/cli.mjs server/index.ts",
+    "build": "node ./node_modules/next/dist/bin/next build",
+    "start": "NODE_ENV=production node ./node_modules/tsx/dist/cli.mjs server/index.ts",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "ws": "8.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@types/ws": "8.18.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}
