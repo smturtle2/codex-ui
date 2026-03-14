@@ -2,55 +2,93 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-This repository is being rebuilt from scratch.
+Codex WebUI is being rebuilt as a focused, local-first interface for Codex workflows.
 
-Codex WebUI is now a reset point for a new local-first interface project around Codex workflows. The old shape has been cleared out on purpose so the next version can start from a smaller, cleaner, and more honest foundation.
+This repository is no longer carrying the previous implementation forward. The project is starting over with a smaller scope, a clearer product shape, and a stronger rule: the README should describe what this repository is actually becoming, not what used to exist.
+
+## Overview
+
+The goal of Codex WebUI is straightforward: build a web interface that feels modern and usable without flattening Codex into a generic chat wrapper.
+
+The rebuild is centered on a product that should eventually:
+
+- keep Codex workflows understandable in a browser
+- stay local-first by default
+- expose meaningful state instead of hiding everything behind a chat transcript
+- grow from a small working core rather than a broad but fragile surface
+
+## Why This Project Exists
+
+There is still room for a Codex UI that is both practical and honest about the underlying workflow.
+
+- Generic agent chat shells often erase important state and workflow boundaries.
+- Local tools become hard to trust when the UI and runtime model drift apart.
+- A clean rebuild is more useful than preserving a structure that no longer fits the product direction.
+- Starting smaller makes it easier to establish good architecture, testing habits, and documentation discipline.
+
+## Rebuild Direction
+
+The next version is being designed around a few concrete ideas.
+
+### 1. A real working shell, not a placeholder demo
+
+The first usable version should have a minimal but coherent application shell. It does not need breadth first. It needs clear behavior, understandable state, and room to grow without rewriting everything again.
+
+### 2. Clear boundaries between UI and Codex runtime
+
+The browser layer, local application layer, and Codex-facing integration should have explicit responsibilities. The rebuild should avoid collapsing those concerns into one pile of UI code.
+
+### 3. Local-first workflow by default
+
+This project is intended to serve local usage first. Remote deployment, multi-user concerns, and larger platform features should not shape the early architecture unless they become necessary.
+
+### 4. Inspectable product behavior
+
+The product should be understandable from the outside. Important workflow state, transitions, and user-facing actions should be visible and debuggable rather than implied.
 
 ## Current Status
 
-- The repository is intentionally in a reset state.
-- There is no runnable application checked in right now.
-- Setup and usage instructions are intentionally omitted until there is something real to install and run.
-- Architecture, stack, and folder layout are open again and will be reintroduced step by step.
+This repository is in an intentional reset state.
 
-## Why Rebuild
+- The previous implementation has been cleared out.
+- A new runnable baseline has not been checked in yet.
+- Setup and Quick Start instructions are intentionally deferred until there is something real to run.
+- Technology choices, folder layout, and internal boundaries are being re-established from first principles.
 
-- The previous structure no longer matched the direction of the project.
-- A clean reset is easier to reason about than another partial rewrite.
-- Documentation should describe the current repository, not removed code.
-- The next version should grow from a minimal working core.
-- Core user flows need clearer boundaries and fewer hidden assumptions.
+## Initial Build Scope
 
-## Rebuild Principles
+The rebuild will start with the smallest version that proves the product direction.
 
-- Keep documentation and implementation aligned at all times.
-- Stay local-first unless a remote concern is proven necessary.
-- Prefer clear structure over abstractions that do not pay for themselves.
-- Build around observable user workflows instead of speculative architecture.
-- Start small, ship the core, then expand.
+- establish a clean project scaffold
+- build a minimal application shell
+- define the Codex integration boundary
+- restore the core conversation flow
+- reintroduce tests and operational documentation alongside real implementation
 
-## First Milestones
+## Principles
 
-1. Restore a minimal project scaffold and development baseline.
-2. Add the smallest useful app shell that can serve as a real starting point.
-3. Define a clean Codex integration boundary before rebuilding advanced UI behavior.
-4. Rebuild the core conversation flow end to end.
-5. Reintroduce tests and documentation only as the new implementation earns them.
+- Keep the documentation aligned with the codebase.
+- Prefer fewer moving parts over clever indirection.
+- Design around real workflows, not imagined future flexibility.
+- Make the core useful before making it broad.
+- Treat resets as a chance to remove confusion, not rename it.
 
-## What Is Not Ready
+## What This README Is And Is Not
 
-- There is no demo or production-ready build yet.
-- There is no Quick Start because there is nothing valid to run yet.
-- The architecture is not locked.
-- Compatibility, security, and deployment guidance will be written after the new baseline exists.
+This README is a direction document for the rebuild.
+
+- It is a statement of intent for the new version of the project.
+- It is not a product manual for code that no longer exists.
+- It is not a Quick Start guide yet.
+- It will become more operational again once the new baseline lands.
 
 ## Contributing
 
-Early feedback is welcome, especially on structure, scope, and sequencing.
+Feedback is useful right now if it sharpens the rebuild instead of expanding it prematurely.
 
-Until the new baseline lands, the most useful contributions are:
+The most valuable early contributions are:
 
-- concrete problem statements
-- critiques of project structure
-- small, focused proposals that reduce decision debt
-- implementation ideas that match the reset direction
+- crisp critiques of the project structure
+- well-scoped proposals for the first implementation passes
+- observations about product shape and workflow clarity
+- small decisions that reduce ambiguity for the rebuild
