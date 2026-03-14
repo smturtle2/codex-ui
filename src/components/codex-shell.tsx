@@ -1,29 +1,35 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { startTransition, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 
+import { ComposerPanel } from "@/components/shell/composer-panel";
+import { ComposerAttachment, UtilityView } from "@/components/shell/shared";
+import { ThreadHeader } from "@/components/shell/thread-header";
+import { ThreadListPane } from "@/components/shell/thread-list-pane";
+import { ThreadTimeline } from "@/components/shell/thread-timeline";
+import { UtilityDrawer } from "@/components/shell/utility-drawer";
+import { WorkspaceSwitcher } from "@/components/shell/workspace-switcher";
+import {
+  removeThreadListEntry,
+  resolveTheme,
+  ThemePreference,
+  threadEventTouchesList,
+  upsertThreadListEntry,
+  upsertThreadListEntryFromThread,
+} from "@/lib/shell-ui";
+import { createThreadTitle } from "@/lib/thread-list";
 import { applyThreadEvent } from "@/lib/thread-state";
 import {
   BootstrapResponse,
   BrowserRealtimeServerMessage,
-  CodexThread,
-  CodexThreadItem,
   PendingRequestRecord,
+  ThreadListEntry,
   ThreadViewState,
-  isAgentMessageItem,
-  isCommandExecutionItem,
-  isFileChangeItem,
-  isReasoningItem,
-  isReviewItem,
-  isUserMessageItem,
+  WorkspaceBrowseResponse,
 } from "@/lib/types";
+import { normalizeWorkspacePath } from "@/lib/workspace-utils";
 
-type ComposerAttachment =
-  | { id: string; type: "localImage"; label: string; path: string }
-  | { id: string; type: "skill"; label: string; name: string; path: string }
-  | { id: string; type: "mention"; label: string; name: string; path: string };
-
-type RightTab = "activity" | "pending" | "diff" | "review" | "logs";
+const THEME_STORAGE_KEY = "codex-ui:theme";
 
 function createTextInput(text: string) {
   return {
@@ -31,45 +37,6 @@ function createTextInput(text: string) {
     text,
     text_elements: [],
   };
-}
-
-function threadProjectKey(thread: CodexThread) {
-  const gitInfo = thread.gitInfo as { root?: string | null } | null | undefined;
-  return gitInfo?.root ?? thread.cwd;
-}
-
-function formatDate(timestamp: number) {
-  if (!timestamp) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(timestamp * 1000));
-}
-
-function activeTurn(threadState: ThreadViewState | null) {
-  return threadState?.thread.turns.find((turn) => {
-    const status = turn.status;
-    return typeof status === "string" ? status === "active" || status === "retrying" : status.type === "active";
-  }) ?? null;
-}
-
-function latestDiff(state: ThreadViewState | null) {
-  if (!state) {
-    return null;
-  }
-  const turnIds = Object.keys(state.diffs);
-  return turnIds.length > 0 ? state.diffs[turnIds[turnIds.length - 1]!] : null;
-}
-
-function latestReview(state: ThreadViewState | null) {
-  if (!state) {
-    return null;
-  }
-  const turnIds = Object.keys(state.reviews);
-  return turnIds.length > 0 ? state.reviews[turnIds[turnIds.length - 1]!] : null;
 }
 
 function connectionMessage(bootstrap: BootstrapResponse | null) {
@@ -85,218 +52,123 @@ function connectionMessage(bootstrap: BootstrapResponse | null) {
   }
 }
 
-function connectionModeLabel(bootstrap: BootstrapResponse | null) {
-  if (!bootstrap) {
-    return "direct";
-  }
-
-  switch (bootstrap.connection.loopbackMode) {
-    case "native":
-      return "native loopback";
-    case "unavailable":
-      return "direct bind only";
-    default:
-      return "direct";
-  }
+function activeTurn(threadState: ThreadViewState | null) {
+  return (
+    threadState?.thread.turns.find((turn) => {
+      const status = turn.status;
+      return typeof status === "string" ? status === "active" || status === "retrying" : status.type === "active";
+    }) ?? null
+  );
 }
 
-function requestLabel(request: PendingRequestRecord) {
-  switch (request.method) {
-    case "item/commandExecution/requestApproval":
-      return "Command approval";
-    case "item/fileChange/requestApproval":
-      return "File change approval";
-    case "item/permissions/requestApproval":
-      return "Permissions approval";
-    case "item/tool/requestUserInput":
-      return "request_user_input";
-    case "mcpServer/elicitation/request":
-      return "MCP elicitation";
-    default:
-      return request.method;
+function latestDiff(state: ThreadViewState | null) {
+  if (!state) {
+    return null;
   }
+
+  const turnIds = Object.keys(state.diffs);
+  return turnIds.length > 0 ? state.diffs[turnIds[turnIds.length - 1]!] : null;
 }
 
-function decisionLabel(decision: unknown) {
-  if (typeof decision === "string") {
-    return decision;
+function latestReview(state: ThreadViewState | null) {
+  if (!state) {
+    return null;
   }
 
-  if (decision && typeof decision === "object") {
-    return Object.keys(decision)[0] ?? "custom";
-  }
-
-  return "unknown";
+  const turnIds = Object.keys(state.reviews);
+  return turnIds.length > 0 ? state.reviews[turnIds[turnIds.length - 1]!] : null;
 }
 
-function itemTitle(item: CodexThreadItem): string {
-  if (isAgentMessageItem(item)) {
-    return item.phase === "final_answer" ? "Final answer" : "Commentary";
-  }
-
-  if (isCommandExecutionItem(item)) {
-    return item.command || "Command";
-  }
-
-  if (isFileChangeItem(item)) {
-    return "File change";
-  }
-
-  if (isReasoningItem(item)) {
-    return "Reasoning";
-  }
-
-  if (isPlanItem(item)) {
-    return "Plan";
-  }
-
-  if (isReviewItem(item)) {
-    return "Review";
-  }
-
-  if (isUserMessageItem(item)) {
-    return "User";
-  }
-
-  return item.type;
-}
-
-function renderUserContent(content: Array<{ type: string; text?: string; path?: string; name?: string; url?: string }>) {
-  return content
-    .map((entry) => {
-      switch (entry.type) {
-        case "text":
-          return entry.text ?? "";
-        case "localImage":
-          return `[localImage] ${entry.path ?? ""}`;
-        case "skill":
-          return `[skill] ${entry.name ?? ""}`;
-        case "mention":
-          return `[mention] ${entry.name ?? ""}`;
-        case "image":
-          return `[image] ${entry.url ?? ""}`;
-        default:
-          return `[${entry.type}]`;
-      }
-    })
-    .join("\n");
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isPlanItem(item: CodexThreadItem): item is Extract<CodexThreadItem, { type: "plan" }> {
-  return item.type === "plan" && typeof (item as { text?: unknown }).text === "string";
-}
-
-function itemTone(item: CodexThreadItem) {
-  if (isUserMessageItem(item)) {
-    return "user";
-  }
-
-  if (isAgentMessageItem(item)) {
-    return item.phase === "final_answer" ? "final" : "commentary";
-  }
-
-  if (isReasoningItem(item)) {
-    return "reasoning";
-  }
-
-  if (isCommandExecutionItem(item)) {
-    return "command";
-  }
-
-  if (isFileChangeItem(item)) {
-    return "file";
-  }
-
-  if (isReviewItem(item)) {
-    return "review";
-  }
-
-  return "neutral";
-}
-
-function renderItemBody(item: CodexThreadItem): ReactNode {
-  if (isUserMessageItem(item)) {
-    return <pre>{renderUserContent(item.content)}</pre>;
-  }
-
-  if (isAgentMessageItem(item)) {
-    return <pre>{item.text}</pre>;
-  }
-
-  if (isReasoningItem(item)) {
-    return <pre>{[...item.summary, "", ...item.content].join("\n")}</pre>;
-  }
-
-  if (isPlanItem(item)) {
-    return <pre>{item.text}</pre>;
-  }
-
-  if (isCommandExecutionItem(item)) {
-    return <pre>{[item.command, "", typeof item.aggregatedOutput === "string" ? item.aggregatedOutput : ""].join("\n")}</pre>;
-  }
-
-  if (isFileChangeItem(item)) {
-    return <pre>{JSON.stringify(item.changes ?? [], null, 2)}</pre>;
-  }
-
-  if (isReviewItem(item)) {
-    return <pre>{item.review}</pre>;
-  }
-
-  return <pre>{JSON.stringify(item, null, 2)}</pre>;
+function isThemePreference(value: string | null): value is ThemePreference {
+  return value === "system" || value === "light" || value === "dark";
 }
 
 export function CodexShell() {
   const [bootstrap, setBootstrap] = useState<BootstrapResponse | null>(null);
-  const [threads, setThreads] = useState<CodexThread[]>([]);
+  const [threads, setThreads] = useState<ThreadListEntry[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [threadDetail, setThreadDetail] = useState<ThreadViewState | null>(null);
   const [availableApps, setAvailableApps] = useState<unknown[]>([]);
-  const [message, setMessage] = useState("");
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
-  const [rightTab, setRightTab] = useState<RightTab>("activity");
-  const [workspace, setWorkspace] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
-  const [showSkillPicker, setShowSkillPicker] = useState(false);
-  const [showMentionPicker, setShowMentionPicker] = useState(false);
-  const [showImagePicker, setShowImagePicker] = useState(false);
-  const [manualImagePath, setManualImagePath] = useState("");
+  const [draftWorkspacePath, setDraftWorkspacePath] = useState("");
+  const [workspaceBrowse, setWorkspaceBrowse] = useState<WorkspaceBrowseResponse | null>(null);
+  const [workspaceBrowseLoading, setWorkspaceBrowseLoading] = useState(false);
+  const [workspaceBrowseError, setWorkspaceBrowseError] = useState<string | null>(null);
+  const [workspaceModalOpen, setWorkspaceModalOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerView, setDrawerView] = useState<UtilityView>("pending");
   const [apiKey, setApiKey] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const [threadQuery, setThreadQuery] = useState("");
+  const deferredThreadQuery = useDeferredValue(threadQuery);
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
+  const [systemPrefersDark, setSystemPrefersDark] = useState(false);
+  const [composerFocusToken, setComposerFocusToken] = useState(0);
+  const [composerPrefillText, setComposerPrefillText] = useState("");
+  const [composerPrefillToken, setComposerPrefillToken] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
+  const reconnectTimerRef = useRef<number | null>(null);
   const selectedThreadIdRef = useRef<string | null>(null);
+  const threadDetailRef = useRef<ThreadViewState | null>(null);
   const sessionSecretRef = useRef<string | null>(null);
+  const subscribedThreadIdRef = useRef<string | null>(null);
+  const themeInitializedRef = useRef(false);
 
   selectedThreadIdRef.current = selectedThreadId;
-
-  useEffect(() => {
-    const savedTab = window.localStorage.getItem("codex-ui:right-tab") as RightTab | null;
-    const savedThreadId = window.localStorage.getItem("codex-ui:selected-thread");
-    if (savedTab) {
-      setRightTab(savedTab);
-    }
-    if (savedThreadId) {
-      setSelectedThreadId(savedThreadId);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem("codex-ui:right-tab", rightTab);
-  }, [rightTab]);
+  threadDetailRef.current = threadDetail;
 
   useEffect(() => {
     if (selectedThreadId) {
       window.localStorage.setItem("codex-ui:selected-thread", selectedThreadId);
+      return;
     }
+
+    window.localStorage.removeItem("codex-ui:selected-thread");
   }, [selectedThreadId]);
+
+  useEffect(() => {
+    if (draftWorkspacePath) {
+      window.localStorage.setItem("codex-ui:draft-workspace", draftWorkspacePath);
+      return;
+    }
+
+    window.localStorage.removeItem("codex-ui:draft-workspace");
+  }, [draftWorkspacePath]);
+
+  useEffect(() => {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (isThemePreference(storedTheme)) {
+      setThemePreference(storedTheme);
+    }
+    themeInitializedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const update = () => setSystemPrefersDark(media.matches);
+
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  const resolvedTheme = resolveTheme(themePreference, systemPrefersDark);
+  const selectedThreadSummary = useMemo(
+    () => threads.find((thread) => thread.id === selectedThreadId) ?? null,
+    [selectedThreadId, threads],
+  );
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = resolvedTheme;
+    if (!themeInitializedRef.current) {
+      return;
+    }
+
+    window.localStorage.setItem(THEME_STORAGE_KEY, themePreference);
+  }, [resolvedTheme, themePreference]);
 
   async function apiFetch<T>(path: string, init?: RequestInit) {
     const headers = new Headers(init?.headers);
@@ -306,6 +178,7 @@ export function CodexShell() {
     if (init?.body && !headers.has("Content-Type")) {
       headers.set("Content-Type", "application/json");
     }
+
     const response = await fetch(path, {
       ...init,
       headers,
@@ -313,6 +186,7 @@ export function CodexShell() {
     if (!response.ok) {
       throw new Error(await response.text());
     }
+
     return (await response.json()) as T;
   }
 
@@ -324,30 +198,37 @@ export function CodexShell() {
     if (options?.threadId) {
       url.searchParams.set("threadId", options.threadId);
     }
+
     const response = await fetch(url.toString());
     if (!response.ok) {
       throw new Error(await response.text());
     }
+
     const nextBootstrap = (await response.json()) as BootstrapResponse;
     sessionSecretRef.current = nextBootstrap.sessionSecret;
     setBootstrap(nextBootstrap);
-    setWorkspace((current) => (current.trim() ? current : nextBootstrap.defaultWorkspace));
     setRuntimeError(null);
     return nextBootstrap;
   }
 
   async function loadThreads() {
-    const response = await apiFetch<{ data: CodexThread[] }>("/api/threads");
+    const response = await apiFetch<{ data: ThreadListEntry[] }>("/api/threads");
     setThreads(response.data);
     setRuntimeError(null);
     return response.data;
   }
 
+  function syncThreadIntoList(thread: ThreadViewState["thread"]) {
+    setThreads((current) => upsertThreadListEntryFromThread(current, thread));
+  }
+
   async function loadThread(threadId: string) {
     try {
       const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(`/api/threads/${threadId}`);
+      threadDetailRef.current = response.snapshot;
       setThreadDetail(response.snapshot);
       setAvailableApps(response.availableApps);
+      syncThreadIntoList(response.snapshot.thread);
       setRuntimeError(null);
       return response.snapshot;
     } catch {
@@ -355,10 +236,34 @@ export function CodexShell() {
         method: "POST",
         body: JSON.stringify({}),
       });
+      threadDetailRef.current = response.snapshot;
       setThreadDetail(response.snapshot);
       setAvailableApps(response.availableApps);
+      syncThreadIntoList(response.snapshot.thread);
       setRuntimeError(null);
       return response.snapshot;
+    }
+  }
+
+  async function loadWorkspaceBrowse(path: string) {
+    const normalizedPath = normalizeWorkspacePath(path);
+    if (!normalizedPath) {
+      return null;
+    }
+
+    setWorkspaceBrowseLoading(true);
+    setWorkspaceBrowseError(null);
+    try {
+      const response = await apiFetch<WorkspaceBrowseResponse>(
+        `/api/workspaces/browse?path=${encodeURIComponent(normalizedPath)}`,
+      );
+      setWorkspaceBrowse(response);
+      return response;
+    } catch (error) {
+      setWorkspaceBrowseError(error instanceof Error ? error.message : "Failed to browse workspaces.");
+      return null;
+    } finally {
+      setWorkspaceBrowseLoading(false);
     }
   }
 
@@ -368,29 +273,30 @@ export function CodexShell() {
     async function hydrate() {
       try {
         setLoading(true);
-        const nextBootstrap = await loadBootstrap();
+
+        const savedThreadId = window.localStorage.getItem("codex-ui:selected-thread");
+        const savedWorkspace = normalizeWorkspacePath(window.localStorage.getItem("codex-ui:draft-workspace"));
+        const nextBootstrap = await loadBootstrap({ cwd: savedWorkspace || undefined });
         if (cancelled) {
           return;
         }
+
+        setDraftWorkspacePath(savedWorkspace || nextBootstrap.defaultWorkspace);
         const nextThreads = await loadThreads();
         if (cancelled) {
           return;
         }
 
-        if (selectedThreadIdRef.current) {
-          await loadThread(selectedThreadIdRef.current);
+        if (savedThreadId) {
+          setSelectedThreadId(savedThreadId);
         } else if (nextThreads[0]) {
           startTransition(() => {
             setSelectedThreadId(nextThreads[0]!.id);
           });
-          await loadThread(nextThreads[0]!.id);
         }
-
-        setBootstrap(nextBootstrap);
       } catch (error) {
         if (!cancelled) {
           setRuntimeError(error instanceof Error ? error.message : "Failed to load Codex WebUI.");
-          setThreadDetail(null);
         }
       } finally {
         if (!cancelled) {
@@ -403,146 +309,322 @@ export function CodexShell() {
     return () => {
       cancelled = true;
     };
-  }, [refreshToken]);
+  }, []);
 
   useEffect(() => {
-    if (!selectedThreadId || !sessionSecretRef.current) {
+    if (!workspaceModalOpen) {
       return;
     }
 
-    const socket = new WebSocket(
-      `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/api/realtime?sessionSecret=${encodeURIComponent(sessionSecretRef.current)}`,
-    );
-    socketRef.current = socket;
+    const workspace = draftWorkspacePath || bootstrap?.defaultWorkspace;
+    if (!workspace) {
+      return;
+    }
 
-    socket.addEventListener("open", () => {
-      socket.send(JSON.stringify({ type: "subscribe", threadId: selectedThreadId, lastSeenSeq: threadDetail?.lastSeq ?? 0 }));
-    });
+    if (!workspaceBrowse || workspaceBrowse.path !== workspace) {
+      void loadWorkspaceBrowse(workspace);
+    }
+  }, [bootstrap?.defaultWorkspace, draftWorkspacePath, workspaceBrowse, workspaceModalOpen]);
 
-    socket.addEventListener("message", (event) => {
-      const payload = JSON.parse(String(event.data)) as BrowserRealtimeServerMessage;
-      if (payload.type === "global.event") {
-        const globalEvent = payload.event;
-        switch (globalEvent.kind) {
-          case "pending.updated":
-            setBootstrap((current) => (current ? { ...current, pendingRequests: globalEvent.pendingRequests } : current));
-            break;
-          case "log.entry":
-            setBootstrap((current) =>
-              current
-                ? {
-                    ...current,
-                    logs: [...current.logs, globalEvent.entry].slice(-500),
-                  }
-                : current,
-            );
-            break;
-          case "account.updated":
-            setBootstrap((current) => (current ? { ...current, account: globalEvent.account } : current));
-            break;
-          case "config.updated":
-            setBootstrap((current) =>
-              current
-                ? {
-                    ...current,
-                    config: globalEvent.config,
-                    configRequirements: globalEvent.configRequirements ?? current.configRequirements,
-                    models: globalEvent.models ?? current.models,
-                  }
-                : current,
-            );
-            break;
-          case "catalog.updated":
-            setBootstrap((current) =>
-              current
-                ? {
-                    ...current,
-                    apps: globalEvent.apps ?? current.apps,
-                    skills: globalEvent.skills ?? current.skills,
-                  }
-                : current,
-            );
-            break;
+  function syncThreadSubscription(socket = socketRef.current) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const nextThreadId = selectedThreadIdRef.current;
+    const previousThreadId = subscribedThreadIdRef.current;
+
+    if (previousThreadId && previousThreadId !== nextThreadId) {
+      socket.send(JSON.stringify({ type: "unsubscribe", threadId: previousThreadId }));
+      subscribedThreadIdRef.current = null;
+    }
+
+    if (nextThreadId && previousThreadId !== nextThreadId) {
+      const lastSeenSeq = threadDetailRef.current?.thread.id === nextThreadId ? threadDetailRef.current.lastSeq : null;
+      socket.send(
+        JSON.stringify({
+          type: "subscribe",
+          threadId: nextThreadId,
+          lastSeenSeq,
+        }),
+      );
+      subscribedThreadIdRef.current = nextThreadId;
+    }
+  }
+
+  useEffect(() => {
+    if (!bootstrap || !sessionSecretRef.current) {
+      return;
+    }
+
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed) {
+        return;
+      }
+
+      const socket = new WebSocket(
+        `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/api/realtime?sessionSecret=${encodeURIComponent(sessionSecretRef.current!)}`,
+      );
+      socketRef.current = socket;
+
+      socket.addEventListener("open", () => {
+        syncThreadSubscription(socket);
+      });
+
+      socket.addEventListener("message", (event) => {
+        const payload = JSON.parse(String(event.data)) as BrowserRealtimeServerMessage;
+
+        if (payload.type === "global.snapshot") {
+          setBootstrap((current) =>
+            current
+              ? {
+                  ...current,
+                  pendingRequests: payload.snapshot.pendingRequests,
+                  logs: payload.snapshot.logs,
+                  account: payload.snapshot.account,
+                  config: payload.snapshot.config,
+                  configRequirements: payload.snapshot.configRequirements,
+                  models: payload.snapshot.models,
+                  degradedFeatures: payload.snapshot.degradedFeatures,
+                  apps: payload.snapshot.apps,
+                  skills: payload.snapshot.skills,
+                }
+              : current,
+          );
+          return;
         }
-        return;
-      }
 
-      if (payload.type === "thread.snapshot" && payload.threadId === selectedThreadIdRef.current) {
-        setThreadDetail(payload.snapshot);
-        return;
-      }
+        if (payload.type === "global.event") {
+          const globalEvent = payload.event;
+          switch (globalEvent.kind) {
+            case "pending.updated":
+              setBootstrap((current) => (current ? { ...current, pendingRequests: globalEvent.pendingRequests } : current));
+              setThreadDetail((current) => {
+                if (!current) {
+                  return current;
+                }
 
-      if (payload.type === "thread.event" && payload.threadId === selectedThreadIdRef.current) {
-        setThreadDetail((current) => (current ? applyThreadEvent(current, payload.event) : current));
-        void loadThreads();
-        return;
-      }
+                const nextState = {
+                  ...current,
+                  pendingRequests: globalEvent.pendingRequests.filter((request) => request.threadId === current.thread.id),
+                };
+                threadDetailRef.current = nextState;
+                return nextState;
+              });
+              break;
+            case "log.entry":
+              setBootstrap((current) =>
+                current
+                  ? {
+                      ...current,
+                      logs: [...current.logs, globalEvent.entry].slice(-500),
+                    }
+                  : current,
+              );
+              break;
+            case "account.updated":
+              setBootstrap((current) => (current ? { ...current, account: globalEvent.account } : current));
+              break;
+            case "config.updated":
+              setBootstrap((current) =>
+                current
+                  ? {
+                      ...current,
+                      config: globalEvent.config,
+                      configRequirements: globalEvent.configRequirements ?? current.configRequirements,
+                      models: globalEvent.models ?? current.models,
+                    }
+                  : current,
+              );
+              break;
+            case "catalog.updated":
+              setBootstrap((current) =>
+                current
+                  ? {
+                      ...current,
+                      apps: globalEvent.apps ?? current.apps,
+                      skills: globalEvent.skills ?? current.skills,
+                    }
+                  : current,
+              );
+              break;
+            case "thread.list.upsert":
+              setThreads((current) => upsertThreadListEntry(current, globalEvent.entry));
+              break;
+            case "thread.list.remove":
+              setThreads((current) => removeThreadListEntry(current, globalEvent.threadId));
+              if (selectedThreadIdRef.current === globalEvent.threadId) {
+                startTransition(() => {
+                  setSelectedThreadId(null);
+                  setThreadDetail(null);
+                  setAvailableApps([]);
+                });
+                threadDetailRef.current = null;
+              }
+              break;
+          }
+          return;
+        }
 
-      if (payload.type === "thread.resync_required" && payload.threadId === selectedThreadIdRef.current) {
-        void loadThread(payload.threadId);
-      }
-    });
+        if (payload.type === "thread.snapshot" && payload.threadId === selectedThreadIdRef.current) {
+          threadDetailRef.current = payload.snapshot;
+          setThreadDetail(payload.snapshot);
+          syncThreadIntoList(payload.snapshot.thread);
+          return;
+        }
+
+        if (payload.type === "thread.event" && payload.threadId === selectedThreadIdRef.current) {
+          const currentState = threadDetailRef.current;
+          if (!currentState) {
+            return;
+          }
+
+          const nextState = applyThreadEvent(currentState, payload.event);
+          threadDetailRef.current = nextState;
+          setThreadDetail(nextState);
+
+          if (payload.event.kind === "thread.archived" || payload.event.kind === "thread.closed") {
+            setThreads((current) => removeThreadListEntry(current, payload.threadId));
+            return;
+          }
+
+          if (threadEventTouchesList(payload.event)) {
+            setThreads((current) => upsertThreadListEntryFromThread(current, nextState.thread));
+          }
+          return;
+        }
+
+        if (payload.type === "thread.resync_required" && payload.threadId === selectedThreadIdRef.current) {
+          void loadThread(payload.threadId);
+        }
+      });
+
+      socket.addEventListener("error", () => {
+        socket.close();
+      });
+
+      socket.addEventListener("close", () => {
+        if (socketRef.current === socket) {
+          socketRef.current = null;
+        }
+        if (subscribedThreadIdRef.current) {
+          subscribedThreadIdRef.current = null;
+        }
+
+        if (!disposed) {
+          reconnectTimerRef.current = window.setTimeout(connect, 1500);
+        }
+      });
+    };
+
+    connect();
 
     return () => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "unsubscribe", threadId: selectedThreadId }));
+      disposed = true;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
       }
-      socket.close();
+      const socket = socketRef.current;
+      if (socket) {
+        socket.close();
+      }
       socketRef.current = null;
+      subscribedThreadIdRef.current = null;
     };
-  }, [selectedThreadId, threadDetail?.lastSeq]);
+  }, [bootstrap?.connection.preferredUrl, bootstrap?.sessionSecret]);
+
+  useEffect(() => {
+    syncThreadSubscription();
+  }, [selectedThreadId]);
 
   useEffect(() => {
     if (!selectedThreadId) {
+      threadDetailRef.current = null;
+      setThreadDetail(null);
+      setAvailableApps([]);
       return;
     }
+
+    let cancelled = false;
+
     void (async () => {
       try {
-        await loadThread(selectedThreadId);
+        const snapshot = await loadThread(selectedThreadId);
+        if (cancelled) {
+          return;
+        }
+        threadDetailRef.current = snapshot;
       } catch (error) {
-        setRuntimeError(error instanceof Error ? error.message : "Failed to load the selected thread.");
-        setThreadDetail(null);
+        if (!cancelled) {
+          setRuntimeError(error instanceof Error ? error.message : "Failed to load the selected thread.");
+          setThreadDetail(null);
+        }
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedThreadId]);
 
-  const groupedThreads = useMemo(() => {
-    const map = new Map<string, CodexThread[]>();
-    for (const thread of threads) {
-      const key = threadProjectKey(thread);
-      const current = map.get(key) ?? [];
-      current.push(thread);
-      map.set(key, current);
-    }
-    return [...map.entries()].sort((left, right) => left[0].localeCompare(right[0]));
-  }, [threads]);
-
-  const pendingRequests = threadDetail?.pendingRequests ?? bootstrap?.pendingRequests ?? [];
-  const statusBanner =
-    bootstrap?.compatibility.mode === "degraded"
-      ? "Degraded compatibility mode: experimentalApi, request_user_input, persistExtendedHistory are disabled."
-      : bootstrap?.compatibility.message;
-  const connectionBanner = connectionMessage(bootstrap);
-
-  function clearComposer() {
-    setMessage("");
-    setAttachments([]);
-    setManualImagePath("");
-    setShowImagePicker(false);
-    setShowSkillPicker(false);
-    setShowMentionPicker(false);
+  async function refreshConversationData() {
+    const workspace = draftWorkspacePath || bootstrap?.defaultWorkspace;
+    await Promise.all([
+      loadBootstrap({
+        cwd: workspace || undefined,
+        threadId: selectedThreadId || undefined,
+      }),
+      loadThreads(),
+      selectedThreadId ? loadThread(selectedThreadId) : Promise.resolve(null),
+    ]);
   }
 
-  async function sendMessage() {
-    if (!message.trim() && attachments.length === 0) {
+  async function handleSelectWorkspace(path: string) {
+    const normalizedPath = normalizeWorkspacePath(path);
+    if (!normalizedPath) {
+      return;
+    }
+
+    setDraftWorkspacePath(normalizedPath);
+    await Promise.all([
+      loadBootstrap({
+        cwd: normalizedPath,
+        threadId: selectedThreadId || undefined,
+      }),
+      loadWorkspaceBrowse(normalizedPath),
+    ]);
+  }
+
+  function focusComposer() {
+    setComposerFocusToken((current) => current + 1);
+  }
+
+  function prefillComposer(prompt: string) {
+    setComposerPrefillText(prompt);
+    setComposerPrefillToken((current) => current + 1);
+    focusComposer();
+  }
+
+  async function handleSelectWorkspaceForNewConversation(path: string) {
+    await handleSelectWorkspace(path);
+    handleCreateThread();
+    setWorkspaceModalOpen(false);
+    setSidebarOpen(false);
+    focusComposer();
+  }
+
+  async function sendMessage(payload: { message: string; attachments: ComposerAttachment[] }) {
+    if (!payload.message.trim() && payload.attachments.length === 0) {
       return;
     }
 
     setSending(true);
     try {
       const input = [
-        ...(message.trim() ? [createTextInput(message.trim())] : []),
-        ...attachments.map((attachment) => {
+        ...(payload.message.trim() ? [createTextInput(payload.message.trim())] : []),
+        ...payload.attachments.map((attachment) => {
           if (attachment.type === "localImage") {
             return {
               type: "localImage" as const,
@@ -562,23 +644,29 @@ export function CodexShell() {
         const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>("/api/threads", {
           method: "POST",
           body: JSON.stringify({
-            cwd: workspace,
+            cwd: draftWorkspacePath || bootstrap?.defaultWorkspace,
             input,
           }),
         });
         setSelectedThreadId(response.snapshot.thread.id);
+        threadDetailRef.current = response.snapshot;
         setThreadDetail(response.snapshot);
         setAvailableApps(response.availableApps);
+        syncThreadIntoList(response.snapshot.thread);
       } else {
-        const response = await apiFetch<{ snapshot: ThreadViewState; availableApps?: unknown[] }>(`/api/threads/${selectedThreadId}/turns`, {
-          method: "POST",
-          body: JSON.stringify({ input }),
-        });
-        setThreadDetail(response.snapshot ?? threadDetail);
+        const response = await apiFetch<{ snapshot: ThreadViewState; availableApps?: unknown[] }>(
+          `/api/threads/${selectedThreadId}/turns`,
+          {
+            method: "POST",
+            body: JSON.stringify({ input }),
+          },
+        );
+        if (response.snapshot) {
+          threadDetailRef.current = response.snapshot;
+          setThreadDetail(response.snapshot);
+          syncThreadIntoList(response.snapshot.thread);
+        }
       }
-
-      clearComposer();
-      await loadThreads();
     } finally {
       setSending(false);
     }
@@ -588,13 +676,18 @@ export function CodexShell() {
     if (!selectedThreadId) {
       return;
     }
-    const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(`/api/threads/${selectedThreadId}/resume`, {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+
+    const response = await apiFetch<{ snapshot: ThreadViewState; availableApps: unknown[] }>(
+      `/api/threads/${selectedThreadId}/resume`,
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      },
+    );
+    threadDetailRef.current = response.snapshot;
     setThreadDetail(response.snapshot);
     setAvailableApps(response.availableApps);
-    await loadThreads();
+    syncThreadIntoList(response.snapshot.thread);
   }
 
   async function handleInterrupt() {
@@ -602,6 +695,7 @@ export function CodexShell() {
     if (!selectedThreadId || !turn) {
       return;
     }
+
     await apiFetch(`/api/threads/${selectedThreadId}/turns/${turn.id}/interrupt`, {
       method: "POST",
       body: JSON.stringify({}),
@@ -612,6 +706,7 @@ export function CodexShell() {
     if (!selectedThreadId) {
       return;
     }
+
     await apiFetch(`/api/threads/${selectedThreadId}/review`, {
       method: "POST",
       body: JSON.stringify({
@@ -634,7 +729,11 @@ export function CodexShell() {
         ],
       }),
     });
-    setRefreshToken((current) => current + 1);
+
+    await loadBootstrap({
+      cwd: draftWorkspacePath || bootstrap?.defaultWorkspace,
+      threadId: selectedThreadId || undefined,
+    });
   }
 
   async function handleLogin(type: "chatgpt" | "apiKey") {
@@ -650,7 +749,10 @@ export function CodexShell() {
         window.open(result.authUrl, "_blank", "noopener,noreferrer");
       }
 
-      setRefreshToken((current) => current + 1);
+      await loadBootstrap({
+        cwd: draftWorkspacePath || bootstrap?.defaultWorkspace,
+        threadId: selectedThreadId || undefined,
+      });
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "Login failed");
     }
@@ -663,43 +765,62 @@ export function CodexShell() {
     });
   }
 
-  function addAttachment(attachment: ComposerAttachment) {
-    setAttachments((current) => [...current, attachment]);
+  function handleCreateThread() {
+    startTransition(() => {
+      setSelectedThreadId(null);
+      setThreadDetail(null);
+      setAvailableApps([]);
+      setRuntimeError(null);
+    });
+  }
+
+  function handleOpenNewConversation() {
+    setWorkspaceModalOpen(true);
+    setSidebarOpen(false);
+  }
+
+  function openUtilityView(view: UtilityView) {
+    setDrawerView(view);
+    setDrawerOpen(true);
   }
 
   if (loading || !bootstrap) {
     return (
       <main className="codex-shell">
         <div className="gate">
-          <p className="brand-kicker">codex_webui</p>
-          <h1 className="brand-title">Starting bridge</h1>
-          <p className="brand-copy">Loading the app-server session, workspace metadata, and local bridge state.</p>
+          <p className="modal-kicker">codex_webui</p>
+          <h1 className="brand-title">Preparing your session</h1>
+          <p className="brand-copy">Loading the bridge, workspace metadata, and conversation history.</p>
         </div>
       </main>
     );
   }
 
   const accountMissing = bootstrap.account.requiresOpenaiAuth && !bootstrap.account.account;
+  const pendingRequests = threadDetail?.pendingRequests ?? bootstrap.pendingRequests ?? [];
+  const statusBanner =
+    bootstrap.compatibility.mode === "degraded"
+      ? "Degraded compatibility mode: experimentalApi, request_user_input, and persistExtendedHistory are disabled."
+      : bootstrap.compatibility.message;
+  const loopbackBanner = connectionMessage(bootstrap);
 
   if (accountMissing) {
     return (
       <main className="codex-shell">
-        <div className="gate">
-          <p className="brand-kicker">Authentication</p>
-          <h1 className="brand-title">Codex account bootstrap required</h1>
-          <p className="brand-copy">The local bridge is ready, but Codex still needs an authenticated account for this session.</p>
+        <div className="gate auth-gate">
+          <p className="modal-kicker">Authentication</p>
+          <h1 className="brand-title">Sign in to continue</h1>
+          <p className="brand-copy">The bridge is ready, but this session still needs an authenticated account.</p>
           {statusBanner ? <div className="status-banner">{statusBanner}</div> : null}
-          {connectionBanner ? <div className="status-banner">{connectionBanner}</div> : null}
-          <div className="section" style={{ paddingInline: 0, borderBottom: "none" }}>
-            <div className="button-row">
-              {bootstrap.forcedLoginMethod !== "api" ? (
-                <button className="button" onClick={() => void handleLogin("chatgpt")}>
-                  ChatGPT login
-                </button>
-              ) : null}
-            </div>
+          {loopbackBanner ? <div className="status-banner">{loopbackBanner}</div> : null}
+          <div className="auth-actions">
+            {bootstrap.forcedLoginMethod !== "api" ? (
+              <button className="button" onClick={() => void handleLogin("chatgpt")}>
+                Continue with ChatGPT
+              </button>
+            ) : null}
             {bootstrap.forcedLoginMethod !== "chatgpt" ? (
-              <div className="two-column" style={{ marginTop: 14 }}>
+              <div className="path-input-row">
                 <input
                   className="text-input"
                   type="password"
@@ -708,500 +829,168 @@ export function CodexShell() {
                   onChange={(event) => setApiKey(event.target.value)}
                 />
                 <button className="ghost-button" onClick={() => void handleLogin("apiKey")}>
-                  API key login
+                  Use API key
                 </button>
               </div>
             ) : null}
-            {loginError ? <div className="status-banner error">{loginError}</div> : null}
+            {loginError ? <div className="status-banner error inline-banner">{loginError}</div> : null}
           </div>
         </div>
       </main>
     );
   }
 
+  const currentWorkspace = draftWorkspacePath || bootstrap.defaultWorkspace;
+  const hasActiveTurn = Boolean(activeTurn(threadDetail));
+  const headerTitle = threadDetail
+    ? createThreadTitle(threadDetail.thread.name, threadDetail.thread.preview)
+    : selectedThreadSummary?.title ?? "New chat";
+  const notices = [
+    runtimeError ? { tone: "error" as const, text: runtimeError } : null,
+    threadDetail?.disconnected ? { tone: "error" as const, text: threadDetail.disconnectedReason || "Bridge disconnected." } : null,
+    loopbackBanner ? { tone: "info" as const, text: loopbackBanner } : null,
+    statusBanner ? { tone: "info" as const, text: statusBanner } : null,
+  ].filter(Boolean) as Array<{ tone: "info" | "error"; text: string }>;
+
   return (
     <main className="codex-shell">
-      <div className="codex-grid">
-        <aside className="sidebar">
-          <div className="sidebar-header">
-            <p className="brand-kicker">codex_webui</p>
-            <h1 className="brand-title">Local Agent Desk</h1>
-            <p className="brand-copy">A local-first shell for Codex threads, turns, items, approvals, diffs, and reviews.</p>
-          </div>
+      <div className="shell-layout">
+        <button
+          className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`}
+          aria-hidden={!sidebarOpen}
+          tabIndex={sidebarOpen ? 0 : -1}
+          onClick={() => setSidebarOpen(false)}
+        />
 
-          <div className="section">
-            <p className="section-title">Workspace</p>
-            <input className="workspace-input" value={workspace} onChange={(event) => setWorkspace(event.target.value)} />
-            <div className="button-row" style={{ marginTop: 12 }}>
-              <button
-                className="button"
-                onClick={() =>
-                  startTransition(() => {
-                    setSelectedThreadId(null);
-                    setThreadDetail(null);
-                  })
-                }
-              >
-                New thread
-              </button>
-              <button
-                className="ghost-button"
-                onClick={async () => {
-                  await loadBootstrap({ cwd: workspace });
-                  await loadThreads();
-                  if (selectedThreadId) {
-                    await loadThread(selectedThreadId);
-                  }
-                }}
-              >
-                Refresh
+        <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+          <div className="sidebar-top">
+            <div className="sidebar-brand-row">
+              <div className="brand-lockup">
+                <p className="modal-kicker">codex_webui</p>
+                <h1 className="brand-title">Codex</h1>
+              </div>
+              <button className="icon-button mobile-only" onClick={() => setSidebarOpen(false)} aria-label="Close conversation list">
+                x
               </button>
             </div>
-            <div className="connection-card">
-              <p className="section-title">Connection</p>
-              <p className="connection-primary">{bootstrap.connection.preferredUrl}</p>
-              <p className="connection-copy">{connectionModeLabel(bootstrap)}</p>
-            </div>
+
+            <button className="button primary-cta" onClick={handleOpenNewConversation}>
+              New chat
+            </button>
+
+            <label className="search-field">
+              <span className="search-label">Search conversations</span>
+              <input
+                className="text-input search-input"
+                value={threadQuery}
+                placeholder="Search by title or workspace"
+                onChange={(event) => setThreadQuery(event.target.value)}
+              />
+            </label>
           </div>
 
           <div className="sidebar-scroll">
-            <div className="section">
-              <p className="section-title">Threads</p>
-              {groupedThreads.length === 0 ? (
-                <div className="empty-state">No threads yet. Start a new conversation to begin.</div>
-              ) : (
-                groupedThreads.map(([project, projectThreads]) => (
-                  <div className="thread-group" key={project}>
-                    <h3 className="thread-group-title">{project.split("/").pop() || project}</h3>
-                    {projectThreads
-                      .sort((left, right) => right.updatedAt - left.updatedAt)
-                      .map((thread) => (
-                        <button
-                          key={thread.id}
-                          className={`thread-card ${thread.id === selectedThreadId ? "active" : ""}`}
-                          onClick={() =>
-                            startTransition(() => {
-                              setSelectedThreadId(thread.id);
-                            })
-                          }
-                        >
-                          <p className="thread-name">{thread.name || thread.preview || "Untitled thread"}</p>
-                          <p className="thread-preview">{thread.preview || "No preview yet."}</p>
-                          <div className="thread-meta">
-                            <span className="pill">{thread.status.type}</span>
-                            <span className="pill">{formatDate(thread.updatedAt)}</span>
-                          </div>
-                        </button>
-                      ))}
-                  </div>
-                ))
-              )}
-            </div>
+            <ThreadListPane
+              threads={threads}
+              selectedThreadId={selectedThreadId}
+              query={deferredThreadQuery}
+              onSelectThread={(threadId) =>
+                startTransition(() => {
+                  setSelectedThreadId(threadId);
+                  setThreadDetail(null);
+                  setSidebarOpen(false);
+                })
+              }
+            />
           </div>
         </aside>
 
-        <section className="main-panel">
-          <div className="panel-header">
-            <div>
-              <p className="brand-kicker">Thread</p>
-              <h2 className="header-title">{threadDetail?.thread.name || threadDetail?.thread.preview || "New conversation"}</h2>
-              <p className="header-subtitle">{threadDetail?.thread.cwd || workspace}</p>
-            </div>
-            <div className="header-badges">
-              {threadDetail?.header?.model ? <span className="pill accent">{threadDetail.header.model}</span> : null}
-              {threadDetail?.header?.serviceTier ? <span className="pill">{threadDetail.header.serviceTier}</span> : null}
-              <span className="pill">{bootstrap.compatibility.cliVersion}</span>
-              <span className={`pill ${threadDetail?.disconnected ? "warn" : ""}`}>{threadDetail?.thread.status.type || "idle"}</span>
-            </div>
-          </div>
+        <section className="conversation-stage">
+          <ThreadHeader
+            title={headerTitle}
+            workspacePath={threadDetail?.thread.cwd ?? selectedThreadSummary?.workspacePath ?? currentWorkspace}
+            pendingCount={pendingRequests.length}
+            selectedThreadId={selectedThreadId}
+            hasActiveTurn={hasActiveTurn}
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onOpenWorkspace={handleOpenNewConversation}
+            onOpenUtilityView={openUtilityView}
+            onResume={handleResume}
+            onInterrupt={handleInterrupt}
+            onReview={handleReview}
+            onReload={refreshConversationData}
+          />
 
-          {statusBanner ? <div className="section status-banner">{statusBanner}</div> : null}
-          {connectionBanner ? <div className="section status-banner">{connectionBanner}</div> : null}
-          {runtimeError ? <div className="section status-banner error">{runtimeError}</div> : null}
-          {threadDetail?.disconnected ? <div className="section status-banner error">{threadDetail.disconnectedReason || "Bridge disconnected."}</div> : null}
-
-          <div className="messages-scroll">
-            {threadDetail ? (
-              threadDetail.thread.turns.flatMap((turn) =>
-                turn.items.map((item) => {
-                  return (
-                    <article className={`message-card ${itemTone(item)}`} key={`${turn.id}:${item.id}`}>
-                      <p className="item-title">
-                        {itemTitle(item)} · {turn.id}
-                      </p>
-                      {renderItemBody(item)}
-                    </article>
-                  );
-                }),
-              )
-            ) : (
-              <div className="empty-state">Select a thread from the left or start a new conversation.</div>
-            )}
-          </div>
-
-          <div className="composer">
-            <div className="button-row">
-              <button className="ghost-button" onClick={() => setShowImagePicker((current) => !current)}>
-                Add localImage
-              </button>
-              <button className="ghost-button" onClick={() => setShowSkillPicker((current) => !current)}>
-                Add skill
-              </button>
-              <button className="ghost-button" onClick={() => setShowMentionPicker((current) => !current)}>
-                Add mention
-              </button>
-              {selectedThreadId ? (
-                <button className="ghost-button" onClick={() => void handleResume()}>
-                  Resume
-                </button>
-              ) : null}
-              {activeTurn(threadDetail) ? (
-                <button className="danger-button" onClick={() => void handleInterrupt()}>
-                  Interrupt
-                </button>
-              ) : null}
-              {selectedThreadId ? (
-                <>
-                  <button className="ghost-button" onClick={() => void handleReview(false)}>
-                    Inline review
-                  </button>
-                  <button className="ghost-button" onClick={() => void handleReview(true)}>
-                    Detached review
-                  </button>
-                </>
-              ) : null}
-            </div>
-
-            {showImagePicker ? (
-              <div className="tool-panel">
-                <input
-                  className="text-input"
-                  placeholder="/absolute/path/to/image.png"
-                  value={manualImagePath}
-                  onChange={(event) => setManualImagePath(event.target.value)}
-                />
-                <div className="button-row">
-                  <button
-                    className="button"
-                    onClick={() => {
-                      if (!manualImagePath.trim()) {
-                        return;
-                      }
-                      addAttachment({
-                        id: crypto.randomUUID(),
-                        type: "localImage",
-                        label: manualImagePath.trim().split("/").pop() || manualImagePath.trim(),
-                        path: manualImagePath.trim(),
-                      });
-                      setManualImagePath("");
-                      setShowImagePicker(false);
-                    }}
-                  >
-                    Add image path
-                  </button>
+          {notices.length > 0 ? (
+            <div className="notice-stack">
+              {notices.map((notice, index) => (
+                <div key={`${notice.tone}-${index}`} className={`status-banner ${notice.tone === "error" ? "error" : ""}`}>
+                  {notice.text}
                 </div>
-              </div>
-            ) : null}
-
-            {showSkillPicker ? (
-              <div className="tool-panel">
-                <div className="catalog-list">
-                  {(bootstrap.skills as Array<{ name?: string; path?: string; description?: string }>).map((skill, index) => (
-                    <button
-                      className="catalog-item"
-                      key={`${skill.name ?? "skill"}-${index}`}
-                      onClick={() => {
-                        addAttachment({
-                          id: crypto.randomUUID(),
-                          type: "skill",
-                          label: skill.name ?? skill.path ?? "skill",
-                          name: skill.name ?? "skill",
-                          path: skill.path ?? "",
-                        });
-                        setShowSkillPicker(false);
-                      }}
-                    >
-                      <strong>{skill.name ?? skill.path ?? "skill"}</strong>
-                      <div>{skill.description ?? skill.path ?? ""}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {showMentionPicker ? (
-              <div className="tool-panel">
-                <div className="catalog-list">
-                  {(availableApps.length > 0 ? availableApps : bootstrap.apps).map((app, index) => {
-                    const resolved = isObject(app) ? app : {};
-                    const name = typeof resolved.name === "string" ? resolved.name : typeof resolved.id === "string" ? resolved.id : "app";
-                    const description = typeof resolved.description === "string" ? resolved.description : typeof resolved.id === "string" ? resolved.id : "";
-                    return (
-                      <button
-                        className="catalog-item"
-                        key={`${name}-${index}`}
-                        onClick={() => {
-                          addAttachment({
-                            id: crypto.randomUUID(),
-                            type: "mention",
-                            label: name,
-                            name,
-                            path: name,
-                          });
-                          setShowMentionPicker(false);
-                        }}
-                      >
-                        <strong>{name}</strong>
-                        <div>{description}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {attachments.length > 0 ? (
-              <div className="chip-row">
-                {attachments.map((attachment) => (
-                  <div className="chip" key={attachment.id}>
-                    <span>
-                      {attachment.type}: {attachment.label}
-                    </span>
-                    <button onClick={() => setAttachments((current) => current.filter((entry) => entry.id !== attachment.id))}>x</button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="composer-grid">
-              <textarea
-                className="text-area"
-                placeholder="Message Codex..."
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-              />
-              <button className="button" onClick={() => void sendMessage()} disabled={sending}>
-                {sending ? "Sending" : "Send"}
-              </button>
+              ))}
             </div>
-          </div>
+          ) : null}
+
+          <ThreadTimeline
+            threadDetail={threadDetail}
+            loading={Boolean(selectedThreadId && !threadDetail && !runtimeError)}
+            draftWorkspacePath={currentWorkspace}
+            onOpenWorkspace={handleOpenNewConversation}
+            onPickStarter={prefillComposer}
+          />
+
+          <ComposerPanel
+            skills={bootstrap.skills}
+            apps={availableApps.length > 0 ? availableApps : bootstrap.apps}
+            selectedThreadId={selectedThreadId}
+            sending={sending}
+            focusToken={composerFocusToken}
+            prefillText={composerPrefillText}
+            prefillToken={composerPrefillToken}
+            draftWorkspacePath={currentWorkspace}
+            onOpenWorkspace={handleOpenNewConversation}
+            onSend={sendMessage}
+          />
         </section>
-
-        <aside className="right-panel">
-          <div className="right-header">
-            <p className="brand-kicker">Panels</p>
-            <h3 className="header-title">Activity stack</h3>
-            <p className="header-subtitle">Diffs, review findings, approvals, and runtime logs.</p>
-          </div>
-
-          <div className="tab-row">
-            {(["activity", "pending", "diff", "review", "logs"] as RightTab[]).map((tab) => (
-              <button key={tab} className={`tab-button ${rightTab === tab ? "active" : ""}`} onClick={() => setRightTab(tab)}>
-                {tab}
-              </button>
-            ))}
-            <button className={`tab-button ${showSettings ? "active" : ""}`} onClick={() => setShowSettings((current) => !current)}>
-              settings
-            </button>
-          </div>
-
-          <div className="right-scroll">
-            {showSettings ? (
-              <div className="settings-card">
-                <p className="item-title">Quick controls</p>
-                <div className="two-column">
-                  <select
-                    className="select-input"
-                    value={(bootstrap.config as { model?: string | null })?.model ?? ""}
-                    onChange={(event) => void handleConfigWrite("model", event.target.value || null)}
-                  >
-                    <option value="">Default model</option>
-                    {(bootstrap.models as Array<{ model?: string; displayName?: string }>).map((model, index) => (
-                      <option key={`${model.model ?? "model"}-${index}`} value={model.model}>
-                        {model.displayName ?? model.model}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="select-input"
-                    value={(bootstrap.config as { approval_policy?: string | null })?.approval_policy ?? ""}
-                    onChange={(event) => void handleConfigWrite("approval_policy", event.target.value || null)}
-                  >
-                    <option value="">Default approval</option>
-                    <option value="untrusted">untrusted</option>
-                    <option value="on-request">on-request</option>
-                    <option value="never">never</option>
-                  </select>
-                  <select
-                    className="select-input"
-                    value={(bootstrap.config as { sandbox_mode?: string | null })?.sandbox_mode ?? ""}
-                    onChange={(event) => void handleConfigWrite("sandbox_mode", event.target.value || null)}
-                  >
-                    <option value="">Default sandbox</option>
-                    <option value="read-only">read-only</option>
-                    <option value="workspace-write">workspace-write</option>
-                    <option value="danger-full-access">danger-full-access</option>
-                  </select>
-                  <select
-                    className="select-input"
-                    value={(bootstrap.config as { web_search?: string | null })?.web_search ?? ""}
-                    onChange={(event) => void handleConfigWrite("web_search", event.target.value || null)}
-                  >
-                    <option value="">Default web search</option>
-                    <option value="disabled">disabled</option>
-                    <option value="cached">cached</option>
-                    <option value="live">live</option>
-                  </select>
-                </div>
-                <div className="connection-card">
-                  <p className="section-title">Verified URL</p>
-                  <p className="connection-primary">{bootstrap.connection.preferredUrl}</p>
-                  <p className="connection-copy">{bootstrap.connection.reachableUrls.join(" • ")}</p>
-                </div>
-              </div>
-            ) : null}
-
-            {rightTab === "activity"
-              ? (threadDetail?.activity ?? []).length > 0
-                ? (threadDetail?.activity ?? []).slice().reverse().map((entry) => (
-                    <div className="right-card" key={entry.id}>
-                      <h4>{entry.title}</h4>
-                      <p>{entry.detail || entry.method || entry.kind}</p>
-                    </div>
-                  ))
-                : <div className="right-card empty-state">No activity yet for this thread.</div>
-              : null}
-
-            {rightTab === "pending"
-              ? pendingRequests.length > 0
-                ? pendingRequests.map((request) => {
-                  const params = isObject(request.params) ? request.params : {};
-                  const availableDecisions =
-                    request.method === "item/commandExecution/requestApproval" && Array.isArray(params.availableDecisions)
-                      ? params.availableDecisions
-                      : request.method === "item/fileChange/requestApproval"
-                        ? ["accept", "acceptForSession", "decline", "cancel"]
-                        : null;
-
-                  return (
-                    <div className="pending-card" key={request.id}>
-                      <p className="item-title">{requestLabel(request)}</p>
-                      <pre>{JSON.stringify(request.params, null, 2)}</pre>
-                      <div className="button-row" style={{ marginTop: 12 }}>
-                        {availableDecisions
-                          ? availableDecisions.map((decision) => (
-                              <button
-                                className="ghost-button"
-                                key={decisionLabel(decision)}
-                                onClick={() => void handleRequestDecision(request, { decision })}
-                              >
-                                {decisionLabel(decision)}
-                              </button>
-                            ))
-                          : null}
-                        {request.method === "item/permissions/requestApproval" ? (
-                          <>
-                            <button
-                              className="button"
-                              onClick={() =>
-                                void handleRequestDecision(request, {
-                                  permissions: params.permissions ?? {},
-                                  scope: "turn",
-                                })
-                              }
-                            >
-                              approve for turn
-                            </button>
-                            <button
-                              className="ghost-button"
-                              onClick={() =>
-                                void handleRequestDecision(request, {
-                                  permissions: params.permissions ?? {},
-                                  scope: "session",
-                                })
-                              }
-                            >
-                              approve for session
-                            </button>
-                          </>
-                        ) : null}
-                        {request.method === "item/tool/requestUserInput" ? (
-                          <button
-                            className="button"
-                            onClick={() => {
-                              const answers: Record<string, { answers: string[] }> = {};
-                              const questions = Array.isArray(params.questions) ? params.questions : [];
-                              for (const question of questions) {
-                                if (isObject(question) && typeof question.id === "string") {
-                                  answers[question.id] = { answers: ["Approved from WebUI"] };
-                                }
-                              }
-                              void handleRequestDecision(request, { answers });
-                            }}
-                          >
-                            submit placeholder answer
-                          </button>
-                        ) : null}
-                        {request.method === "mcpServer/elicitation/request" ? (
-                          <>
-                            <button className="button" onClick={() => void handleRequestDecision(request, { action: "accept", content: {}, _meta: null })}>
-                              accept
-                            </button>
-                            <button className="ghost-button" onClick={() => void handleRequestDecision(request, { action: "decline", content: null, _meta: null })}>
-                              decline
-                            </button>
-                            <button className="ghost-button" onClick={() => void handleRequestDecision(request, { action: "cancel", content: null, _meta: null })}>
-                              cancel
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                  })
-                : <div className="right-card empty-state">No pending approvals or input requests.</div>
-              : null}
-
-            {rightTab === "diff" && latestDiff(threadDetail) ? (
-              <div className="right-card">
-                <h4>Latest diff</h4>
-                <pre>{latestDiff(threadDetail)}</pre>
-              </div>
-            ) : rightTab === "diff" ? <div className="right-card empty-state">No diff has been produced yet.</div> : null}
-
-            {rightTab === "review" && latestReview(threadDetail) ? (
-              <div className="right-card">
-                <h4>{latestReview(threadDetail)?.title}</h4>
-                {(latestReview(threadDetail)?.findings ?? []).map((finding, index) => (
-                  <p key={`${finding.title}-${index}`}>
-                    {finding.title}
-                    {finding.file ? ` · ${finding.file}${finding.line ? `:${finding.line}` : ""}` : ""}
-                    <br />
-                    {finding.body}
-                  </p>
-                ))}
-              </div>
-            ) : rightTab === "review" ? <div className="right-card empty-state">No review findings are available yet.</div> : null}
-
-            {rightTab === "logs"
-              ? bootstrap.logs.length > 0
-                ? bootstrap.logs
-                    .slice()
-                    .reverse()
-                    .map((entry) => (
-                      <div className="right-card" key={entry.id}>
-                        <h4>
-                          {entry.source} · {entry.level}
-                        </h4>
-                        <p>{entry.message}</p>
-                        {entry.payload ? <pre>{JSON.stringify(entry.payload, null, 2)}</pre> : null}
-                      </div>
-                    ))
-                : <div className="right-card empty-state">No logs captured yet.</div>
-              : null}
-          </div>
-        </aside>
       </div>
+
+      <WorkspaceSwitcher
+        open={workspaceModalOpen}
+        draftWorkspacePath={currentWorkspace}
+        workspaceOptions={bootstrap.workspaceOptions}
+        workspaceBrowse={workspaceBrowse}
+        workspaceBrowseLoading={workspaceBrowseLoading}
+        workspaceBrowseError={workspaceBrowseError}
+        onBrowseWorkspace={loadWorkspaceBrowse}
+        onSelectWorkspace={handleSelectWorkspaceForNewConversation}
+        onClose={() => setWorkspaceModalOpen(false)}
+      />
+
+      <UtilityDrawer
+        open={drawerOpen}
+        view={drawerView}
+        pendingRequests={pendingRequests}
+        latestDiff={latestDiff(threadDetail)}
+        latestReview={latestReview(threadDetail)}
+        logs={bootstrap.logs}
+        config={bootstrap.config}
+        models={bootstrap.models}
+        connectionUrl={bootstrap.connection.preferredUrl}
+        reachableUrls={bootstrap.connection.reachableUrls}
+        selectedThreadId={selectedThreadId}
+        hasActiveTurn={hasActiveTurn}
+        themePreference={themePreference}
+        onClose={() => setDrawerOpen(false)}
+        onViewChange={setDrawerView}
+        onRequestDecision={handleRequestDecision}
+        onConfigWrite={handleConfigWrite}
+        onThemePreferenceChange={setThemePreference}
+        onResume={handleResume}
+        onInterrupt={handleInterrupt}
+        onReview={handleReview}
+        onOpenWorkspace={handleOpenNewConversation}
+        onReload={refreshConversationData}
+      />
     </main>
   );
 }

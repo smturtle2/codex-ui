@@ -1,5 +1,7 @@
-import crypto from "node:crypto";
 import { execFile } from "node:child_process";
+import crypto from "node:crypto";
+import { readdir, stat } from "node:fs/promises";
+import path from "node:path";
 import { promisify } from "node:util";
 
 import { z } from "zod";
@@ -15,7 +17,10 @@ import {
   ThreadDetailResponse,
   ThreadHeader,
   ThreadRealtimeEvent,
+  WorkspaceBrowseResponse,
 } from "@/lib/types";
+import { toThreadListEntry } from "@/lib/thread-list";
+import { createWorkspaceKey, normalizeWorkspacePath, workspaceLabel, workspaceParentPath } from "@/lib/workspace-utils";
 import { evaluateCompatibility } from "@/lib/version";
 import { AccountConfigService } from "@/server/bridge/account-config-service";
 import { BrowserSessionHub } from "@/server/bridge/browser-session-hub";
@@ -62,6 +67,16 @@ const STRING_DELTA_SCHEMA = z.object({
   itemId: z.string(),
   delta: z.string(),
 });
+
+const IGNORED_WORKSPACE_DIRECTORY_NAMES = new Set([
+  ".git",
+  ".next",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".turbo",
+]);
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
@@ -203,7 +218,47 @@ export class CodexBridge {
       sortKey: query.get("sortKey"),
       modelProviders: query.getAll("modelProviders"),
     });
-    return decodeThreadListResponse(raw);
+    const decoded = decodeThreadListResponse(raw);
+    return {
+      data: decoded.data.map((thread) => toThreadListEntry(thread)),
+      nextCursor: decoded.nextCursor,
+    };
+  }
+
+  async browseWorkspaces(targetPath?: string | null): Promise<WorkspaceBrowseResponse> {
+    await this.waitUntilReady();
+
+    const requestedPath = normalizeWorkspacePath(targetPath) || this.options.launcherCwd;
+    const resolvedPath = path.resolve(requestedPath);
+    const resolvedStat = await stat(resolvedPath);
+    if (!resolvedStat.isDirectory()) {
+      throw new Error(`Workspace path is not a directory: ${resolvedPath}`);
+    }
+
+    const normalizedPath = normalizeWorkspacePath(resolvedPath);
+    const entries = await readdir(resolvedPath, {
+      withFileTypes: true,
+    });
+
+    const directories = entries
+      .filter((entry) => entry.isDirectory() && !IGNORED_WORKSPACE_DIRECTORY_NAMES.has(entry.name))
+      .map((entry) => {
+        const childPath = normalizeWorkspacePath(path.join(resolvedPath, entry.name));
+        return {
+          name: entry.name,
+          path: childPath,
+          key: createWorkspaceKey(childPath),
+        };
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    return {
+      path: normalizedPath,
+      key: createWorkspaceKey(normalizedPath),
+      label: workspaceLabel(normalizedPath),
+      parentPath: workspaceParentPath(normalizedPath),
+      entries: directories,
+    };
   }
 
   async readThread(threadId: string): Promise<ThreadDetailResponse> {
@@ -763,14 +818,44 @@ export class CodexBridge {
     const applied = this.threadRegistry.applyEvent(thread.id, event);
     if (applied) {
       this.browserSessionHub.broadcastThreadEvent(thread.id, applied.seq, event);
+      this.broadcastThreadListUpsert(applied.snapshot.thread);
     }
   }
 
   private applyThreadEvent(threadId: string, event: ThreadRealtimeEvent) {
     const applied = this.threadRegistry.applyEvent(threadId, event);
-    if (applied) {
-      this.browserSessionHub.broadcastThreadEvent(threadId, applied.seq, event);
+    if (!applied) {
+      return;
     }
+
+    this.browserSessionHub.broadcastThreadEvent(threadId, applied.seq, event);
+
+    if (event.kind === "thread.archived" || event.kind === "thread.closed") {
+      this.browserSessionHub.broadcastGlobalEvent({
+        kind: "thread.list.remove",
+        threadId,
+      });
+      return;
+    }
+
+    if (
+      event.kind === "thread.upsert" ||
+      event.kind === "thread.status.changed" ||
+      event.kind === "thread.name.updated" ||
+      event.kind === "thread.unarchived" ||
+      event.kind === "turn.started" ||
+      event.kind === "turn.completed" ||
+      event.kind === "turn.error"
+    ) {
+      this.broadcastThreadListUpsert(applied.snapshot.thread);
+    }
+  }
+
+  private broadcastThreadListUpsert(thread: CodexThread) {
+    this.browserSessionHub.broadcastGlobalEvent({
+      kind: "thread.list.upsert",
+      entry: toThreadListEntry(thread),
+    });
   }
 
   private async sweepIdleThreads() {

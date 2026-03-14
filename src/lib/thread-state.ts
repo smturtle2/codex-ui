@@ -13,6 +13,7 @@ import {
   isFileChangeItem,
   isReasoningItem as isReasoningItemFromTypes,
   isReviewItem as isReviewItemFromTypes,
+  isUserMessageItem,
 } from "@/lib/types";
 import { parseReviewText } from "@/lib/review-parser";
 
@@ -38,6 +39,10 @@ function createActivity(entry: Omit<ActivityEntry, "id" | "at">): ActivityEntry 
     id: crypto.randomUUID(),
     at: Date.now(),
   };
+}
+
+function touchThread(thread: CodexThread) {
+  thread.updatedAt = Math.max(thread.updatedAt, Math.floor(Date.now() / 1000));
 }
 
 function ensureTurn(thread: CodexThread, turnId: string) {
@@ -157,6 +162,7 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
     }
     case "thread.status.changed": {
       nextState.thread.status = event.status;
+      touchThread(nextState.thread);
       if (nextState.header) {
         nextState.header = {
           ...nextState.header,
@@ -176,6 +182,7 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
     }
     case "thread.name.updated": {
       nextState.thread.name = event.name;
+      touchThread(nextState.thread);
       pushActivity(nextState, {
         kind: "thread",
         title: "Thread name updated",
@@ -204,6 +211,7 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
     case "turn.started":
     case "turn.completed": {
       upsertTurn(nextState.thread, event.turn);
+      touchThread(nextState.thread);
       pushActivity(nextState, {
         kind: "turn",
         title: event.kind === "turn.started" ? "Turn started" : "Turn completed",
@@ -219,6 +227,7 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
       const turn = ensureTurn(nextState.thread, event.turnId);
       turn.error = event.error;
       turn.status = event.willRetry ? "retrying" : "failed";
+      touchThread(nextState.thread);
       pushActivity(nextState, {
         kind: "error",
         title: event.willRetry ? "자동 재시도 중" : "Turn failed",
@@ -263,6 +272,13 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
     case "item.completed": {
       const turn = ensureTurn(nextState.thread, event.turnId);
       upsertItem(turn, event.item);
+      if (isUserMessageItem(event.item)) {
+        nextState.thread.preview =
+          event.item.content
+            .map((entry) => (entry.type === "text" ? entry.text ?? "" : ""))
+            .join("\n")
+            .trim() || nextState.thread.preview;
+      }
       maybeStoreReview(nextState, event.turnId, event.item);
       pushActivity(nextState, {
         kind: "item",
@@ -357,6 +373,7 @@ export function applyThreadEvent(state: ThreadViewState, event: ThreadRealtimeEv
     case "thread.disconnected": {
       nextState.disconnected = true;
       nextState.disconnectedReason = event.reason;
+      touchThread(nextState.thread);
       pushActivity(nextState, {
         kind: "connection",
         title: "Bridge disconnected",

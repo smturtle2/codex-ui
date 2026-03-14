@@ -99,6 +99,42 @@ export interface CodexThread {
   turns: CodexTurn[];
 }
 
+export interface ThreadListEntry {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  status: CodexThreadStatus;
+  source: string;
+  modelProvider: string;
+  cwd: string;
+  workspacePath: string;
+  workspaceKey: string;
+}
+
+export type WorkspaceOptionSource = "launcher" | "project" | "recent";
+
+export interface WorkspaceOption {
+  path: string;
+  key: string;
+  label: string;
+  source: WorkspaceOptionSource;
+}
+
+export interface WorkspaceBrowseEntry {
+  name: string;
+  path: string;
+  key: string;
+}
+
+export interface WorkspaceBrowseResponse {
+  path: string;
+  key: string;
+  label: string;
+  parentPath: string | null;
+  entries: WorkspaceBrowseEntry[];
+}
+
 export interface ThreadHeader {
   model: string | null;
   modelProvider: string | null;
@@ -204,6 +240,7 @@ export interface GlobalSnapshot {
   logs: LogEntry[];
   defaultWorkspace: string;
   recentWorkspaces: string[];
+  workspaceOptions: WorkspaceOption[];
   forcedLoginMethod: "chatgpt" | "api" | null;
   degradedFeatures: string[];
   skills: unknown[];
@@ -224,7 +261,7 @@ export interface ThreadDetailResponse {
 }
 
 export interface ThreadsListResponse {
-  data: CodexThread[];
+  data: ThreadListEntry[];
   nextCursor: string | null;
 }
 
@@ -276,7 +313,9 @@ export type GlobalRealtimeEvent =
   | { kind: "log.entry"; entry: LogEntry }
   | { kind: "account.updated"; account: GlobalSnapshot["account"] }
   | { kind: "config.updated"; config: unknown; configRequirements?: unknown; models?: unknown[] }
-  | { kind: "catalog.updated"; apps?: unknown[]; skills?: unknown[] };
+  | { kind: "catalog.updated"; apps?: unknown[]; skills?: unknown[] }
+  | { kind: "thread.list.upsert"; entry: ThreadListEntry }
+  | { kind: "thread.list.remove"; threadId: string };
 
 export function isUserMessageItem(item: CodexThreadItem): item is Extract<CodexThreadItem, { type: "userMessage" }> {
   return item.type === "userMessage" && Array.isArray((item as { content?: unknown }).content);

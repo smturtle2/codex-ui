@@ -96,6 +96,11 @@ async function routeApiRequest(bridge: CodexBridge, request: IncomingMessage, re
     return;
   }
 
+  if (method === "GET" && url.pathname === "/api/workspaces/browse") {
+    sendJson(response, 200, await bridge.browseWorkspaces(url.searchParams.get("path")));
+    return;
+  }
+
   if (method === "POST" && url.pathname === "/api/threads") {
     sendJson(response, 200, await bridge.startThread(await readJsonBody(request)));
     return;

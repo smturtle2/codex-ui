@@ -1,5 +1,6 @@
 import { getDefaultSourceKinds } from "@/lib/source-filter";
 import { CompatibilityState, GlobalSnapshot } from "@/lib/types";
+import { createWorkspaceKey, normalizeWorkspacePath, workspaceLabel } from "@/lib/workspace-utils";
 import { JsonRpcClient } from "@/server/bridge/json-rpc-client";
 
 interface AccountConfigServiceOptions {
@@ -122,12 +123,66 @@ export class AccountConfigService {
     return [...new Set([this.options.launcherCwd, ...fromThreads, ...fromProjects])];
   }
 
+  async listWorkspaceOptions() {
+    const threadResult = (await this.rpc.request("thread/list", {
+      limit: 100,
+      sourceKinds: getDefaultSourceKinds(),
+    })) as { data?: Array<{ cwd?: string }> };
+
+    const threadPaths = (threadResult.data ?? [])
+      .map((thread) => thread.cwd)
+      .filter((cwd): cwd is string => typeof cwd === "string");
+    const projectPaths =
+      this.config && typeof this.config === "object" && this.config !== null && "projects" in this.config
+        ? Object.keys(((this.config as { projects?: Record<string, unknown> }).projects ?? {}))
+        : [];
+
+    const candidates: Array<{ path: string; source: GlobalSnapshot["workspaceOptions"][number]["source"] }> = [
+      { path: this.options.launcherCwd, source: "launcher" },
+      ...projectPaths.map((path) => ({ path, source: "project" as const })),
+      ...threadPaths.map((path) => ({ path, source: "recent" as const })),
+    ];
+
+    const priority = new Map<GlobalSnapshot["workspaceOptions"][number]["source"], number>([
+      ["launcher", 3],
+      ["project", 2],
+      ["recent", 1],
+    ]);
+    const deduped = new Map<string, GlobalSnapshot["workspaceOptions"][number]>();
+
+    for (const candidate of candidates) {
+      const path = normalizeWorkspacePath(candidate.path);
+      const key = createWorkspaceKey(path);
+      if (!path || !key) {
+        continue;
+      }
+
+      const existing = deduped.get(key);
+      if (!existing || (priority.get(candidate.source) ?? 0) > (priority.get(existing.source) ?? 0)) {
+        deduped.set(key, {
+          path,
+          key,
+          label: workspaceLabel(path),
+          source: candidate.source,
+        });
+      }
+    }
+
+    return [...deduped.values()].sort((left, right) => {
+      if (left.source !== right.source) {
+        return (priority.get(right.source) ?? 0) - (priority.get(left.source) ?? 0);
+      }
+      return left.path.localeCompare(right.path);
+    });
+  }
+
   async buildBootstrap(cwd?: string | null, threadId?: string | null): Promise<GlobalSnapshot> {
     const workspace = cwd ?? this.options.launcherCwd;
-    const [skills, apps, recentWorkspaces] = await Promise.all([
+    const [skills, apps, recentWorkspaces, workspaceOptions] = await Promise.all([
       this.getSkills(workspace),
       this.getApps(threadId ?? null),
       this.listRecentWorkspaces(),
+      this.listWorkspaceOptions(),
     ]);
 
     const forcedLoginMethod =
@@ -147,6 +202,7 @@ export class AccountConfigService {
       logs: [],
       defaultWorkspace: workspace,
       recentWorkspaces,
+      workspaceOptions,
       forcedLoginMethod,
       degradedFeatures:
         this.options.compatibility.mode === "degraded" ? ["request_user_input", "persistExtendedHistory"] : [],
