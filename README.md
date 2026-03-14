@@ -2,93 +2,83 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Codex WebUI is being rebuilt as a focused, local-first interface for Codex workflows.
+Local-first WebUI for Codex.
 
-This repository is no longer carrying the previous implementation forward. The project is starting over with a smaller scope, a clearer product shape, and a stronger rule: the README should describe what this repository is actually becoming, not what used to exist.
+Codex WebUI is a browser interface built around real Codex workflow state. It does not flatten everything into a generic chat transcript, and it does not pretend Codex is just another prompt box. The product is designed for people who want a clean interface without giving up approvals, file changes, diffs, reviews, logs, and the rest of the workflow that actually matters.
 
-## Overview
+## What Codex WebUI Is
 
-The goal of Codex WebUI is straightforward: build a web interface that feels modern and usable without flattening Codex into a generic chat wrapper.
+Codex WebUI is:
 
-The rebuild is centered on a product that should eventually:
+- a local-first web application for Codex
+- a single-user interface optimized for focused coding sessions
+- a product that keeps Codex-native concepts visible instead of hiding them behind abstraction
+- a shell that separates UI, local app logic, and Codex integration cleanly
 
-- keep Codex workflows understandable in a browser
-- stay local-first by default
-- expose meaningful state instead of hiding everything behind a chat transcript
-- grow from a small working core rather than a broad but fragile surface
+## Core Experience
 
-## Why This Project Exists
+The interface is organized around one coherent working environment.
 
-There is still room for a Codex UI that is both practical and honest about the underlying workflow.
+- a sidebar for workspace and thread navigation
+- a central timeline for structured conversation and workflow events
+- a fixed composer for text, mentions, skills, and local media inputs
+- utility panels for approvals, diffs, reviews, logs, and runtime context
+- settings that expose the important local runtime controls without turning the UI into a control panel dump
 
-- Generic agent chat shells often erase important state and workflow boundaries.
-- Local tools become hard to trust when the UI and runtime model drift apart.
-- A clean rebuild is more useful than preserving a structure that no longer fits the product direction.
-- Starting smaller makes it easier to establish good architecture, testing habits, and documentation discipline.
+## What The Product Exposes
 
-## Rebuild Direction
+Codex WebUI makes important workflow state visible.
 
-The next version is being designed around a few concrete ideas.
+- turns, items, and thread history
+- approval flows and follow-up questions
+- file changes and diffs
+- review output and review status
+- activity logs and runtime diagnostics
+- connection and session state
 
-### 1. A real working shell, not a placeholder demo
+## Product Principles
 
-The first usable version should have a minimal but coherent application shell. It does not need breadth first. It needs clear behavior, understandable state, and room to grow without rewriting everything again.
+- Keep the Codex mental model intact.
+- Make state inspectable instead of magical.
+- Prefer local-first behavior by default.
+- Avoid fake simplicity that hides important system behavior.
+- Keep the product sharp, opinionated, and usable for real work.
 
-### 2. Clear boundaries between UI and Codex runtime
+## How It Works
 
-The browser layer, local application layer, and Codex-facing integration should have explicit responsibilities. The rebuild should avoid collapsing those concerns into one pile of UI code.
+The product is built around a simple architecture.
 
-### 3. Local-first workflow by default
+- the browser handles interaction, layout, and realtime presentation
+- a local application layer owns session state, transport, and browser-facing APIs
+- the Codex integration layer speaks the real Codex protocol and feeds structured state back into the UI
 
-This project is intended to serve local usage first. Remote deployment, multi-user concerns, and larger platform features should not shape the early architecture unless they become necessary.
+This keeps the interface honest while still making the experience feel polished.
 
-### 4. Inspectable product behavior
+## What It Optimizes For
 
-The product should be understandable from the outside. Important workflow state, transitions, and user-facing actions should be visible and debuggable rather than implied.
+Codex WebUI is tuned for practical day-to-day usage.
 
-## Current Status
+- long-running local coding sessions
+- visibility into state transitions and side effects
+- smooth handling of approvals and interruptions
+- fast recovery when a session needs to reconnect or resync
+- enough structure that power users can trust what the UI is showing
 
-This repository is in an intentional reset state.
+## What It Does Not Try To Be
 
-- The previous implementation has been cleared out.
-- A new runnable baseline has not been checked in yet.
-- Setup and Quick Start instructions are intentionally deferred until there is something real to run.
-- Technology choices, folder layout, and internal boundaries are being re-established from first principles.
+Codex WebUI is not trying to become:
 
-## Initial Build Scope
-
-The rebuild will start with the smallest version that proves the product direction.
-
-- establish a clean project scaffold
-- build a minimal application shell
-- define the Codex integration boundary
-- restore the core conversation flow
-- reintroduce tests and operational documentation alongside real implementation
-
-## Principles
-
-- Keep the documentation aligned with the codebase.
-- Prefer fewer moving parts over clever indirection.
-- Design around real workflows, not imagined future flexibility.
-- Make the core useful before making it broad.
-- Treat resets as a chance to remove confusion, not rename it.
-
-## What This README Is And Is Not
-
-This README is a direction document for the rebuild.
-
-- It is a statement of intent for the new version of the project.
-- It is not a product manual for code that no longer exists.
-- It is not a Quick Start guide yet.
-- It will become more operational again once the new baseline lands.
+- a cloud-first SaaS platform
+- a multi-user collaboration suite
+- a generic LLM chat client
+- a plugin marketplace
+- an over-abstracted layer that hides Codex-specific behavior
 
 ## Contributing
 
-Feedback is useful right now if it sharpens the rebuild instead of expanding it prematurely.
+Good contributions make the product clearer, tighter, and more trustworthy.
 
-The most valuable early contributions are:
-
-- crisp critiques of the project structure
-- well-scoped proposals for the first implementation passes
-- observations about product shape and workflow clarity
-- small decisions that reduce ambiguity for the rebuild
+- strengthen the core experience
+- improve visibility of real workflow state
+- reduce ambiguity between UI behavior and Codex behavior
+- keep the architecture readable as the product grows
