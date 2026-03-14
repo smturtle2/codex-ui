@@ -1,10 +1,21 @@
 "use client";
 
-import { useDeferredValue, useEffect, useMemo, useRef, useState, startTransition } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { CommandExecutionApprovalDecision } from "@/generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import type { ToolRequestUserInputQuestion } from "@/generated/codex-app-server/v2/ToolRequestUserInputQuestion";
-import type { BridgeSnapshot, PendingServerRequest, SlashCommandDefinition } from "@/lib/shared";
+import type {
+  BridgeSnapshot,
+  PendingServerRequest,
+  SlashCommandDefinition,
+} from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
 
 type OverlayState =
@@ -14,6 +25,8 @@ type OverlayState =
   | { kind: "transcript" }
   | { kind: "status" }
   | { kind: "shortcuts" };
+
+type ResumeSort = "created" | "updated";
 
 function formatRelativeTime(unixSeconds: number): string {
   const delta = Date.now() - unixSeconds * 1000;
@@ -31,6 +44,14 @@ function formatRelativeTime(unixSeconds: number): string {
     return `${Math.floor(delta / hour)}h ago`;
   }
   return `${Math.floor(delta / day)}d ago`;
+}
+
+function formatClock(updatedAt: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(new Date(updatedAt));
 }
 
 function formatRuntime(startedAt: number | null): string {
@@ -128,6 +149,45 @@ function summarizeDecision(decision: CommandExecutionApprovalDecision): string {
   return "applyNetworkPolicyAmendment";
 }
 
+function approvalDecisionLabel(
+  decision: CommandExecutionApprovalDecision,
+  commandText: string | null,
+): string {
+  if (typeof decision === "string") {
+    switch (decision) {
+      case "accept":
+        return "Yes, proceed (y)";
+      case "acceptForSession":
+        return "Yes, proceed for this session";
+      case "decline":
+        return "No, and tell Codex what to do differently (esc)";
+      case "cancel":
+        return "Cancel";
+    }
+  }
+
+  if ("acceptWithExecpolicyAmendment" in decision) {
+    return `Yes, and don't ask again for commands that start with \`${commandText ?? ""}\` (p)`;
+  }
+
+  return "Allow the proposed network rule";
+}
+
+function fileApprovalDecisionLabel(decision: string): string {
+  switch (decision) {
+    case "accept":
+      return "Yes, make the edits";
+    case "acceptForSession":
+      return "Yes, allow edits for this session";
+    case "decline":
+      return "No, and tell Codex what to do differently";
+    case "cancel":
+      return "Cancel";
+    default:
+      return decision;
+  }
+}
+
 function filterCommands(input: string): SlashCommandDefinition[] {
   const query = input.replace(/^\//, "").trim().toLowerCase();
   if (!query) {
@@ -139,11 +199,63 @@ function filterCommands(input: string): SlashCommandDefinition[] {
   );
 }
 
+function getCurrentModel(snapshot: BridgeSnapshot | null) {
+  if (!snapshot) {
+    return null;
+  }
+
+  return (
+    snapshot.models.find((model) => model.model === snapshot.sessionSettings.model) ??
+    snapshot.models.find((model) => model.isDefault) ??
+    snapshot.models[0] ??
+    null
+  );
+}
+
+function getCurrentEffort(snapshot: BridgeSnapshot | null): string | null {
+  const currentModel = getCurrentModel(snapshot);
+  return (
+    snapshot?.sessionSettings.effort ??
+    currentModel?.defaultReasoningEffort ??
+    null
+  );
+}
+
+function buildStatusLine(snapshot: BridgeSnapshot | null): string {
+  if (!snapshot) {
+    return "starting";
+  }
+
+  const currentModel = getCurrentModel(snapshot);
+  const effort = getCurrentEffort(snapshot);
+
+  return [
+    currentModel?.displayName ?? currentModel?.model ?? "default",
+    effort,
+    snapshot.phase,
+    `${snapshot.threads.length} sessions`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function historyCellText(
+  entry: NonNullable<BridgeSnapshot["timelineByThread"][string]>[number],
+): string {
+  return entry.body ? `${entry.title}\n${entry.body}` : entry.title;
+}
+
+function overlayBanner(title: string): string {
+  return `/ ${title.toUpperCase()} / / / / / / / / /`;
+}
+
 export function CodexShell() {
   const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(null);
   const [overlay, setOverlay] = useState<OverlayState>({ kind: null });
   const [composer, setComposer] = useState("");
   const [resumeSearch, setResumeSearch] = useState("");
+  const [resumeSort, setResumeSort] = useState<ResumeSort>("created");
+  const [selectedResumeIndex, setSelectedResumeIndex] = useState(0);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [requestDrafts, setRequestDrafts] = useState<Record<string, string>>({});
   const [requestAnswers, setRequestAnswers] = useState<
@@ -151,14 +263,13 @@ export function CodexShell() {
   >({});
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const deferredResumeSearch = useDeferredValue(resumeSearch);
-  const [clock, setClock] = useState(Date.now());
+  const [, setClockTick] = useState(Date.now());
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setClock(Date.now());
+      setClockTick(Date.now());
     }, 1000);
 
     return () => {
@@ -187,10 +298,12 @@ export function CodexShell() {
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const websocket = new WebSocket(`${protocol}://${window.location.host}/ws`);
-    wsRef.current = websocket;
 
     websocket.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as { type: "snapshot"; snapshot: BridgeSnapshot };
+      const payload = JSON.parse(event.data) as {
+        type: "snapshot";
+        snapshot: BridgeSnapshot;
+      };
       startTransition(() => {
         setSnapshot(payload.snapshot);
       });
@@ -220,35 +333,6 @@ export function CodexShell() {
     };
   }, [toast]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const isMeta = event.metaKey || event.ctrlKey;
-
-      if (isMeta && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        setOverlay({ kind: "transcript" });
-        return;
-      }
-
-      if (event.key === "?" && document.activeElement !== composerRef.current) {
-        event.preventDefault();
-        setOverlay({ kind: "shortcuts" });
-        return;
-      }
-
-      if (event.key === "Escape") {
-        if (overlay.kind !== null) {
-          setOverlay({ kind: null });
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [overlay.kind]);
-
   const activeThread = useMemo(() => {
     if (!snapshot?.activeThreadId) {
       return null;
@@ -273,14 +357,34 @@ export function CodexShell() {
     }
 
     const query = deferredResumeSearch.trim().toLowerCase();
-    if (!query) {
-      return snapshot.threads;
-    }
-
-    return snapshot.threads.filter((thread) =>
+    const threads = snapshot.threads.filter((thread) =>
       `${thread.name ?? ""} ${thread.preview} ${thread.cwd}`.toLowerCase().includes(query),
     );
-  }, [deferredResumeSearch, snapshot]);
+
+    return [...threads].sort((left, right) => {
+      const leftValue = resumeSort === "created" ? left.createdAt : left.updatedAt;
+      const rightValue = resumeSort === "created" ? right.createdAt : right.updatedAt;
+      return rightValue - leftValue;
+    });
+  }, [deferredResumeSearch, resumeSort, snapshot]);
+
+  useEffect(() => {
+    setSelectedResumeIndex((current) => {
+      if (filteredThreads.length === 0) {
+        return 0;
+      }
+      return Math.min(current, filteredThreads.length - 1);
+    });
+  }, [filteredThreads]);
+
+  useEffect(() => {
+    if (overlay.kind === "resume") {
+      setSelectedResumeIndex(0);
+    }
+  }, [deferredResumeSearch, overlay.kind, resumeSort]);
+
+  const selectedResumeThread =
+    filteredThreads.length > 0 ? filteredThreads[selectedResumeIndex] ?? filteredThreads[0] : null;
 
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
@@ -337,6 +441,16 @@ export function CodexShell() {
     }
   }
 
+  async function handleCreateThread(closeOverlay = false) {
+    await syncSnapshotFromResult(
+      () => callApi("/api/thread/start", {}),
+      "Starting thread",
+    );
+    if (closeOverlay) {
+      setOverlay({ kind: null });
+    }
+  }
+
   async function handleSubmit() {
     const value = composer.trim();
     if (!value) {
@@ -367,10 +481,7 @@ export function CodexShell() {
     switch (command.action) {
       case "new":
       case "clear":
-        await syncSnapshotFromResult(
-          () => callApi("/api/thread/start", {}),
-          "Starting thread",
-        );
+        await handleCreateThread();
         setComposer("");
         break;
       case "resume":
@@ -426,10 +537,7 @@ export function CodexShell() {
     setOverlay({ kind: null });
   }
 
-  async function handleServerRequestResponse(
-    requestId: string,
-    result: unknown,
-  ) {
+  async function handleServerRequestResponse(requestId: string, result: unknown) {
     await syncSnapshotFromResult(
       () =>
         callApi("/api/server-request/respond", {
@@ -440,189 +548,211 @@ export function CodexShell() {
     );
   }
 
-  const runtime =
-    snapshot && snapshot.activeTurnId
-      ? formatRuntime(snapshot.activeTurnStartedAt ?? null)
-      : "idle";
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const isMeta = event.metaKey || event.ctrlKey;
+
+      if (overlay.kind === "resume") {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          setSelectedResumeIndex((current) =>
+            Math.min(current + 1, Math.max(filteredThreads.length - 1, 0)),
+          );
+          return;
+        }
+
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          setSelectedResumeIndex((current) => Math.max(current - 1, 0));
+          return;
+        }
+
+        if (event.key === "Tab") {
+          event.preventDefault();
+          setResumeSort((current) => (current === "created" ? "updated" : "created"));
+          return;
+        }
+
+        if (event.key === "Enter" && selectedResumeThread) {
+          event.preventDefault();
+          void handleResumeThread(selectedResumeThread.id);
+          return;
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          void handleCreateThread(true);
+          return;
+        }
+      }
+
+      if (
+        overlay.kind === "transcript" &&
+        (event.key === "Escape" || event.key.toLowerCase() === "q")
+      ) {
+        event.preventDefault();
+        setOverlay({ kind: null });
+        return;
+      }
+
+      if (overlay.kind !== null && event.key === "Escape") {
+        event.preventDefault();
+        setOverlay({ kind: null });
+        return;
+      }
+
+      if (isMeta && event.key.toLowerCase() === "t") {
+        event.preventDefault();
+        setOverlay({ kind: "transcript" });
+        return;
+      }
+
+      if (event.key === "?" && document.activeElement !== composerRef.current) {
+        event.preventDefault();
+        setOverlay({ kind: "shortcuts" });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [filteredThreads.length, overlay.kind, selectedResumeThread]);
+
+  const currentModel = getCurrentModel(snapshot);
+  const currentEffort = getCurrentEffort(snapshot);
+  const currentCliVersion = activeThread?.cliVersion ?? snapshot?.threads[0]?.cliVersion ?? null;
+  const headerDirectory =
+    activeThread?.cwd ?? snapshot?.threads[0]?.cwd ?? "new thread on first send";
+  const footerInstruction = visibleCommands.length
+    ? "↑/↓ to navigate · tab to complete"
+    : composer.trim()
+      ? "enter to send · shift+enter for newline"
+      : "? for shortcuts";
+  const statusLine = buildStatusLine(snapshot);
+  const runtime = snapshot?.activeTurnId
+    ? formatRuntime(snapshot.activeTurnStartedAt ?? null)
+    : "idle";
+  const currentCommandText =
+    typeof (pendingRequest?.params as { command?: string } | undefined)?.command === "string"
+      ? ((pendingRequest?.params as { command?: string }).command ?? null)
+      : null;
 
   return (
-    <main className="shell-page">
-      <div className="shell-backdrop" />
-      <div className="shell-noise" />
-
-      <section className="shell-frame">
-        <header className="shell-topbar">
-          <div className="topbar-brand">
-            <div className="brand-kicker">terminal-faithful bridge</div>
-            <div className="brand-row">
-              <h1>Codex WebUI</h1>
-              <span className={`bridge-pill phase-${snapshot?.phase ?? "starting"}`}>
-                {snapshot?.phase ?? "starting"}
-              </span>
-            </div>
-            <p>
-              {activeThread
-                ? `${formatThreadLabel(activeThread)} · ${activeThread.cwd}`
-                : "No active thread. Start fresh or resume a session."}
-            </p>
+    <main className="tui-page">
+      <section className="tui-shell">
+        <header className="session-box">
+          <div className="session-box-title">
+            <span>
+              &gt;_ OpenAI Codex
+              {currentCliVersion ? ` (v${currentCliVersion})` : ""}
+            </span>
+            <span className={`session-phase phase-${snapshot?.phase ?? "starting"}`}>
+              {snapshot?.phase ?? "starting"}
+            </span>
           </div>
 
-          <div className="topbar-actions">
-            <button
-              className="ghost-button"
-              onClick={() => {
-                void syncSnapshotFromResult(
-                  () => callApi("/api/thread/start", {}),
-                  "Starting thread",
-                );
-              }}
-            >
-              New
+          <div className="session-box-line">
+            <span className="session-box-key">model:</span>
+            <span className="session-box-value">
+              {currentModel?.displayName ?? currentModel?.model ?? "default"}
+              {currentEffort ? ` ${currentEffort}` : ""}
+            </span>
+            <button className="inline-command" onClick={() => setOverlay({ kind: "models" })}>
+              /model to change
             </button>
-            <button className="ghost-button" onClick={() => setOverlay({ kind: "resume" })}>
-              Resume
+          </div>
+
+          <div className="session-box-line">
+            <span className="session-box-key">directory:</span>
+            <span className="session-box-value session-box-truncate">{headerDirectory}</span>
+            <button className="inline-command" onClick={() => setOverlay({ kind: "resume" })}>
+              /resume to browse
             </button>
-            <button
-              className="ghost-button"
-              onClick={() => setOverlay({ kind: "models" })}
-            >
-              Model
-            </button>
-            <button
-              className="ghost-button"
-              onClick={() => setOverlay({ kind: "transcript" })}
-            >
-              Transcript
-            </button>
-            <button
-              className="ghost-button"
-              disabled={!snapshot?.activeThreadId}
-              onClick={() => {
-                void syncSnapshotFromResult(
-                  () =>
-                    callApi("/api/thread/fork", {
-                      threadId: snapshot?.activeThreadId,
-                    }),
-                  "Forking thread",
-                );
-              }}
-            >
-              Fork
-            </button>
+          </div>
+
+          <div className="session-box-line">
+            <span className="session-box-key">thread:</span>
+            <span className="session-box-value session-box-truncate">
+              {activeThread ? formatThreadLabel(activeThread) : "new session on first send"}
+            </span>
+            <span className="session-box-actions">
+              <button
+                className="inline-command"
+                onClick={() => setOverlay({ kind: "transcript" })}
+              >
+                /transcript
+              </button>
+              <button className="inline-command" onClick={() => setOverlay({ kind: "status" })}>
+                /status
+              </button>
+            </span>
           </div>
         </header>
 
-        <section className="shell-statusband">
-          <div className="statusband-left">
-            <span className="status-label">active thread</span>
-            <strong>{activeThread ? formatThreadLabel(activeThread) : "none"}</strong>
-          </div>
-          <div className="statusband-center">
-            <span className="status-label">session model</span>
-            <strong>{snapshot?.sessionSettings.model ?? "default"}</strong>
-          </div>
-          <div className="statusband-right">
-            <span className="status-label">runtime</span>
-            <strong>{runtime}</strong>
-          </div>
-        </section>
-
-        <section className="shell-main">
-          {activeThread ? (
-            <div className="timeline-panel">
-              <div className="timeline-header">
-                <div>
-                  <span className="section-eyebrow">thread</span>
-                  <h2>{formatThreadLabel(activeThread)}</h2>
-                </div>
-                <div className="timeline-meta">
-                  <span>{formatRelativeTime(activeThread.updatedAt)}</span>
-                  <span>{activeThread.status.type}</span>
-                </div>
+        <section className="transcript-surface">
+          <div className="transcript-scroll">
+            {activeTimeline.length === 0 ? (
+              <div className="history-empty">
+                <pre>
+                  {activeThread
+                    ? "No transcript yet.\n\nSend the first turn to begin."
+                    : "No active session.\n\nType a message or use /resume."}
+                </pre>
               </div>
-
-              <div className="timeline-scroll">
-                {activeTimeline.length === 0 ? (
-                  <div className="empty-state">
-                    <p>No transcript yet.</p>
-                    <span>The bridge is attached. Send the first turn to begin streaming.</span>
+            ) : (
+              activeTimeline.map((entry) => (
+                <article key={entry.id} className={`history-cell tone-${entry.tone}`}>
+                  <div className="history-meta">
+                    <span>{entry.kind}</span>
+                    <span>{formatClock(entry.updatedAt)}</span>
                   </div>
-                ) : (
-                  activeTimeline.map((entry) => (
-                    <article
-                      key={entry.id}
-                      className={`timeline-entry tone-${entry.tone} status-${entry.status}`}
-                    >
-                      <div className="timeline-entry-head">
-                        <span className="entry-kind">{entry.kind}</span>
-                        <strong>{entry.title}</strong>
-                        <span>{new Date(entry.updatedAt).toLocaleTimeString()}</span>
-                      </div>
-                      {entry.body ? (
-                        <pre className="timeline-entry-body">{entry.body}</pre>
-                      ) : null}
-                    </article>
-                  ))
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="landing-panel">
-              <div className="landing-copy">
-                <span className="section-eyebrow">local shell</span>
-                <h2>Mirror the Codex TUI in a browser without losing workflow state.</h2>
-                <p>
-                  This build keeps the app-server live over stdio, surfaces thread and turn
-                  primitives directly, and preserves approvals and transcript overlays as
-                  first-class UI surfaces instead of hiding them behind a generic chat skin.
-                </p>
-              </div>
-              <div className="landing-actions">
-                <button
-                  className="primary-button"
-                  onClick={() => {
-                    void syncSnapshotFromResult(
-                      () => callApi("/api/thread/start", {}),
-                      "Starting thread",
-                    );
-                  }}
-                >
-                  Start a new thread
-                </button>
-                <button
-                  className="ghost-button"
-                  onClick={() => setOverlay({ kind: "resume" })}
-                >
-                  Resume a saved session
-                </button>
-              </div>
-            </div>
-          )}
+                  <pre className="history-body">{historyCellText(entry)}</pre>
+                </article>
+              ))
+            )}
+          </div>
         </section>
 
-        <section className="bottom-pane">
-          <div className="bottom-pane-utility">
-            <div className="utility-left">
-              {snapshot?.activeTurnId ? (
-                <span className="runtime-indicator">
-                  <span className="runtime-dot" />
-                  Working ({formatRuntime(snapshot.activeTurnStartedAt)} · esc to interrupt)
+        <section className="bottom-dock">
+          {(snapshot?.activeTurnId || pendingRequest) && (
+            <div className="status-widget">
+              <div className="status-widget-line">
+                <span className={`status-dot ${snapshot?.activeTurnId ? "is-live" : ""}`}>•</span>
+                <span>
+                  {snapshot?.activeTurnId
+                    ? `Working (${runtime} • esc to interrupt)`
+                    : pendingRequest?.summary ?? busyAction ?? "Working"}
                 </span>
-              ) : (
-                <span className="runtime-indicator muted">Bridge ready for new input.</span>
-              )}
-            </div>
-            <div className="utility-right">
-              {snapshot?.pendingRequests.length ? (
-                <span className="pending-badge">
-                  {snapshot.pendingRequests.length} pending request
-                  {snapshot.pendingRequests.length === 1 ? "" : "s"}
-                </span>
+              </div>
+              {pendingRequest ? (
+                <div className="status-widget-detail">
+                  <span>↳ {pendingRequest.summary}</span>
+                </div>
               ) : null}
             </div>
-          </div>
+          )}
 
-          <div className="composer-shell">
+          {visibleCommands.length > 0 ? (
+            <div className="popup-list" role="listbox" aria-label="Slash commands">
+              {visibleCommands.map((command, index) => (
+                <button
+                  key={command.name}
+                  className={`popup-row ${index === selectedCommandIndex ? "selected" : ""}`}
+                  onClick={() => {
+                    setComposer(`/${command.name}`);
+                    composerRef.current?.focus();
+                  }}
+                >
+                  <span className="popup-marker">{index === selectedCommandIndex ? "›" : " "}</span>
+                  <span className="popup-main">/{command.name}</span>
+                  <span className="popup-copy">{command.description}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="composer-frame">
             <textarea
               ref={composerRef}
               value={composer}
@@ -664,120 +794,123 @@ export function CodexShell() {
                   void handleSubmit();
                 }
               }}
-              placeholder="Ask Codex to do anything"
-              className="composer-textarea"
+              placeholder="Message Codex"
+              className="composer-input"
             />
-
-            {visibleCommands.length > 0 ? (
-              <div className="command-popup">
-                <div className="popup-title">Slash commands</div>
-                {visibleCommands.map((command, index) => (
-                  <button
-                    key={command.name}
-                    className={`command-option ${index === selectedCommandIndex ? "selected" : ""}`}
-                    onClick={() => {
-                      setComposer(`/${command.name}`);
-                    }}
-                  >
-                    <strong>/{command.name}</strong>
-                    <span>{command.description}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
 
-          <div className="bottom-footer">
-            <span>? for shortcuts</span>
-            <span>{busyAction ?? "local app-server stream live"}</span>
+          <div className="footer-row">
+            <span>{footerInstruction}</span>
+            <span>{statusLine}</span>
+          </div>
+
+          <div className="footer-row muted">
+            <span>{snapshot?.activeTurnId ? "esc to interrupt" : "shift+enter for newline"}</span>
+            <span className="footer-actions">
+              <button className="inline-command" onClick={() => setOverlay({ kind: "shortcuts" })}>
+                shortcuts
+              </button>
+              <button
+                className="inline-command"
+                onClick={() => setOverlay({ kind: "transcript" })}
+              >
+                transcript
+              </button>
+            </span>
           </div>
         </section>
       </section>
 
       {overlay.kind === "resume" && snapshot ? (
-        <div className="overlay-backdrop" onClick={() => setOverlay({ kind: null })}>
-          <section className="overlay-panel overlay-wide" onClick={(event) => event.stopPropagation()}>
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">resume picker</span>
-                <h3>Resume a previous session</h3>
-              </div>
-              <button className="ghost-button" onClick={() => setOverlay({ kind: null })}>
-                Close
-              </button>
+        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
+          <section className="screen-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="screen-header">
+              <span>Resume a previous session</span>
+              <span>Sort: {resumeSort === "created" ? "Created at" : "Updated at"}</span>
             </div>
 
+            <div className="screen-label">Type to search</div>
             <input
               value={resumeSearch}
               onChange={(event) => setResumeSearch(event.target.value)}
-              placeholder="Filter by name, preview, or cwd"
-              className="overlay-search"
+              placeholder="Type to search"
+              className="screen-search"
+              autoFocus
             />
 
             <div className="resume-table">
-              <div className="resume-head">
-                <span>Updated</span>
-                <span>Status</span>
+              <div className="resume-table-head">
+                <span />
+                <span>Created at</span>
+                <span>Updated at</span>
+                <span>Branch</span>
                 <span>CWD</span>
                 <span>Conversation</span>
               </div>
+
               {filteredThreads.length === 0 ? (
-                <div className="empty-table">No sessions match this search.</div>
+                <div className="resume-empty">No sessions yet</div>
               ) : (
-                filteredThreads.map((thread) => (
+                filteredThreads.map((thread, index) => (
                   <button
                     key={thread.id}
-                    className={`resume-row ${thread.id === snapshot.activeThreadId ? "active" : ""}`}
+                    className={`resume-table-row ${
+                      selectedResumeThread?.id === thread.id ? "selected" : ""
+                    }`}
                     onClick={() => {
+                      setSelectedResumeIndex(index);
                       void handleResumeThread(thread.id);
                     }}
                   >
+                    <span className="resume-marker">
+                      {selectedResumeThread?.id === thread.id ? "›" : " "}
+                    </span>
+                    <span>{formatRelativeTime(thread.createdAt)}</span>
                     <span>{formatRelativeTime(thread.updatedAt)}</span>
-                    <span>{thread.status.type}</span>
+                    <span>{thread.gitInfo?.branch ?? "-"}</span>
                     <span>{thread.cwd || "-"}</span>
-                    <span>{formatThreadLabel(thread)}</span>
+                    <span className="resume-conversation">{formatThreadLabel(thread)}</span>
                   </button>
                 ))
               )}
+            </div>
+
+            <div className="screen-footer">
+              enter to resume&nbsp;&nbsp;&nbsp;&nbsp;esc to start new&nbsp;&nbsp;&nbsp;&nbsp;
+              ctrl + c to quit&nbsp;&nbsp;&nbsp;&nbsp;tab to toggle sort
             </div>
           </section>
         </div>
       ) : null}
 
       {overlay.kind === "models" && snapshot ? (
-        <div className="overlay-backdrop" onClick={() => setOverlay({ kind: null })}>
-          <section className="overlay-panel overlay-wide" onClick={(event) => event.stopPropagation()}>
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">model selection</span>
-                <h3>Select model and effort</h3>
-              </div>
-              <button className="ghost-button" onClick={() => setOverlay({ kind: null })}>
-                Close
-              </button>
-            </div>
-
-            <div className="model-grid">
+        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
+          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="picker-header">{overlayBanner("Model")}</div>
+            <div className="picker-list">
               {snapshot.models.map((model) => {
                 const isCurrent = snapshot.sessionSettings.model === model.model;
                 return (
-                  <article
-                    key={model.id}
-                    className={`model-card ${isCurrent ? "current" : ""}`}
-                  >
-                    <div className="model-card-head">
-                      <strong>{model.displayName}</strong>
-                      {model.isDefault ? <span className="pill">default</span> : null}
-                    </div>
+                  <div key={model.id} className={`picker-item ${isCurrent ? "selected" : ""}`}>
+                    <button
+                      className="picker-main"
+                      onClick={() => {
+                        void handleModelChange(model.model, model.defaultReasoningEffort);
+                      }}
+                    >
+                      <span>{isCurrent ? "›" : " "}</span>
+                      <span>{model.displayName}</span>
+                      {model.isDefault ? <span className="picker-tag">default</span> : null}
+                    </button>
                     <p>{model.description}</p>
-                    <div className="effort-row">
+                    <div className="picker-inline-options">
                       {model.supportedReasoningEfforts.map((effort) => (
                         <button
                           key={`${model.id}:${effort.reasoningEffort}`}
-                          className={`effort-chip ${
+                          className={`picker-chip ${
                             snapshot.sessionSettings.model === model.model &&
                             snapshot.sessionSettings.effort === effort.reasoningEffort
-                              ? "active"
+                              ? "selected"
                               : ""
                           }`}
                           onClick={() => {
@@ -788,279 +921,285 @@ export function CodexShell() {
                         </button>
                       ))}
                     </div>
-                  </article>
+                  </div>
                 );
               })}
             </div>
+            <div className="screen-footer">click a reasoning level to apply or esc to cancel</div>
           </section>
         </div>
       ) : null}
 
       {overlay.kind === "transcript" && snapshot ? (
-        <div className="overlay-backdrop transcript-backdrop" onClick={() => setOverlay({ kind: null })}>
-          <section className="transcript-overlay" onClick={(event) => event.stopPropagation()}>
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">transcript</span>
-                <h3>{activeThread ? formatThreadLabel(activeThread) : "No active thread"}</h3>
-              </div>
-              <button className="ghost-button" onClick={() => setOverlay({ kind: null })}>
-                Close
-              </button>
+        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
+          <section className="screen-panel transcript-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="picker-header">{overlayBanner("Transcript")}</div>
+            <div className="transcript-overlay-subtitle">
+              {activeThread ? formatThreadLabel(activeThread) : "No active thread"}
             </div>
-            <div className="transcript-scroll">
+            <div className="overlay-scroll">
               {activeTimeline.map((entry) => (
-                <article key={entry.id} className="transcript-entry">
-                  <div className="transcript-entry-head">
+                <article key={entry.id} className="overlay-history-cell">
+                  <div className="history-meta">
                     <span>{entry.kind}</span>
-                    <strong>{entry.title}</strong>
-                    <span>{new Date(entry.updatedAt).toLocaleTimeString()}</span>
+                    <span>{formatClock(entry.updatedAt)}</span>
                   </div>
-                  <pre>{entry.body || "—"}</pre>
+                  <pre className="history-body">{historyCellText(entry)}</pre>
                 </article>
               ))}
+            </div>
+            <div className="screen-footer">
+              ↑/↓ to scroll&nbsp;&nbsp;&nbsp;pgup/pgdn to page&nbsp;&nbsp;&nbsp;q to quit
+              &nbsp;&nbsp;&nbsp;esc to edit prev
             </div>
           </section>
         </div>
       ) : null}
 
       {overlay.kind === "status" && snapshot ? (
-        <div className="overlay-backdrop" onClick={() => setOverlay({ kind: null })}>
-          <section className="overlay-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">runtime status</span>
-                <h3>Local bridge and app-server</h3>
-              </div>
-              <button className="ghost-button" onClick={() => setOverlay({ kind: null })}>
-                Close
-              </button>
-            </div>
+        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
+          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="picker-header">{overlayBanner("Status")}</div>
+            <pre className="status-pre">
+{`bridge: ${snapshot.phase}
+active thread: ${activeThread ? formatThreadLabel(activeThread) : "none"}
+model: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
+reasoning: ${currentEffort ?? "default"}
+pending requests: ${snapshot.pendingRequests.length}
+runtime: ${runtime}
 
-            <div className="status-grid">
-              <div className="status-card">
-                <span>Bridge phase</span>
-                <strong>{snapshot.phase}</strong>
-              </div>
-              <div className="status-card">
-                <span>Active thread</span>
-                <strong>{activeThread ? formatThreadLabel(activeThread) : "none"}</strong>
-              </div>
-              <div className="status-card">
-                <span>Session model</span>
-                <strong>{snapshot.sessionSettings.model ?? "default"}</strong>
-              </div>
-              <div className="status-card">
-                <span>Pending requests</span>
-                <strong>{snapshot.pendingRequests.length}</strong>
-              </div>
-            </div>
-
-            <div className="log-panel">
-              <div className="log-panel-head">Bridge logs</div>
-              <pre>{snapshot.bridgeLogs.join("\n") || "No bridge logs yet."}</pre>
-            </div>
+logs:
+${snapshot.bridgeLogs.join("\n") || "No bridge logs yet."}`}
+            </pre>
+            <div className="screen-footer">esc to close</div>
           </section>
         </div>
       ) : null}
 
       {overlay.kind === "shortcuts" ? (
-        <div className="overlay-backdrop" onClick={() => setOverlay({ kind: null })}>
-          <section className="overlay-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">shortcuts</span>
-                <h3>Browser-friendly TUI bindings</h3>
-              </div>
-              <button className="ghost-button" onClick={() => setOverlay({ kind: null })}>
-                Close
-              </button>
-            </div>
-            <div className="shortcut-grid">
-              <div>
-                <strong>Enter</strong>
-                <span>Send a turn</span>
-              </div>
-              <div>
-                <strong>Shift + Enter</strong>
-                <span>Insert a newline</span>
-              </div>
-              <div>
-                <strong>Ctrl/Cmd + T</strong>
-                <span>Open transcript overlay</span>
-              </div>
-              <div>
-                <strong>?</strong>
-                <span>Open this shortcut card</span>
-              </div>
-              <div>
-                <strong>Esc</strong>
-                <span>Close overlays or interrupt active turn</span>
-              </div>
-              <div>
-                <strong>/</strong>
-                <span>Trigger slash command suggestions in the composer</span>
-              </div>
+        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
+          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
+            <div className="picker-header">{overlayBanner("Shortcuts")}</div>
+            <pre className="status-pre">
+{`Enter            send current turn
+Shift + Enter    insert newline
+Esc              close overlays / interrupt active turn
+?                open shortcut panel
+Ctrl/Cmd + T     open transcript overlay (browser may reserve this)
+/                trigger slash command popup`}
+            </pre>
+            <div className="screen-footer">
+              Browser-reserved keys keep visible fallback controls in the shell
             </div>
           </section>
         </div>
       ) : null}
 
       {pendingRequest ? (
-        <div className="overlay-backdrop approval-backdrop">
-          <section className="approval-panel">
-            <div className="overlay-head">
-              <div>
-                <span className="section-eyebrow">server request</span>
-                <h3>{pendingRequest.summary}</h3>
-              </div>
-            </div>
-
-            <pre className="approval-detail">{pendingRequest.detail}</pre>
-
+        <div className="screen-overlay modal-overlay">
+          <section className="approval-modal">
             {pendingRequest.method === "item/commandExecution/requestApproval" ? (
-              <div className="decision-row">
-                {(
-                  ((pendingRequest.params as { availableDecisions?: CommandExecutionApprovalDecision[] })
-                    ?.availableDecisions as CommandExecutionApprovalDecision[] | undefined) ?? [
-                    "accept",
-                    "decline",
-                    "cancel",
-                  ]
-                ).map((decision) => (
-                  <button
-                    key={summarizeDecision(decision)}
-                    className="ghost-button"
-                    onClick={() => {
-                      void handleServerRequestResponse(pendingRequest.id, {
-                        decision,
-                      });
-                    }}
-                  >
-                    {summarizeDecision(decision)}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="approval-copy">
+                  <p>Would you like to run the following command?</p>
+                  {typeof (pendingRequest.params as { reason?: string | null })?.reason ===
+                  "string" ? (
+                    <p>
+                      Reason:{" "}
+                      {(pendingRequest.params as { reason?: string | null }).reason}
+                    </p>
+                  ) : null}
+                  <pre className="approval-command">{currentCommandText ? `$ ${currentCommandText}` : pendingRequest.detail}</pre>
+                </div>
+                <div className="approval-options">
+                  {(
+                    ((pendingRequest.params as {
+                      availableDecisions?: CommandExecutionApprovalDecision[];
+                    })?.availableDecisions as CommandExecutionApprovalDecision[] | undefined) ?? [
+                      "accept",
+                      "decline",
+                      "cancel",
+                    ]
+                  ).map((decision, index) => (
+                    <button
+                      key={summarizeDecision(decision)}
+                      className={`approval-option ${index === 0 ? "selected" : ""}`}
+                      onClick={() => {
+                        void handleServerRequestResponse(pendingRequest.id, {
+                          decision,
+                        });
+                      }}
+                    >
+                      <span>{index === 0 ? "›" : " "}</span>
+                      <span>{index + 1}.</span>
+                      <span>{approvalDecisionLabel(decision, currentCommandText)}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="screen-footer">Press enter to confirm or esc to cancel</div>
+              </>
             ) : null}
 
             {pendingRequest.method === "item/fileChange/requestApproval" ? (
-              <div className="decision-row">
-                {["accept", "acceptForSession", "decline", "cancel"].map((decision) => (
-                  <button
-                    key={decision}
-                    className="ghost-button"
-                    onClick={() => {
-                      void handleServerRequestResponse(pendingRequest.id, {
-                        decision,
-                      });
-                    }}
-                  >
-                    {decision}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="approval-copy">
+                  <p>Would you like to make the following edits?</p>
+                  <pre className="approval-command">{pendingRequest.detail}</pre>
+                </div>
+                <div className="approval-options">
+                  {["accept", "acceptForSession", "decline", "cancel"].map((decision, index) => (
+                    <button
+                      key={decision}
+                      className={`approval-option ${index === 0 ? "selected" : ""}`}
+                      onClick={() => {
+                        void handleServerRequestResponse(pendingRequest.id, {
+                          decision,
+                        });
+                      }}
+                    >
+                      <span>{index === 0 ? "›" : " "}</span>
+                      <span>{index + 1}.</span>
+                      <span>{fileApprovalDecisionLabel(decision)}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="screen-footer">Press enter to confirm or esc to cancel</div>
+              </>
             ) : null}
 
             {pendingRequest.method === "item/permissions/requestApproval" ? (
-              <div className="decision-row">
-                {["turn", "session"].map((scope) => (
-                  <button
-                    key={scope}
-                    className="ghost-button"
-                    onClick={() => {
-                      const params =
-                        (pendingRequest.params as { permissions?: unknown }) ?? {};
-                      void handleServerRequestResponse(pendingRequest.id, {
-                        permissions: params.permissions ?? {},
-                        scope,
-                      });
-                    }}
-                  >
-                    allow for {scope}
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="approval-copy">
+                  <p>Update Model Permissions</p>
+                  <pre className="approval-command">{pendingRequest.detail}</pre>
+                </div>
+                <div className="approval-options">
+                  {[
+                    { label: "Default", scope: "turn" },
+                    { label: "Full Access", scope: "session" },
+                  ].map((option, index) => (
+                    <button
+                      key={option.label}
+                      className={`approval-option ${index === 0 ? "selected" : ""}`}
+                      onClick={() => {
+                        const params =
+                          (pendingRequest.params as { permissions?: unknown }) ?? {};
+                        void handleServerRequestResponse(pendingRequest.id, {
+                          permissions: params.permissions ?? {},
+                          scope: option.scope,
+                        });
+                      }}
+                    >
+                      <span>{index === 0 ? "›" : " "}</span>
+                      <span>{index + 1}.</span>
+                      <span>{option.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="screen-footer">Press enter to confirm or esc to go back</div>
+              </>
             ) : null}
 
             {pendingRequest.method === "item/tool/requestUserInput" ? (
-              <div className="question-stack">
-                {(
-                  ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
-                    ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? []
-                ).map((question) => (
-                  <div key={question.id} className="question-card">
-                    <strong>{question.header}</strong>
-                    <span>{question.question}</span>
-                    {question.options?.length ? (
-                      <div className="decision-row">
-                        {question.options.map((option) => (
-                          <button
-                            key={option.label}
-                            className={`ghost-button ${
-                              requestAnswers[pendingRequest.id]?.[question.id] === option.label
-                                ? "selected"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              setRequestAnswers((current) => ({
-                                ...current,
-                                [pendingRequest.id]: {
-                                  ...current[pendingRequest.id],
-                                  [question.id]: option.label,
-                                },
-                              }));
-                            }}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                    {question.isOther ? (
-                      <input
-                        className="overlay-search"
-                        value={requestAnswers[pendingRequest.id]?.[question.id] ?? ""}
-                        onChange={(event) => {
-                          setRequestAnswers((current) => ({
-                            ...current,
-                            [pendingRequest.id]: {
-                              ...current[pendingRequest.id],
-                              [question.id]: event.target.value,
-                            },
-                          }));
-                        }}
-                        placeholder="Type an answer"
-                      />
-                    ) : null}
-                  </div>
-                ))}
+              <>
+                <div className="approval-copy">
+                  <p>{pendingRequest.summary}</p>
+                </div>
+                <div className="question-stack">
+                  {(
+                    ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
+                      ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? []
+                  ).map((question) => (
+                    <div key={question.id} className="plain-question">
+                      <strong>{question.header}</strong>
+                      <div>{question.question}</div>
+                      {question.options?.length ? (
+                        <div className="picker-inline-options">
+                          {question.options.map((option) => (
+                            <button
+                              key={option.label}
+                              className={`picker-chip ${
+                                requestAnswers[pendingRequest.id]?.[question.id] === option.label
+                                  ? "selected"
+                                  : ""
+                              }`}
+                              onClick={() => {
+                                setRequestAnswers((current) => ({
+                                  ...current,
+                                  [pendingRequest.id]: {
+                                    ...current[pendingRequest.id],
+                                    [question.id]: option.label,
+                                  },
+                                }));
+                              }}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                      {question.isOther ? (
+                        <input
+                          className="screen-search"
+                          value={requestAnswers[pendingRequest.id]?.[question.id] ?? ""}
+                          onChange={(event) => {
+                            setRequestAnswers((current) => ({
+                              ...current,
+                              [pendingRequest.id]: {
+                                ...current[pendingRequest.id],
+                                [question.id]: event.target.value,
+                              },
+                            }));
+                          }}
+                          placeholder="Type an answer"
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
 
-                <button
-                  className="primary-button"
-                  onClick={() => {
-                    const questions =
-                      ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
-                        ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? [];
-                    const answers = Object.fromEntries(
-                      questions.map((question) => [
-                        question.id,
-                        {
-                          answers: [
-                            requestAnswers[pendingRequest.id]?.[question.id] ?? "",
-                          ].filter(Boolean),
-                        },
-                      ]),
-                    );
-                    void handleServerRequestResponse(pendingRequest.id, { answers });
-                  }}
-                >
-                  Submit answers
-                </button>
-              </div>
+                <div className="approval-actions">
+                  <button
+                    className="plain-action"
+                    onClick={() => {
+                      const questions =
+                        ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
+                          ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? [];
+                      const answers = Object.fromEntries(
+                        questions.map((question) => [
+                          question.id,
+                          {
+                            answers: [
+                              requestAnswers[pendingRequest.id]?.[question.id] ?? "",
+                            ].filter(Boolean),
+                          },
+                        ]),
+                      );
+                      void handleServerRequestResponse(pendingRequest.id, { answers });
+                    }}
+                  >
+                    submit answers
+                  </button>
+                </div>
+              </>
             ) : null}
 
-            <label className="raw-json-label">
-              Raw response payload
+            {![
+              "item/commandExecution/requestApproval",
+              "item/fileChange/requestApproval",
+              "item/permissions/requestApproval",
+              "item/tool/requestUserInput",
+            ].includes(pendingRequest.method) ? (
+              <>
+                <div className="approval-copy">
+                  <p>{pendingRequest.summary}</p>
+                  <pre className="approval-command">{pendingRequest.detail}</pre>
+                </div>
+              </>
+            ) : null}
+
+            <details className="advanced-json">
+              <summary>Advanced response JSON</summary>
               <textarea
                 className="raw-json-editor"
                 value={requestDrafts[pendingRequest.id] ?? ""}
@@ -1072,11 +1211,8 @@ export function CodexShell() {
                   }));
                 }}
               />
-            </label>
-
-            <div className="approval-actions">
               <button
-                className="primary-button"
+                className="plain-action"
                 onClick={() => {
                   try {
                     const parsed = JSON.parse(requestDrafts[pendingRequest.id] ?? "{}");
@@ -1090,9 +1226,9 @@ export function CodexShell() {
                   }
                 }}
               >
-                Send JSON response
+                send JSON response
               </button>
-            </div>
+            </details>
           </section>
         </div>
       ) : null}
@@ -1101,4 +1237,3 @@ export function CodexShell() {
     </main>
   );
 }
-

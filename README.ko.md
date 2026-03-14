@@ -2,7 +2,7 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Codex를 위한 터미널 충실형 로컬 WebUI입니다.
+Codex를 위한 라이트 모드 터미널 충실형 로컬 WebUI입니다.
 
 Codex WebUI는 로컬에서 실제 `codex app-server`를 실행하고, 그 위에 브라우저 셸을 올리는 방식으로 동작합니다. 목표는 Codex를 일반적인 채팅 앱처럼 포장하는 것이 아니라, TUI의 워크플로우 모델을 브라우저에서도 그대로 유지하는 것입니다. thread, turn, approval, diff, review, logs, runtime state를 숨기지 않고 보여줍니다.
 
@@ -29,7 +29,7 @@ npm run up
 ## 지금 동작하는 것
 
 - `codex app-server --listen stdio://` 에 붙는 로컬 Node 브리지
-- 터미널 스타일의 브라우저 UI
+- 라이트 모드 Codex TUI 셸 브라우저 UI
 - thread/turn 활동을 보여주는 transcript timeline
 - slash command를 지원하는 하단 composer
 - 기존 로컬 Codex 세션을 여는 resume picker
@@ -48,10 +48,10 @@ npm run up
 
 ## UI 구조
 
-- thread 액션과 런타임 상태를 보여주는 상단 바
+- Codex TUI 메타데이터 줄을 따르는 세션 헤더
 - thread, turn, reasoning, command, diff, system 이벤트를 보여주는 중앙 transcript
 - 새 turn과 slash command를 처리하는 하단 composer
-- resume, model, transcript, shortcuts, runtime status overlay
+- resume, model, transcript, shortcuts, runtime status용 전체 화면 overlay
 - approval 및 `request_user_input` 전용 모달
 
 ## 키보드 단축키

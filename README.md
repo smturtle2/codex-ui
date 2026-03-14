@@ -2,7 +2,7 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Terminal-faithful local WebUI for Codex.
+Terminal-faithful, light-mode local WebUI for Codex.
 
 Codex WebUI runs a real `codex app-server` locally and puts a browser shell on top of it. The goal is not to turn Codex into a generic chat app. The goal is to keep the TUI workflow model visible in the browser: threads, turns, approvals, diffs, review, logs, and runtime state.
 
@@ -29,7 +29,7 @@ If `codex` is not installed or not authenticated, the WebUI cannot start because
 ## What Works Right Now
 
 - local Node bridge connected to `codex app-server --listen stdio://`
-- browser UI with a terminal-style shell
+- browser UI with a light-mode Codex TUI shell
 - transcript timeline for thread and turn activity
 - bottom composer with slash commands
 - resume picker for existing local Codex sessions
@@ -48,10 +48,10 @@ If `codex` is not installed or not authenticated, the WebUI cannot start because
 
 ## UI Structure
 
-- top bar for thread actions and runtime state
+- session header that mirrors the Codex TUI metadata lines
 - central transcript for thread, turn, reasoning, command, diff, and system events
 - bottom composer for new turns and slash commands
-- overlays for resume, models, transcript, shortcuts, and runtime status
+- full-screen overlays for resume, models, transcript, shortcuts, and runtime status
 - modal surface for approvals and `request_user_input`
 
 ## Keyboard Shortcuts
