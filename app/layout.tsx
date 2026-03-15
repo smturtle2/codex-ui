@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
-import { IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Noto_Sans_KR } from "next/font/google";
 
 import "./globals.css";
+
+const sans = Noto_Sans_KR({
+  subsets: ["latin"],
+  weight: ["400", "500", "700"],
+  variable: "--font-sans",
+});
 
 const mono = IBM_Plex_Mono({
   subsets: ["latin"],
@@ -10,8 +16,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata = {
-  title: "Codex WebUI",
-  description: "Light-mode browser port of the Codex TUI.",
+  title: "Codex UI",
+  description: "Monochrome local WebUI for Codex with live WebSocket streaming.",
 };
 
 export default function RootLayout({
@@ -21,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={mono.variable}>{children}</body>
+      <body className={`${sans.variable} ${mono.variable}`}>{children}</body>
     </html>
   );
 }

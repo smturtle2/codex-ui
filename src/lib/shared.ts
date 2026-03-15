@@ -22,6 +22,7 @@ export type TimelineEntryKind =
   | "turn"
   | "message"
   | "reasoning"
+  | "plan"
   | "command"
   | "diff"
   | "review"
@@ -57,12 +58,28 @@ export type PendingServerRequest = {
 export type SessionSettings = {
   model: string | null;
   effort: ReasoningEffort | null;
+  planMode: boolean;
+};
+
+export type ThreadListItem = {
+  id: string;
+  title: string;
+  workspaceLabel: string;
+  workspacePath: string;
+  branch: string | null;
+  statusLabel: string | null;
+  sourceLabel: string;
+  createdAt: number;
+  updatedAt: number;
+  isActive: boolean;
+  searchText: string;
 };
 
 export type BridgeSnapshot = {
   phase: BridgePhase;
   lastError: string | null;
   threads: Thread[];
+  threadList: ThreadListItem[];
   activeThreadId: string | null;
   activeTurnId: string | null;
   activeTurnStartedAt: number | null;
@@ -70,7 +87,6 @@ export type BridgeSnapshot = {
   pendingRequests: PendingServerRequest[];
   models: Model[];
   sessionSettings: SessionSettings;
-  bridgeLogs: string[];
 };
 
 export type SnapshotEnvelope = {
@@ -111,7 +127,7 @@ export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
   },
   {
     name: "resume",
-    description: "Open the resume picker for previous local sessions.",
+    description: "Open the thread drawer for previous local sessions.",
     action: "resume",
   },
   {
@@ -130,4 +146,3 @@ export const BUILTIN_COMMANDS: SlashCommandDefinition[] = [
     action: "clear",
   },
 ];
-

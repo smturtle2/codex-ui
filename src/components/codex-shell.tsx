@@ -4,69 +4,45 @@ import {
   startTransition,
   useDeferredValue,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
+import { ApprovalDialog, type ApprovalOption, type ApprovalQuestion } from "@/components/codex-shell/approval-dialog";
+import { ComposerDock } from "@/components/codex-shell/composer-dock";
+import { ShellHeader } from "@/components/codex-shell/shell-header";
+import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
+import { ThreadDrawer } from "@/components/codex-shell/thread-drawer";
+import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
+import type { SurfaceKind, ThreadDrawerSort } from "@/components/codex-shell/types";
+import {
+  approvalDecisionLabel,
+  buildDefaultServerResponse,
+  buildStatusLine,
+  fileApprovalDecisionLabel,
+  filterCommands,
+  formatRuntime,
+  getCurrentEffort,
+  getCurrentModel,
+  getFocusableElements,
+  summarizeDecision,
+} from "@/components/codex-shell/utils";
 import type { CommandExecutionApprovalDecision } from "@/generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import type { ToolRequestUserInputQuestion } from "@/generated/codex-app-server/v2/ToolRequestUserInputQuestion";
-import type {
-  BridgeSnapshot,
-  PendingServerRequest,
-  SlashCommandDefinition,
-} from "@/lib/shared";
+import type { BridgeSnapshot } from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
 
-type OverlayState =
-  | { kind: null }
-  | { kind: "resume" }
-  | { kind: "models" }
-  | { kind: "transcript" }
-  | { kind: "status" }
-  | { kind: "shortcuts" };
+type ApprovalChoice = {
+  key: string;
+  label: string;
+  result: unknown;
+  isCancel?: boolean;
+};
 
-type ResumeSort = "created" | "updated";
-
-function formatRelativeTime(unixSeconds: number): string {
-  const delta = Date.now() - unixSeconds * 1000;
-  const minute = 60_000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (delta < minute) {
-    return "just now";
-  }
-  if (delta < hour) {
-    return `${Math.floor(delta / minute)}m ago`;
-  }
-  if (delta < day) {
-    return `${Math.floor(delta / hour)}h ago`;
-  }
-  return `${Math.floor(delta / day)}d ago`;
-}
-
-function formatClock(updatedAt: number): string {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(new Date(updatedAt));
-}
-
-function formatRuntime(startedAt: number | null): string {
-  if (!startedAt) {
-    return "0s";
-  }
-
-  return `${Math.max(0, Math.floor((Date.now() - startedAt) / 1000))}s`;
-}
-
-function formatThreadLabel(
-  thread: NonNullable<BridgeSnapshot["threads"]>[number],
-): string {
-  return thread.name || thread.preview || thread.cwd || thread.id;
-}
+type ConnectionState = "connecting" | "live" | "reconnecting";
 
 async function callApi<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
@@ -82,242 +58,174 @@ async function callApi<T>(path: string, body?: unknown): Promise<T> {
   return payload;
 }
 
-function buildDefaultServerResponse(request: PendingServerRequest): string {
-  const params =
-    typeof request.params === "object" && request.params !== null
-      ? (request.params as Record<string, unknown>)
-      : {};
-
-  switch (request.method) {
-    case "item/commandExecution/requestApproval":
-      return JSON.stringify(
-        {
-          decision: "accept",
-        },
-        null,
-        2,
-      );
-    case "item/fileChange/requestApproval":
-      return JSON.stringify(
-        {
-          decision: "accept",
-        },
-        null,
-        2,
-      );
-    case "item/permissions/requestApproval":
-      return JSON.stringify(
-        {
-          permissions: params.permissions ?? {},
-          scope: "turn",
-        },
-        null,
-        2,
-      );
-    case "item/tool/requestUserInput":
-      return JSON.stringify(
-        {
-          answers: {},
-        },
-        null,
-        2,
-      );
-    case "mcpServer/elicitation/request":
-      return JSON.stringify(
-        {
-          action: "cancel",
-          content: null,
-          _meta: null,
-        },
-        null,
-        2,
-      );
-    default:
-      return JSON.stringify({}, null, 2);
-  }
-}
-
-function summarizeDecision(decision: CommandExecutionApprovalDecision): string {
-  if (typeof decision === "string") {
-    return decision;
-  }
-
-  if ("acceptWithExecpolicyAmendment" in decision) {
-    return "acceptWithExecpolicyAmendment";
-  }
-
-  return "applyNetworkPolicyAmendment";
-}
-
-function approvalDecisionLabel(
-  decision: CommandExecutionApprovalDecision,
-  commandText: string | null,
-): string {
-  if (typeof decision === "string") {
-    switch (decision) {
-      case "accept":
-        return "Yes, proceed (y)";
-      case "acceptForSession":
-        return "Yes, proceed for this session";
-      case "decline":
-        return "No, and tell Codex what to do differently (esc)";
-      case "cancel":
-        return "Cancel";
-    }
-  }
-
-  if ("acceptWithExecpolicyAmendment" in decision) {
-    return `Yes, and don't ask again for commands that start with \`${commandText ?? ""}\` (p)`;
-  }
-
-  return "Allow the proposed network rule";
-}
-
-function fileApprovalDecisionLabel(decision: string): string {
-  switch (decision) {
-    case "accept":
-      return "Yes, make the edits";
-    case "acceptForSession":
-      return "Yes, allow edits for this session";
-    case "decline":
-      return "No, and tell Codex what to do differently";
-    case "cancel":
-      return "Cancel";
-    default:
-      return decision;
-  }
-}
-
-function filterCommands(input: string): SlashCommandDefinition[] {
-  const query = input.replace(/^\//, "").trim().toLowerCase();
-  if (!query) {
-    return BUILTIN_COMMANDS;
-  }
-
-  return BUILTIN_COMMANDS.filter((command) =>
-    `${command.name} ${command.description}`.toLowerCase().includes(query),
-  );
-}
-
-function getCurrentModel(snapshot: BridgeSnapshot | null) {
-  if (!snapshot) {
-    return null;
-  }
-
+function isTypingElement(target: EventTarget | null): boolean {
   return (
-    snapshot.models.find((model) => model.model === snapshot.sessionSettings.model) ??
-    snapshot.models.find((model) => model.isDefault) ??
-    snapshot.models[0] ??
-    null
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
   );
 }
 
-function getCurrentEffort(snapshot: BridgeSnapshot | null): string | null {
-  const currentModel = getCurrentModel(snapshot);
-  return (
-    snapshot?.sessionSettings.effort ??
-    currentModel?.defaultReasoningEffort ??
-    null
-  );
-}
-
-function buildStatusLine(snapshot: BridgeSnapshot | null): string {
-  if (!snapshot) {
-    return "starting";
+function resolveSlashCommand(
+  rawValue: string,
+  visibleCommands: typeof BUILTIN_COMMANDS,
+  selectedCommandIndex: number,
+): string {
+  const commandName = rawValue.replace(/^\//, "").trim().split(/\s+/)[0]?.toLowerCase();
+  const exactCommand = BUILTIN_COMMANDS.find((command) => command.name === commandName);
+  if (exactCommand) {
+    return `/${exactCommand.name}`;
   }
 
-  const currentModel = getCurrentModel(snapshot);
-  const effort = getCurrentEffort(snapshot);
+  const selectedCommand = visibleCommands[selectedCommandIndex];
+  if (selectedCommand) {
+    return `/${selectedCommand.name}`;
+  }
 
-  return [
-    currentModel?.displayName ?? currentModel?.model ?? "default",
-    effort,
-    snapshot.phase,
-    `${snapshot.threads.length} sessions`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function historyCellText(
-  entry: NonNullable<BridgeSnapshot["timelineByThread"][string]>[number],
-): string {
-  return entry.body ? `${entry.title}\n${entry.body}` : entry.title;
-}
-
-function overlayBanner(title: string): string {
-  return `/ ${title.toUpperCase()} / / / / / / / / /`;
+  return rawValue;
 }
 
 export function CodexShell() {
   const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(null);
-  const [overlay, setOverlay] = useState<OverlayState>({ kind: null });
+  const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [surface, setSurface] = useState<SurfaceKind | null>(null);
   const [composer, setComposer] = useState("");
-  const [resumeSearch, setResumeSearch] = useState("");
-  const [resumeSort, setResumeSort] = useState<ResumeSort>("created");
-  const [selectedResumeIndex, setSelectedResumeIndex] = useState(0);
+  const [threadSearch, setThreadSearch] = useState("");
+  const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const [selectedApprovalIndex, setSelectedApprovalIndex] = useState(0);
+  const [commandMenuDismissed, setCommandMenuDismissed] = useState(false);
   const [requestDrafts, setRequestDrafts] = useState<Record<string, string>>({});
   const [requestAnswers, setRequestAnswers] = useState<
     Record<string, Record<string, string>>
   >({});
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [runtimeNow, setRuntimeNow] = useState(() => Date.now());
+
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const deferredResumeSearch = useDeferredValue(resumeSearch);
-  const [, setClockTick] = useState(Date.now());
+  const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const threadDrawerPanelRef = useRef<HTMLDivElement | null>(null);
+  const overlayPanelRef = useRef<HTMLDivElement | null>(null);
+  const approvalDialogRef = useRef<HTMLDivElement | null>(null);
+  const threadButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousActiveThreadIdRef = useRef<string | null>(null);
+  const previousTimelineLengthRef = useRef(0);
+  const transcriptPinnedRef = useRef(true);
+  const surfaceOriginRef = useRef<HTMLElement | null>(null);
+  const approvalOriginRef = useRef<HTMLElement | null>(null);
+  const previousPendingRequestIdRef = useRef<string | null>(null);
+  const deferredThreadSearch = useDeferredValue(threadSearch);
+
+  const applySnapshot = useEffectEvent((nextSnapshot: BridgeSnapshot) => {
+    startTransition(() => {
+      setSnapshot(nextSnapshot);
+    });
+  });
+
+  const refreshBootstrap = useEffectEvent(async (showToastOnError: boolean) => {
+    try {
+      const payload = await callApi<{ snapshot: BridgeSnapshot }>("/api/bootstrap");
+      applySnapshot(payload.snapshot);
+    } catch (error) {
+      if (!showToastOnError) {
+        return;
+      }
+
+      setToast(error instanceof Error ? error.message : "Failed to load bootstrap.");
+    }
+  });
 
   useEffect(() => {
+    let mounted = true;
+    let reconnectTimer: number | null = null;
+    let websocket: WebSocket | null = null;
+    let reconnectAttempts = 0;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer === null) {
+        return;
+      }
+
+      window.clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    };
+
+    const connect = () => {
+      if (!mounted) {
+        return;
+      }
+
+      clearReconnectTimer();
+      setConnectionState(reconnectAttempts === 0 ? "connecting" : "reconnecting");
+
+      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+      websocket = new WebSocket(`${protocol}://${window.location.host}/ws`);
+
+      websocket.onopen = () => {
+        if (!mounted) {
+          return;
+        }
+
+        reconnectAttempts = 0;
+        setConnectionState("live");
+        void refreshBootstrap(false);
+      };
+
+      websocket.onmessage = (event) => {
+        const payload = JSON.parse(event.data) as {
+          type: "snapshot";
+          snapshot: BridgeSnapshot;
+        };
+
+        applySnapshot(payload.snapshot);
+      };
+
+      websocket.onerror = () => {
+        // Let the subsequent close event drive reconnect scheduling.
+      };
+
+      websocket.onclose = () => {
+        if (!mounted) {
+          return;
+        }
+
+        setConnectionState("reconnecting");
+        const delay = Math.min(1000 * 2 ** reconnectAttempts, 8000);
+        reconnectAttempts += 1;
+        clearReconnectTimer();
+        reconnectTimer = window.setTimeout(() => {
+          connect();
+        }, delay);
+      };
+    };
+
+    void refreshBootstrap(true);
+    connect();
+
+    return () => {
+      mounted = false;
+      clearReconnectTimer();
+      websocket?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!snapshot?.activeTurnId) {
+      return;
+    }
+
+    setRuntimeNow(Date.now());
     const interval = window.setInterval(() => {
-      setClockTick(Date.now());
+      setRuntimeNow(Date.now());
     }, 1000);
 
     return () => {
       window.clearInterval(interval);
     };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    void callApi<{ snapshot: BridgeSnapshot }>("/api/bootstrap")
-      .then((payload) => {
-        if (!mounted) {
-          return;
-        }
-        startTransition(() => {
-          setSnapshot(payload.snapshot);
-        });
-      })
-      .catch((error) => {
-        if (!mounted) {
-          return;
-        }
-        setToast(error instanceof Error ? error.message : "Failed to load bootstrap.");
-      });
-
-    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-    const websocket = new WebSocket(`${protocol}://${window.location.host}/ws`);
-
-    websocket.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as {
-        type: "snapshot";
-        snapshot: BridgeSnapshot;
-      };
-      startTransition(() => {
-        setSnapshot(payload.snapshot);
-      });
-    };
-
-    websocket.onerror = () => {
-      setToast("WebSocket connection to the local bridge failed.");
-    };
-
-    return () => {
-      mounted = false;
-      websocket.close();
-    };
-  }, []);
+  }, [snapshot?.activeTurnId]);
 
   useEffect(() => {
     if (!toast) {
@@ -338,9 +246,15 @@ export function CodexShell() {
       return null;
     }
 
-    return (
-      snapshot.threads.find((thread) => thread.id === snapshot.activeThreadId) ?? null
-    );
+    return snapshot.threads.find((thread) => thread.id === snapshot.activeThreadId) ?? null;
+  }, [snapshot]);
+
+  const activeThreadSummary = useMemo(() => {
+    if (!snapshot?.activeThreadId) {
+      return null;
+    }
+
+    return snapshot.threadList.find((thread) => thread.id === snapshot.activeThreadId) ?? null;
   }, [snapshot]);
 
   const activeTimeline = useMemo(() => {
@@ -356,35 +270,22 @@ export function CodexShell() {
       return [];
     }
 
-    const query = deferredResumeSearch.trim().toLowerCase();
-    const threads = snapshot.threads.filter((thread) =>
-      `${thread.name ?? ""} ${thread.preview} ${thread.cwd}`.toLowerCase().includes(query),
+    const query = deferredThreadSearch.trim().toLowerCase();
+    const threads = snapshot.threadList.filter((thread) =>
+      thread.searchText.includes(query),
     );
 
     return [...threads].sort((left, right) => {
-      const leftValue = resumeSort === "created" ? left.createdAt : left.updatedAt;
-      const rightValue = resumeSort === "created" ? right.createdAt : right.updatedAt;
+      const leftValue = threadSort === "created" ? left.createdAt : left.updatedAt;
+      const rightValue = threadSort === "created" ? right.createdAt : right.updatedAt;
       return rightValue - leftValue;
     });
-  }, [deferredResumeSearch, resumeSort, snapshot]);
+  }, [deferredThreadSearch, snapshot, threadSort]);
 
-  useEffect(() => {
-    setSelectedResumeIndex((current) => {
-      if (filteredThreads.length === 0) {
-        return 0;
-      }
-      return Math.min(current, filteredThreads.length - 1);
-    });
-  }, [filteredThreads]);
-
-  useEffect(() => {
-    if (overlay.kind === "resume") {
-      setSelectedResumeIndex(0);
-    }
-  }, [deferredResumeSearch, overlay.kind, resumeSort]);
-
-  const selectedResumeThread =
-    filteredThreads.length > 0 ? filteredThreads[selectedResumeIndex] ?? filteredThreads[0] : null;
+  const recentThreads = useMemo(
+    () => filteredThreads.filter((thread) => !thread.isActive),
+    [filteredThreads],
+  );
 
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
@@ -416,13 +317,153 @@ export function CodexShell() {
     });
   }, [pendingRequest]);
 
-  const visibleCommands = composer.trimStart().startsWith("/")
+  useEffect(() => {
+    const currentPendingRequestId = pendingRequest?.id ?? null;
+    if (!previousPendingRequestIdRef.current && currentPendingRequestId) {
+      approvalOriginRef.current =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setSelectedApprovalIndex(0);
+    }
+
+    if (previousPendingRequestIdRef.current && !currentPendingRequestId) {
+      window.setTimeout(() => {
+        if (surface === "threads") {
+          const target =
+            threadDrawerPanelRef.current?.querySelector<HTMLElement>('[data-autofocus="true"]');
+          target?.focus();
+          return;
+        }
+
+        if (surface) {
+          const target =
+            overlayPanelRef.current?.querySelector<HTMLElement>('[data-autofocus="true"]');
+          target?.focus();
+          return;
+        }
+
+        const origin = approvalOriginRef.current;
+        if (origin?.isConnected) {
+          origin.focus();
+          return;
+        }
+
+        composerRef.current?.focus();
+      }, 0);
+    }
+
+    previousPendingRequestIdRef.current = currentPendingRequestId;
+  }, [pendingRequest?.id, surface]);
+
+  const visibleCommands = !commandMenuDismissed && composer.trimStart().startsWith("/")
     ? filterCommands(composer.trimStart())
     : [];
 
   useEffect(() => {
-    setSelectedCommandIndex(0);
+    setSelectedCommandIndex((current) => {
+      if (visibleCommands.length === 0) {
+        return 0;
+      }
+
+      return Math.min(current, visibleCommands.length - 1);
+    });
+  }, [visibleCommands.length]);
+
+  useEffect(() => {
+    const container = transcriptScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const updatePinnedState = () => {
+      transcriptPinnedRef.current =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 96;
+    };
+
+    updatePinnedState();
+    container.addEventListener("scroll", updatePinnedState, { passive: true });
+
+    return () => {
+      container.removeEventListener("scroll", updatePinnedState);
+    };
+  }, []);
+
+  const lastTimelineEntry = activeTimeline[activeTimeline.length - 1] ?? null;
+
+  useEffect(() => {
+    const container = transcriptScrollRef.current;
+    if (!container) {
+      previousActiveThreadIdRef.current = snapshot?.activeThreadId ?? null;
+      previousTimelineLengthRef.current = activeTimeline.length;
+      return;
+    }
+
+    const previousThreadId = previousActiveThreadIdRef.current;
+    const previousTimelineLength = previousTimelineLengthRef.current;
+    const nextThreadId = snapshot?.activeThreadId ?? null;
+    const threadChanged = previousThreadId !== nextThreadId;
+    const timelineGrew = activeTimeline.length > previousTimelineLength;
+    const shouldFollowLiveOutput =
+      transcriptPinnedRef.current &&
+      (timelineGrew || Boolean(snapshot?.activeTurnId) || lastTimelineEntry?.status === "running");
+
+    if (threadChanged || shouldFollowLiveOutput) {
+      container.scrollTop = container.scrollHeight;
+      transcriptPinnedRef.current = true;
+    }
+
+    previousActiveThreadIdRef.current = nextThreadId;
+    previousTimelineLengthRef.current = activeTimeline.length;
+  }, [
+    activeTimeline.length,
+    lastTimelineEntry?.id,
+    lastTimelineEntry?.updatedAt,
+    lastTimelineEntry?.status,
+    snapshot?.activeThreadId,
+    snapshot?.activeTurnId,
+  ]);
+
+  useEffect(() => {
+    const textarea = composerRef.current;
+    if (!textarea) {
+      return;
+    }
+
+    textarea.style.height = "0px";
+    const minHeight = window.innerWidth <= 980 ? 72 : 88;
+    const maxHeight = window.innerWidth <= 980 ? 168 : 220;
+    const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
+    textarea.style.height = `${nextHeight}px`;
   }, [composer]);
+
+  function rememberSurfaceOrigin(origin?: HTMLElement | null) {
+    surfaceOriginRef.current =
+      origin ??
+      (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+  }
+
+  function openSurface(nextSurface: SurfaceKind, origin?: HTMLElement | null) {
+    rememberSurfaceOrigin(origin);
+    setSurface(nextSurface);
+  }
+
+  function restoreFocusToOrigin() {
+    window.setTimeout(() => {
+      const origin = surfaceOriginRef.current;
+      if (origin?.isConnected) {
+        origin.focus();
+        return;
+      }
+
+      composerRef.current?.focus();
+    }, 0);
+  }
+
+  function closeSurface(restoreFocus = true) {
+    setSurface(null);
+    if (restoreFocus) {
+      restoreFocusToOrigin();
+    }
+  }
 
   async function syncSnapshotFromResult(
     runner: () => Promise<{ snapshot: BridgeSnapshot }>,
@@ -441,14 +482,17 @@ export function CodexShell() {
     }
   }
 
-  async function handleCreateThread(closeOverlay = false) {
-    await syncSnapshotFromResult(
-      () => callApi("/api/thread/start", {}),
-      "Starting thread",
-    );
-    if (closeOverlay) {
-      setOverlay({ kind: null });
+  async function handleCreateThread(closeCurrentSurface = false) {
+    await syncSnapshotFromResult(() => callApi("/api/thread/start", {}), "Starting thread");
+
+    if (closeCurrentSurface) {
+      setSurface(null);
     }
+
+    setComposer("");
+    window.setTimeout(() => {
+      composerRef.current?.focus();
+    }, 0);
   }
 
   async function handleSubmit() {
@@ -458,7 +502,7 @@ export function CodexShell() {
     }
 
     if (value.startsWith("/")) {
-      await handleSlashCommand(value);
+      await handleSlashCommand(resolveSlashCommand(value, visibleCommands, selectedCommandIndex));
       return;
     }
 
@@ -482,36 +526,41 @@ export function CodexShell() {
       case "new":
       case "clear":
         await handleCreateThread();
-        setComposer("");
         break;
       case "resume":
-        setOverlay({ kind: "resume" });
+        openSurface("threads", threadButtonRef.current);
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
           setToast("No active thread to fork.");
           return;
         }
+
         await syncSnapshotFromResult(
           () => callApi("/api/thread/fork", { threadId: snapshot.activeThreadId }),
           "Forking thread",
         );
-        setComposer("");
         break;
       case "model":
-        setOverlay({ kind: "models" });
+        window.setTimeout(() => {
+          composerModelSelectRef.current?.focus();
+        }, 0);
         break;
       case "review":
         await syncSnapshotFromResult(
           () => callApi("/api/review/start", {}),
           "Starting review",
         );
-        setComposer("");
         break;
       case "status":
-        setOverlay({ kind: "status" });
+        openSurface(
+          "status",
+          document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        );
         break;
     }
+
+    setComposer("");
   }
 
   async function handleResumeThread(threadId: string) {
@@ -519,7 +568,10 @@ export function CodexShell() {
       () => callApi("/api/thread/resume", { threadId }),
       "Resuming thread",
     );
-    setOverlay({ kind: null });
+    setSurface(null);
+    window.setTimeout(() => {
+      composerRef.current?.focus();
+    }, 0);
   }
 
   async function handleInterrupt() {
@@ -534,7 +586,46 @@ export function CodexShell() {
       () => callApi("/api/session/settings", { model, effort }),
       "Updating session settings",
     );
-    setOverlay({ kind: null });
+    window.setTimeout(() => {
+      composerRef.current?.focus();
+    }, 0);
+  }
+
+  async function handleComposerModelChange(model: string) {
+    const nextModel = snapshot?.models.find((entry) => entry.model === model);
+    if (!nextModel) {
+      return;
+    }
+
+    const preferredEffort = selectedEffortValue || nextModel.defaultReasoningEffort;
+    const nextEffort = nextModel.supportedReasoningEfforts.some(
+      (entry) => entry.reasoningEffort === preferredEffort,
+    )
+      ? preferredEffort
+      : nextModel.defaultReasoningEffort;
+
+    await handleModelChange(nextModel.model, nextEffort);
+  }
+
+  async function handleComposerEffortChange(effort: string) {
+    if (!currentModel) {
+      return;
+    }
+
+    await handleModelChange(currentModel.model, effort);
+  }
+
+  async function handlePlanModeToggle() {
+    await syncSnapshotFromResult(
+      () =>
+        callApi("/api/session/settings", {
+          planMode: !(snapshot?.sessionSettings.planMode ?? false),
+        }),
+      "Updating session settings",
+    );
+    window.setTimeout(() => {
+      composerRef.current?.focus();
+    }, 0);
   }
 
   async function handleServerRequestResponse(requestId: string, result: unknown) {
@@ -548,68 +639,347 @@ export function CodexShell() {
     );
   }
 
+  function handleComposerChange(nextValue: string) {
+    setComposer(nextValue);
+    setCommandMenuDismissed(false);
+  }
+
+  const currentModel = getCurrentModel(snapshot);
+  const currentEffort = getCurrentEffort(snapshot);
+  const runtime = snapshot?.activeTurnId
+    ? formatRuntime(snapshot.activeTurnStartedAt ?? null, runtimeNow)
+    : "idle";
+  const currentCommandText =
+    typeof (pendingRequest?.params as { command?: string } | undefined)?.command === "string"
+      ? ((pendingRequest?.params as { command?: string }).command ?? null)
+      : null;
+  const activeOverlay = surface && surface !== "threads" ? surface : null;
+  const sessionTitle = activeThreadSummary?.title ?? "New session";
+  const sessionMeta = activeThreadSummary
+    ? [
+        activeThreadSummary.workspaceLabel,
+        activeThreadSummary.branch,
+        activeThreadSummary.statusLabel,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "Pick a thread or send the first message.";
+  const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
+  const headerStatus = connectionState !== "live"
+    ? {
+        label: connectionState === "connecting" ? "connecting" : "reconnecting",
+        tone: "starting" as const,
+      }
+    : snapshot?.lastError
+      ? { label: "error", tone: "error" as const }
+      : pendingRequest
+        ? { label: "pending request", tone: "pending" as const }
+        : snapshot?.activeTurnId
+          ? { label: "working", tone: "working" as const }
+          : snapshot?.phase && snapshot.phase !== "ready"
+            ? { label: snapshot.phase, tone: "starting" as const }
+            : { label: "ready", tone: "ready" as const };
+  const selectedModelValue = currentModel?.model ?? "";
+  const selectedEffortValue = currentEffort ?? currentModel?.defaultReasoningEffort ?? "";
+  const selectedPlanMode = snapshot?.sessionSettings.planMode ?? false;
+  const sessionModelOptions = (snapshot?.models ?? []).map((model) => ({
+    value: model.model,
+    label: model.displayName,
+  }));
+  const sessionEffortOptions = (currentModel?.supportedReasoningEfforts ?? []).map((effort) => ({
+    value: effort.reasoningEffort,
+    label: effort.reasoningEffort,
+  }));
+  const composerHelper = connectionState !== "live"
+    ? "Live updates reconnect automatically over WebSocket."
+    : visibleCommands.length
+      ? "Use ↑/↓ to choose, Enter to run, Tab to autocomplete, Esc to hide suggestions."
+      : snapshot?.activeTurnId
+        ? "Streaming stays live over WebSocket. Diffs stay collapsed until you open them."
+        : "Enter sends, Shift+Enter adds a newline, / opens commands.";
+  const composerStatus = connectionState !== "live"
+    ? connectionState === "connecting"
+      ? "Connecting"
+      : "Reconnecting"
+    : snapshot?.activeTurnId
+      ? `Working · ${runtime}`
+    : pendingRequest
+      ? pendingRequest.summary
+      : busyAction
+        ? busyAction
+        : selectedPlanMode
+          ? "Ready · plan"
+          : "Ready";
+
+  const approvalChoices = useMemo<ApprovalChoice[]>(() => {
+    if (!pendingRequest) {
+      return [];
+    }
+
+    switch (pendingRequest.method) {
+      case "item/commandExecution/requestApproval":
+        return (
+          ((pendingRequest.params as {
+            availableDecisions?: CommandExecutionApprovalDecision[];
+          })?.availableDecisions as CommandExecutionApprovalDecision[] | undefined) ?? [
+            "accept",
+            "decline",
+            "cancel",
+          ]
+        ).map((decision) => ({
+          key: summarizeDecision(decision),
+          label: approvalDecisionLabel(decision, currentCommandText),
+          result: { decision },
+          isCancel: decision === "cancel",
+        }));
+
+      case "item/fileChange/requestApproval":
+        return ["accept", "acceptForSession", "decline", "cancel"].map((decision) => ({
+          key: decision,
+          label: fileApprovalDecisionLabel(decision),
+          result: { decision },
+          isCancel: decision === "cancel",
+        }));
+
+      case "item/permissions/requestApproval":
+        return [
+          { label: "Default", scope: "turn" },
+          { label: "Full Access", scope: "session" },
+        ].map((option) => {
+          const params = (pendingRequest.params as { permissions?: unknown }) ?? {};
+          return {
+            key: option.scope,
+            label: option.label,
+            result: {
+              permissions: params.permissions ?? {},
+              scope: option.scope,
+            },
+          };
+        });
+
+      default:
+        return [];
+    }
+  }, [currentCommandText, pendingRequest]);
+
+  const approvalQuestionModels = useMemo<ApprovalQuestion[]>(() => {
+    if (pendingRequest?.method !== "item/tool/requestUserInput") {
+      return [];
+    }
+
+    const questions =
+      ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })?.questions as
+        | ToolRequestUserInputQuestion[]
+        | undefined) ?? [];
+
+    return questions.map((question) => ({
+      id: question.id,
+      header: question.header,
+      question: question.question,
+      options: question.options?.map((option) => option.label) ?? [],
+      allowsFreeform: Boolean(question.isOther),
+      value: requestAnswers[pendingRequest.id]?.[question.id] ?? "",
+      onChange: (value: string) => {
+        setRequestAnswers((current) => ({
+          ...current,
+          [pendingRequest.id]: {
+            ...current[pendingRequest.id],
+            [question.id]: value,
+          },
+        }));
+      },
+    }));
+  }, [pendingRequest, requestAnswers]);
+
+  const cancelApprovalChoice = approvalChoices.find((choice) => choice.isCancel);
+  const approvalOptions: ApprovalOption[] = pendingRequest
+    ? approvalChoices.map((choice) => ({
+        key: choice.key,
+        label: choice.label,
+        onSelect: () => {
+          void handleServerRequestResponse(pendingRequest.id, choice.result);
+        },
+      }))
+    : [];
+
+  const approvalTitle =
+    pendingRequest?.method === "item/commandExecution/requestApproval"
+      ? "Run command?"
+      : pendingRequest?.method === "item/fileChange/requestApproval"
+        ? "Approve file changes?"
+        : pendingRequest?.method === "item/permissions/requestApproval"
+          ? "Update permissions?"
+          : pendingRequest?.method === "item/tool/requestUserInput"
+            ? "Additional input required"
+            : "Server request";
+  const approvalIntro =
+    pendingRequest?.method === "item/commandExecution/requestApproval"
+      ? "Codex wants to run the following command."
+      : pendingRequest?.method === "item/fileChange/requestApproval"
+        ? "Codex wants to make the following edits."
+        : pendingRequest?.method === "item/permissions/requestApproval"
+          ? "Codex wants to update model permissions."
+          : pendingRequest?.summary ?? "";
+  const approvalReason =
+    typeof (pendingRequest?.params as { reason?: string | null } | undefined)?.reason ===
+    "string"
+      ? ((pendingRequest?.params as { reason?: string | null }).reason ?? null)
+      : null;
+  const approvalDetail =
+    pendingRequest?.method === "item/commandExecution/requestApproval"
+      ? currentCommandText
+        ? `$ ${currentCommandText}`
+        : pendingRequest.detail
+      : pendingRequest?.detail ?? null;
+  const approvalFooter = pendingRequest
+    ? approvalChoices.length > 0
+      ? cancelApprovalChoice
+        ? "Use ↑/↓ then Enter to choose. Esc cancels."
+        : "Use ↑/↓ then Enter to choose."
+      : approvalQuestionModels.length > 0
+        ? "Fill in the answers, then submit."
+        : null
+    : null;
+
+  useEffect(() => {
+    if (pendingRequest) {
+      setSelectedApprovalIndex((current) =>
+        approvalChoices.length === 0
+          ? 0
+          : Math.min(current, approvalChoices.length - 1),
+      );
+      return;
+    }
+
+    setSelectedApprovalIndex(0);
+  }, [approvalChoices.length, pendingRequest]);
+
+  useEffect(() => {
+    const panel = pendingRequest
+      ? approvalDialogRef.current
+      : surface === "threads"
+        ? threadDrawerPanelRef.current
+        : surface
+          ? overlayPanelRef.current
+          : null;
+
+    if (!panel) {
+      return;
+    }
+
+    const focusTarget =
+      panel.querySelector<HTMLElement>('[data-autofocus="true"]') ??
+      getFocusableElements(panel)[0] ??
+      panel;
+
+    const raf = window.requestAnimationFrame(() => {
+      focusTarget.focus();
+    });
+
+    const handleTrapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const focusable = getFocusableElements(panel);
+      if (focusable.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const activeElement = document.activeElement as HTMLElement | null;
+
+      if (event.shiftKey) {
+        if (activeElement === first || !panel.contains(activeElement)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      if (activeElement === last || !panel.contains(activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleTrapFocus);
+    return () => {
+      window.cancelAnimationFrame(raf);
+      document.removeEventListener("keydown", handleTrapFocus);
+    };
+  }, [pendingRequest?.id, surface]);
+
+  useEffect(() => {
+    if (pendingRequest) {
+      return;
+    }
+
+    if (surface) {
+      return;
+    }
+
+    if (document.activeElement === document.body) {
+      composerRef.current?.focus();
+    }
+  }, [pendingRequest, surface]);
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const isMeta = event.metaKey || event.ctrlKey;
 
-      if (overlay.kind === "resume") {
-        if (event.key === "ArrowDown") {
+      if (pendingRequest) {
+        if (event.key === "Escape" && cancelApprovalChoice) {
           event.preventDefault();
-          setSelectedResumeIndex((current) =>
-            Math.min(current + 1, Math.max(filteredThreads.length - 1, 0)),
-          );
+          void handleServerRequestResponse(pendingRequest.id, cancelApprovalChoice.result);
           return;
         }
 
-        if (event.key === "ArrowUp") {
-          event.preventDefault();
-          setSelectedResumeIndex((current) => Math.max(current - 1, 0));
-          return;
+        if (approvalChoices.length > 0 && !isTypingElement(event.target)) {
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            setSelectedApprovalIndex((current) =>
+              Math.min(current + 1, approvalChoices.length - 1),
+            );
+            return;
+          }
+
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            setSelectedApprovalIndex((current) => Math.max(current - 1, 0));
+            return;
+          }
+
+          if (event.key === "Enter") {
+            event.preventDefault();
+            const selectedChoice = approvalChoices[selectedApprovalIndex];
+            if (selectedChoice) {
+              void handleServerRequestResponse(pendingRequest.id, selectedChoice.result);
+            }
+          }
         }
 
-        if (event.key === "Tab") {
-          event.preventDefault();
-          setResumeSort((current) => (current === "created" ? "updated" : "created"));
-          return;
-        }
-
-        if (event.key === "Enter" && selectedResumeThread) {
-          event.preventDefault();
-          void handleResumeThread(selectedResumeThread.id);
-          return;
-        }
-
-        if (event.key === "Escape") {
-          event.preventDefault();
-          void handleCreateThread(true);
-          return;
-        }
-      }
-
-      if (
-        overlay.kind === "transcript" &&
-        (event.key === "Escape" || event.key.toLowerCase() === "q")
-      ) {
-        event.preventDefault();
-        setOverlay({ kind: null });
         return;
       }
 
-      if (overlay.kind !== null && event.key === "Escape") {
+      if (surface && event.key === "Escape") {
         event.preventDefault();
-        setOverlay({ kind: null });
+        closeSurface();
         return;
       }
 
       if (isMeta && event.key.toLowerCase() === "t") {
         event.preventDefault();
-        setOverlay({ kind: "transcript" });
+        openSurface("transcript", document.activeElement as HTMLElement | null);
         return;
       }
 
       if (event.key === "?" && document.activeElement !== composerRef.current) {
         event.preventDefault();
-        setOverlay({ kind: "shortcuts" });
+        openSurface("shortcuts", document.activeElement as HTMLElement | null);
       }
     };
 
@@ -617,620 +987,296 @@ export function CodexShell() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [filteredThreads.length, overlay.kind, selectedResumeThread]);
+  }, [
+    approvalChoices,
+    cancelApprovalChoice,
+    pendingRequest,
+    selectedApprovalIndex,
+    surface,
+  ]);
 
-  const currentModel = getCurrentModel(snapshot);
-  const currentEffort = getCurrentEffort(snapshot);
-  const currentCliVersion = activeThread?.cliVersion ?? snapshot?.threads[0]?.cliVersion ?? null;
-  const headerDirectory =
-    activeThread?.cwd ?? snapshot?.threads[0]?.cwd ?? "new thread on first send";
-  const footerInstruction = visibleCommands.length
-    ? "↑/↓ to navigate · tab to complete"
-    : composer.trim()
-      ? "enter to send · shift+enter for newline"
-      : "? for shortcuts";
-  const statusLine = buildStatusLine(snapshot);
-  const runtime = snapshot?.activeTurnId
-    ? formatRuntime(snapshot.activeTurnStartedAt ?? null)
-    : "idle";
-  const currentCommandText =
-    typeof (pendingRequest?.params as { command?: string } | undefined)?.command === "string"
-      ? ((pendingRequest?.params as { command?: string }).command ?? null)
-      : null;
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Escape") {
+      if (visibleCommands.length > 0) {
+        event.preventDefault();
+        setCommandMenuDismissed(true);
+        return;
+      }
+
+      if (snapshot?.activeTurnId) {
+        event.preventDefault();
+        void handleInterrupt();
+      }
+      return;
+    }
+
+    if (visibleCommands.length > 0) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setSelectedCommandIndex((current) =>
+          Math.min(current + 1, visibleCommands.length - 1),
+        );
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setSelectedCommandIndex((current) => Math.max(0, current - 1));
+        return;
+      }
+
+      if (event.key === "Tab") {
+        event.preventDefault();
+        const selected = visibleCommands[selectedCommandIndex];
+        if (selected) {
+          setComposer(`/${selected.name}`);
+        }
+        return;
+      }
+
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        void handleSlashCommand(resolveSlashCommand(composer, visibleCommands, selectedCommandIndex));
+        setComposer("");
+      }
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void handleSubmit();
+    }
+  };
 
   return (
     <main className="tui-page">
+      {surface === "threads" ? (
+        <ThreadDrawer
+          ref={threadDrawerPanelRef}
+          search={threadSearch}
+          sort={threadSort}
+          filteredCount={filteredThreads.length}
+          activeThread={activeThreadSummary}
+          recentThreads={recentThreads}
+          onSearchChange={setThreadSearch}
+          onSortChange={setThreadSort}
+          onClose={() => closeSurface()}
+          onCreateThread={() => {
+            void handleCreateThread(true);
+          }}
+          onResumeThread={(threadId) => {
+            void handleResumeThread(threadId);
+          }}
+        />
+      ) : null}
+
       <section className="tui-shell">
-        <header className="session-box">
-          <div className="session-box-title">
-            <span>
-              &gt;_ OpenAI Codex
-              {currentCliVersion ? ` (v${currentCliVersion})` : ""}
-            </span>
-            <span className={`session-phase phase-${snapshot?.phase ?? "starting"}`}>
-              {snapshot?.phase ?? "starting"}
-            </span>
-          </div>
+        <ShellHeader
+          threadCount={snapshot?.threadList.length ?? 0}
+          threadDrawerOpen={surface === "threads"}
+          sessionTitle={sessionTitle}
+          sessionMeta={sessionMeta}
+          sessionMetaTitle={sessionMetaTitle}
+          statusLabel={headerStatus.label}
+          statusTone={headerStatus.tone}
+          threadButtonRef={threadButtonRef}
+          onThreadsClick={() => {
+            if (surface === "threads") {
+              closeSurface();
+              return;
+            }
 
-          <div className="session-box-line">
-            <span className="session-box-key">model:</span>
-            <span className="session-box-value">
-              {currentModel?.displayName ?? currentModel?.model ?? "default"}
-              {currentEffort ? ` ${currentEffort}` : ""}
-            </span>
-            <button className="inline-command" onClick={() => setOverlay({ kind: "models" })}>
-              /model to change
-            </button>
-          </div>
-
-          <div className="session-box-line">
-            <span className="session-box-key">directory:</span>
-            <span className="session-box-value session-box-truncate">{headerDirectory}</span>
-            <button className="inline-command" onClick={() => setOverlay({ kind: "resume" })}>
-              /resume to browse
-            </button>
-          </div>
-
-          <div className="session-box-line">
-            <span className="session-box-key">thread:</span>
-            <span className="session-box-value session-box-truncate">
-              {activeThread ? formatThreadLabel(activeThread) : "new session on first send"}
-            </span>
-            <span className="session-box-actions">
-              <button
-                className="inline-command"
-                onClick={() => setOverlay({ kind: "transcript" })}
-              >
-                /transcript
-              </button>
-              <button className="inline-command" onClick={() => setOverlay({ kind: "status" })}>
-                /status
-              </button>
-            </span>
-          </div>
-        </header>
+            openSurface("threads", threadButtonRef.current);
+          }}
+        />
 
         <section className="transcript-surface">
-          <div className="transcript-scroll">
-            {activeTimeline.length === 0 ? (
-              <div className="history-empty">
-                <pre>
-                  {activeThread
-                    ? "No transcript yet.\n\nSend the first turn to begin."
-                    : "No active session.\n\nType a message or use /resume."}
-                </pre>
-              </div>
-            ) : (
-              activeTimeline.map((entry) => (
-                <article key={entry.id} className={`history-cell tone-${entry.tone}`}>
-                  <div className="history-meta">
-                    <span>{entry.kind}</span>
-                    <span>{formatClock(entry.updatedAt)}</span>
-                  </div>
-                  <pre className="history-body">{historyCellText(entry)}</pre>
-                </article>
-              ))
-            )}
-          </div>
+          <TranscriptPane
+            scrollRef={transcriptScrollRef}
+            timeline={activeTimeline}
+            emptyTitle={activeThread ? "No transcript yet" : "No active session"}
+            emptyBody={
+              activeThread
+                ? "Send the first turn to begin."
+                : "Type a message or open the thread drawer."
+            }
+          />
         </section>
 
-        <section className="bottom-dock">
-          {(snapshot?.activeTurnId || pendingRequest) && (
-            <div className="status-widget">
-              <div className="status-widget-line">
-                <span className={`status-dot ${snapshot?.activeTurnId ? "is-live" : ""}`}>•</span>
-                <span>
-                  {snapshot?.activeTurnId
-                    ? `Working (${runtime} • esc to interrupt)`
-                    : pendingRequest?.summary ?? busyAction ?? "Working"}
-                </span>
-              </div>
-              {pendingRequest ? (
-                <div className="status-widget-detail">
-                  <span>↳ {pendingRequest.summary}</span>
-                </div>
-              ) : null}
-            </div>
-          )}
-
-          {visibleCommands.length > 0 ? (
-            <div className="popup-list" role="listbox" aria-label="Slash commands">
-              {visibleCommands.map((command, index) => (
-                <button
-                  key={command.name}
-                  className={`popup-row ${index === selectedCommandIndex ? "selected" : ""}`}
-                  onClick={() => {
-                    setComposer(`/${command.name}`);
-                    composerRef.current?.focus();
-                  }}
-                >
-                  <span className="popup-marker">{index === selectedCommandIndex ? "›" : " "}</span>
-                  <span className="popup-main">/{command.name}</span>
-                  <span className="popup-copy">{command.description}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="composer-frame">
-            <textarea
-              ref={composerRef}
-              value={composer}
-              onChange={(event) => setComposer(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape" && snapshot?.activeTurnId) {
-                  event.preventDefault();
-                  void handleInterrupt();
-                  return;
-                }
-
-                if (visibleCommands.length > 0) {
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault();
-                    setSelectedCommandIndex((current) =>
-                      Math.min(current + 1, visibleCommands.length - 1),
-                    );
-                    return;
-                  }
-
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault();
-                    setSelectedCommandIndex((current) => Math.max(0, current - 1));
-                    return;
-                  }
-
-                  if (event.key === "Tab") {
-                    event.preventDefault();
-                    const selected = visibleCommands[selectedCommandIndex];
-                    if (selected) {
-                      setComposer(`/${selected.name}`);
-                    }
-                    return;
-                  }
-                }
-
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void handleSubmit();
-                }
-              }}
-              placeholder="Message Codex"
-              className="composer-input"
-            />
-          </div>
-
-          <div className="footer-row">
-            <span>{footerInstruction}</span>
-            <span>{statusLine}</span>
-          </div>
-
-          <div className="footer-row muted">
-            <span>{snapshot?.activeTurnId ? "esc to interrupt" : "shift+enter for newline"}</span>
-            <span className="footer-actions">
-              <button className="inline-command" onClick={() => setOverlay({ kind: "shortcuts" })}>
-                shortcuts
-              </button>
-              <button
-                className="inline-command"
-                onClick={() => setOverlay({ kind: "transcript" })}
-              >
-                transcript
-              </button>
-            </span>
-          </div>
-        </section>
+        <ComposerDock
+          composer={composer}
+          visibleCommands={visibleCommands}
+          selectedCommandIndex={selectedCommandIndex}
+          composerRef={composerRef}
+          modelSelectRef={composerModelSelectRef}
+          helperText={composerHelper}
+          statusText={composerStatus}
+          canSubmit={Boolean(composer.trim())}
+          activeTurn={Boolean(snapshot?.activeTurnId)}
+          selectedModel={selectedModelValue}
+          selectedEffort={selectedEffortValue}
+          planMode={selectedPlanMode}
+          modelOptions={sessionModelOptions}
+          effortOptions={sessionEffortOptions}
+          onComposerChange={handleComposerChange}
+          onComposerKeyDown={handleComposerKeyDown}
+          onCommandPick={(commandName) => {
+            setComposer(`/${commandName}`);
+            setCommandMenuDismissed(false);
+            window.setTimeout(() => {
+              composerRef.current?.focus();
+            }, 0);
+          }}
+          onModelChange={(value) => {
+            void handleComposerModelChange(value);
+          }}
+          onEffortChange={(value) => {
+            void handleComposerEffortChange(value);
+          }}
+          onPlanModeToggle={() => {
+            void handlePlanModeToggle();
+          }}
+          onSubmit={() => {
+            void handleSubmit();
+          }}
+          onInterrupt={() => {
+            void handleInterrupt();
+          }}
+        />
       </section>
 
-      {overlay.kind === "resume" && snapshot ? (
-        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
-          <section className="screen-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="screen-header">
-              <span>Resume a previous session</span>
-              <span>Sort: {resumeSort === "created" ? "Created at" : "Updated at"}</span>
-            </div>
-
-            <div className="screen-label">Type to search</div>
-            <input
-              value={resumeSearch}
-              onChange={(event) => setResumeSearch(event.target.value)}
-              placeholder="Type to search"
-              className="screen-search"
-              autoFocus
-            />
-
-            <div className="resume-table">
-              <div className="resume-table-head">
-                <span />
-                <span>Created at</span>
-                <span>Updated at</span>
-                <span>Branch</span>
-                <span>CWD</span>
-                <span>Conversation</span>
-              </div>
-
-              {filteredThreads.length === 0 ? (
-                <div className="resume-empty">No sessions yet</div>
-              ) : (
-                filteredThreads.map((thread, index) => (
-                  <button
-                    key={thread.id}
-                    className={`resume-table-row ${
-                      selectedResumeThread?.id === thread.id ? "selected" : ""
-                    }`}
-                    onClick={() => {
-                      setSelectedResumeIndex(index);
-                      void handleResumeThread(thread.id);
-                    }}
-                  >
-                    <span className="resume-marker">
-                      {selectedResumeThread?.id === thread.id ? "›" : " "}
-                    </span>
-                    <span>{formatRelativeTime(thread.createdAt)}</span>
-                    <span>{formatRelativeTime(thread.updatedAt)}</span>
-                    <span>{thread.gitInfo?.branch ?? "-"}</span>
-                    <span>{thread.cwd || "-"}</span>
-                    <span className="resume-conversation">{formatThreadLabel(thread)}</span>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <div className="screen-footer">
-              enter to resume&nbsp;&nbsp;&nbsp;&nbsp;esc to start new&nbsp;&nbsp;&nbsp;&nbsp;
-              ctrl + c to quit&nbsp;&nbsp;&nbsp;&nbsp;tab to toggle sort
-            </div>
-          </section>
-        </div>
+      {activeOverlay === "transcript" ? (
+        <SurfaceDialog
+          ref={overlayPanelRef}
+          title="Transcript"
+          subtitle={activeThreadSummary?.title ?? "No active thread"}
+          footer="Esc closes this overlay."
+          size="wide"
+          onClose={() => closeSurface()}
+        >
+          <TranscriptPane
+            overlay
+            timeline={activeTimeline}
+            emptyTitle={activeThread ? "No transcript yet" : "No active session"}
+            emptyBody={
+              activeThread
+                ? "Send the first turn to begin."
+                : "Pick a thread first."
+            }
+          />
+        </SurfaceDialog>
       ) : null}
 
-      {overlay.kind === "models" && snapshot ? (
-        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
-          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="picker-header">{overlayBanner("Model")}</div>
-            <div className="picker-list">
-              {snapshot.models.map((model) => {
-                const isCurrent = snapshot.sessionSettings.model === model.model;
-                return (
-                  <div key={model.id} className={`picker-item ${isCurrent ? "selected" : ""}`}>
-                    <button
-                      className="picker-main"
-                      onClick={() => {
-                        void handleModelChange(model.model, model.defaultReasoningEffort);
-                      }}
-                    >
-                      <span>{isCurrent ? "›" : " "}</span>
-                      <span>{model.displayName}</span>
-                      {model.isDefault ? <span className="picker-tag">default</span> : null}
-                    </button>
-                    <p>{model.description}</p>
-                    <div className="picker-inline-options">
-                      {model.supportedReasoningEfforts.map((effort) => (
-                        <button
-                          key={`${model.id}:${effort.reasoningEffort}`}
-                          className={`picker-chip ${
-                            snapshot.sessionSettings.model === model.model &&
-                            snapshot.sessionSettings.effort === effort.reasoningEffort
-                              ? "selected"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            void handleModelChange(model.model, effort.reasoningEffort);
-                          }}
-                        >
-                          {effort.reasoningEffort}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="screen-footer">click a reasoning level to apply or esc to cancel</div>
-          </section>
-        </div>
-      ) : null}
-
-      {overlay.kind === "transcript" && snapshot ? (
-        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
-          <section className="screen-panel transcript-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="picker-header">{overlayBanner("Transcript")}</div>
-            <div className="transcript-overlay-subtitle">
-              {activeThread ? formatThreadLabel(activeThread) : "No active thread"}
-            </div>
-            <div className="overlay-scroll">
-              {activeTimeline.map((entry) => (
-                <article key={entry.id} className="overlay-history-cell">
-                  <div className="history-meta">
-                    <span>{entry.kind}</span>
-                    <span>{formatClock(entry.updatedAt)}</span>
-                  </div>
-                  <pre className="history-body">{historyCellText(entry)}</pre>
-                </article>
-              ))}
-            </div>
-            <div className="screen-footer">
-              ↑/↓ to scroll&nbsp;&nbsp;&nbsp;pgup/pgdn to page&nbsp;&nbsp;&nbsp;q to quit
-              &nbsp;&nbsp;&nbsp;esc to edit prev
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {overlay.kind === "status" && snapshot ? (
-        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
-          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="picker-header">{overlayBanner("Status")}</div>
+      {activeOverlay === "status" && snapshot ? (
+        <SurfaceDialog
+          ref={overlayPanelRef}
+          title="Status"
+          subtitle={buildStatusLine(snapshot)}
+          footer="Esc closes this overlay."
+          onClose={() => closeSurface()}
+        >
+          <div className="picker-scroll">
             <pre className="status-pre">
 {`bridge: ${snapshot.phase}
-active thread: ${activeThread ? formatThreadLabel(activeThread) : "none"}
+connection: ${connectionState}
+active thread: ${activeThreadSummary?.title ?? "none"}
 model: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
 reasoning: ${currentEffort ?? "default"}
+plan mode: ${selectedPlanMode ? "on" : "off"}
 pending requests: ${snapshot.pendingRequests.length}
 runtime: ${runtime}
-
-logs:
-${snapshot.bridgeLogs.join("\n") || "No bridge logs yet."}`}
+last error: ${snapshot.lastError ?? "none"}`}
             </pre>
-            <div className="screen-footer">esc to close</div>
-          </section>
-        </div>
+          </div>
+        </SurfaceDialog>
       ) : null}
 
-      {overlay.kind === "shortcuts" ? (
-        <div className="screen-overlay" onClick={() => setOverlay({ kind: null })}>
-          <section className="picker-panel" onClick={(event) => event.stopPropagation()}>
-            <div className="picker-header">{overlayBanner("Shortcuts")}</div>
+      {activeOverlay === "shortcuts" ? (
+        <SurfaceDialog
+          ref={overlayPanelRef}
+          title="Shortcuts"
+          subtitle="Keyboard help that matches the current browser behavior."
+          footer="Browser-reserved shortcuts keep visible fallback controls in the shell."
+          onClose={() => closeSurface()}
+        >
+          <div className="picker-scroll">
             <pre className="status-pre">
 {`Enter            send current turn
 Shift + Enter    insert newline
-Esc              close overlays / interrupt active turn
+Esc              close overlays / interrupt / hide slash suggestions
 ?                open shortcut panel
-Ctrl/Cmd + T     open transcript overlay (browser may reserve this)
-/                trigger slash command popup`}
+Ctrl/Cmd + T     open transcript overlay
+/                trigger slash command suggestions`}
             </pre>
-            <div className="screen-footer">
-              Browser-reserved keys keep visible fallback controls in the shell
-            </div>
-          </section>
-        </div>
+          </div>
+        </SurfaceDialog>
       ) : null}
 
       {pendingRequest ? (
-        <div className="screen-overlay modal-overlay">
-          <section className="approval-modal">
-            {pendingRequest.method === "item/commandExecution/requestApproval" ? (
-              <>
-                <div className="approval-copy">
-                  <p>Would you like to run the following command?</p>
-                  {typeof (pendingRequest.params as { reason?: string | null })?.reason ===
-                  "string" ? (
-                    <p>
-                      Reason:{" "}
-                      {(pendingRequest.params as { reason?: string | null }).reason}
-                    </p>
-                  ) : null}
-                  <pre className="approval-command">{currentCommandText ? `$ ${currentCommandText}` : pendingRequest.detail}</pre>
-                </div>
-                <div className="approval-options">
-                  {(
+        <ApprovalDialog
+          ref={approvalDialogRef}
+          title={approvalTitle}
+          intro={approvalIntro}
+          reason={approvalReason}
+          detail={approvalDetail}
+          options={approvalOptions}
+          selectedOptionIndex={selectedApprovalIndex}
+          questions={approvalQuestionModels}
+          submitLabel={
+            approvalQuestionModels.length > 0 ? "Submit answers" : null
+          }
+          onSubmitQuestions={
+            approvalQuestionModels.length > 0
+              ? () => {
+                  const questions =
                     ((pendingRequest.params as {
-                      availableDecisions?: CommandExecutionApprovalDecision[];
-                    })?.availableDecisions as CommandExecutionApprovalDecision[] | undefined) ?? [
-                      "accept",
-                      "decline",
-                      "cancel",
-                    ]
-                  ).map((decision, index) => (
-                    <button
-                      key={summarizeDecision(decision)}
-                      className={`approval-option ${index === 0 ? "selected" : ""}`}
-                      onClick={() => {
-                        void handleServerRequestResponse(pendingRequest.id, {
-                          decision,
-                        });
-                      }}
-                    >
-                      <span>{index === 0 ? "›" : " "}</span>
-                      <span>{index + 1}.</span>
-                      <span>{approvalDecisionLabel(decision, currentCommandText)}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="screen-footer">Press enter to confirm or esc to cancel</div>
-              </>
-            ) : null}
-
-            {pendingRequest.method === "item/fileChange/requestApproval" ? (
-              <>
-                <div className="approval-copy">
-                  <p>Would you like to make the following edits?</p>
-                  <pre className="approval-command">{pendingRequest.detail}</pre>
-                </div>
-                <div className="approval-options">
-                  {["accept", "acceptForSession", "decline", "cancel"].map((decision, index) => (
-                    <button
-                      key={decision}
-                      className={`approval-option ${index === 0 ? "selected" : ""}`}
-                      onClick={() => {
-                        void handleServerRequestResponse(pendingRequest.id, {
-                          decision,
-                        });
-                      }}
-                    >
-                      <span>{index === 0 ? "›" : " "}</span>
-                      <span>{index + 1}.</span>
-                      <span>{fileApprovalDecisionLabel(decision)}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="screen-footer">Press enter to confirm or esc to cancel</div>
-              </>
-            ) : null}
-
-            {pendingRequest.method === "item/permissions/requestApproval" ? (
-              <>
-                <div className="approval-copy">
-                  <p>Update Model Permissions</p>
-                  <pre className="approval-command">{pendingRequest.detail}</pre>
-                </div>
-                <div className="approval-options">
-                  {[
-                    { label: "Default", scope: "turn" },
-                    { label: "Full Access", scope: "session" },
-                  ].map((option, index) => (
-                    <button
-                      key={option.label}
-                      className={`approval-option ${index === 0 ? "selected" : ""}`}
-                      onClick={() => {
-                        const params =
-                          (pendingRequest.params as { permissions?: unknown }) ?? {};
-                        void handleServerRequestResponse(pendingRequest.id, {
-                          permissions: params.permissions ?? {},
-                          scope: option.scope,
-                        });
-                      }}
-                    >
-                      <span>{index === 0 ? "›" : " "}</span>
-                      <span>{index + 1}.</span>
-                      <span>{option.label}</span>
-                    </button>
-                  ))}
-                </div>
-                <div className="screen-footer">Press enter to confirm or esc to go back</div>
-              </>
-            ) : null}
-
-            {pendingRequest.method === "item/tool/requestUserInput" ? (
-              <>
-                <div className="approval-copy">
-                  <p>{pendingRequest.summary}</p>
-                </div>
-                <div className="question-stack">
-                  {(
-                    ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
-                      ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? []
-                  ).map((question) => (
-                    <div key={question.id} className="plain-question">
-                      <strong>{question.header}</strong>
-                      <div>{question.question}</div>
-                      {question.options?.length ? (
-                        <div className="picker-inline-options">
-                          {question.options.map((option) => (
-                            <button
-                              key={option.label}
-                              className={`picker-chip ${
-                                requestAnswers[pendingRequest.id]?.[question.id] === option.label
-                                  ? "selected"
-                                  : ""
-                              }`}
-                              onClick={() => {
-                                setRequestAnswers((current) => ({
-                                  ...current,
-                                  [pendingRequest.id]: {
-                                    ...current[pendingRequest.id],
-                                    [question.id]: option.label,
-                                  },
-                                }));
-                              }}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                      {question.isOther ? (
-                        <input
-                          className="screen-search"
-                          value={requestAnswers[pendingRequest.id]?.[question.id] ?? ""}
-                          onChange={(event) => {
-                            setRequestAnswers((current) => ({
-                              ...current,
-                              [pendingRequest.id]: {
-                                ...current[pendingRequest.id],
-                                [question.id]: event.target.value,
-                              },
-                            }));
-                          }}
-                          placeholder="Type an answer"
-                        />
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="approval-actions">
-                  <button
-                    className="plain-action"
-                    onClick={() => {
-                      const questions =
-                        ((pendingRequest.params as { questions?: ToolRequestUserInputQuestion[] })
-                          ?.questions as ToolRequestUserInputQuestion[] | undefined) ?? [];
-                      const answers = Object.fromEntries(
-                        questions.map((question) => [
-                          question.id,
-                          {
-                            answers: [
-                              requestAnswers[pendingRequest.id]?.[question.id] ?? "",
-                            ].filter(Boolean),
-                          },
-                        ]),
-                      );
-                      void handleServerRequestResponse(pendingRequest.id, { answers });
-                    }}
-                  >
-                    submit answers
-                  </button>
-                </div>
-              </>
-            ) : null}
-
-            {![
-              "item/commandExecution/requestApproval",
-              "item/fileChange/requestApproval",
-              "item/permissions/requestApproval",
-              "item/tool/requestUserInput",
-            ].includes(pendingRequest.method) ? (
-              <>
-                <div className="approval-copy">
-                  <p>{pendingRequest.summary}</p>
-                  <pre className="approval-command">{pendingRequest.detail}</pre>
-                </div>
-              </>
-            ) : null}
-
-            <details className="advanced-json">
-              <summary>Advanced response JSON</summary>
-              <textarea
-                className="raw-json-editor"
-                value={requestDrafts[pendingRequest.id] ?? ""}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  setRequestDrafts((current) => ({
-                    ...current,
-                    [pendingRequest.id]: nextValue,
-                  }));
-                }}
-              />
-              <button
-                className="plain-action"
-                onClick={() => {
-                  try {
-                    const parsed = JSON.parse(requestDrafts[pendingRequest.id] ?? "{}");
-                    void handleServerRequestResponse(pendingRequest.id, parsed);
-                  } catch (error) {
-                    setToast(
-                      error instanceof Error
-                        ? error.message
-                        : "Invalid JSON for server request response.",
-                    );
-                  }
-                }}
-              >
-                send JSON response
-              </button>
-            </details>
-          </section>
-        </div>
+                      questions?: ToolRequestUserInputQuestion[];
+                    })?.questions as ToolRequestUserInputQuestion[] | undefined) ?? [];
+                  const answers = Object.fromEntries(
+                    questions.map((question) => [
+                      question.id,
+                      {
+                        answers: [
+                          requestAnswers[pendingRequest.id]?.[question.id] ?? "",
+                        ].filter(Boolean),
+                      },
+                    ]),
+                  );
+                  void handleServerRequestResponse(pendingRequest.id, { answers });
+                }
+              : null
+          }
+          requestDraft={requestDrafts[pendingRequest.id] ?? ""}
+          onRequestDraftChange={(value) => {
+            setRequestDrafts((current) => ({
+              ...current,
+              [pendingRequest.id]: value,
+            }));
+          }}
+          onSendJson={() => {
+            try {
+              const parsed = JSON.parse(requestDrafts[pendingRequest.id] ?? "{}");
+              void handleServerRequestResponse(pendingRequest.id, parsed);
+            } catch (error) {
+              setToast(
+                error instanceof Error
+                  ? error.message
+                  : "Invalid JSON for server request response.",
+              );
+            }
+          }}
+          footer={approvalFooter}
+          onCancel={
+            cancelApprovalChoice
+              ? () => {
+                  void handleServerRequestResponse(
+                    pendingRequest.id,
+                    cancelApprovalChoice.result,
+                  );
+                }
+              : null
+          }
+        />
       ) : null}
 
       {toast ? <div className="toast">{toast}</div> : null}

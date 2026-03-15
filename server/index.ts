@@ -129,11 +129,22 @@ async function main(): Promise<void> {
         const body = (await readJson(request)) as {
           model?: string | null;
           effort?: string | null;
+          planMode?: boolean;
         } | null;
 
         const snapshot = await bridge.setSessionSettings({
-          model: body?.model ?? null,
-          effort: (body?.effort ?? null) as never,
+          model:
+            body && Object.prototype.hasOwnProperty.call(body, "model")
+              ? (body.model ?? null)
+              : undefined,
+          effort:
+            body && Object.prototype.hasOwnProperty.call(body, "effort")
+              ? ((body.effort ?? null) as never)
+              : undefined,
+          planMode:
+            body && Object.prototype.hasOwnProperty.call(body, "planMode")
+              ? Boolean(body.planMode)
+              : undefined,
         });
         json(response, 200, { snapshot });
         return;
@@ -189,7 +200,6 @@ async function main(): Promise<void> {
   server.on("upgrade", (request, socket, head) => {
     const url = new URL(request.url ?? "/", `http://${host}:${port}`);
     if (url.pathname !== "/ws") {
-      socket.destroy();
       return;
     }
 
@@ -217,4 +227,3 @@ async function main(): Promise<void> {
 }
 
 void main();
-

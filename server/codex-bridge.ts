@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { basename } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import readline from "node:readline";
 
@@ -22,6 +23,7 @@ import type {
   SessionSettings,
   TimelineEntry,
   TimelineTone,
+  ThreadListItem,
 } from "../src/lib/shared";
 
 type JsonRpcId = number | string;
@@ -67,7 +69,6 @@ type InternalState = {
   pendingRequests: Map<string, TrackedPendingRequest>;
   models: Model[];
   sessionSettings: SessionSettings;
-  bridgeLogs: string[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -93,6 +94,99 @@ function bodyFromLines(lines: Array<string | null | undefined>): string {
   return lines
     .filter((line): line is string => Boolean(line && line.trim().length > 0))
     .join("\n");
+}
+
+const threadListDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function formatThreadSourceLabel(source: Thread["source"]): string {
+  if (typeof source !== "string") {
+    return source.subAgent ? `Sub-agent ${source.subAgent}` : "Sub-agent";
+  }
+
+  switch (source) {
+    case "vscode":
+      return "VS Code";
+    case "exec":
+      return "Exec";
+    case "appServer":
+      return "App Server";
+    case "cli":
+    default:
+      return "CLI";
+  }
+}
+
+function getWorkspaceBaseName(cwd: string): string {
+  const normalized = cwd.replace(/[\\/]+$/, "");
+  return basename(normalized) || cwd || "workspace";
+}
+
+function formatWorkspaceLabel(cwd: string): string {
+  const normalized = cwd.replace(/[\\/]+$/, "");
+  if (!normalized) {
+    return ".";
+  }
+
+  const parts = normalized.split(/[\\/]+/).filter(Boolean);
+  if (parts.length <= 3) {
+    return normalized;
+  }
+
+  return `.../${parts.slice(-3).join("/")}`;
+}
+
+function formatThreadListTimestamp(unixSeconds: number): string {
+  return threadListDateFormatter.format(new Date(unixSeconds * 1000));
+}
+
+function buildThreadListTitle(thread: Thread): string {
+  const trimmedName = thread.name?.trim();
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  return `${getWorkspaceBaseName(thread.cwd)} · ${formatThreadListTimestamp(
+    thread.updatedAt,
+  )}`;
+}
+
+function buildThreadListItem(thread: Thread, isActive: boolean): ThreadListItem {
+  const title = buildThreadListTitle(thread);
+  const workspaceLabel = formatWorkspaceLabel(thread.cwd);
+  const sourceLabel = formatThreadSourceLabel(thread.source);
+  const statusLabel =
+    thread.status.type === "active" || thread.status.type === "systemError"
+      ? extractThreadStatusLabel(thread.status)
+      : null;
+
+  return {
+    id: thread.id,
+    title,
+    workspaceLabel,
+    workspacePath: thread.cwd,
+    branch: thread.gitInfo?.branch ?? null,
+    statusLabel,
+    sourceLabel,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    isActive,
+    searchText: [
+      title,
+      thread.name ?? "",
+      thread.cwd,
+      thread.gitInfo?.branch ?? "",
+      sourceLabel,
+      statusLabel ?? "",
+    ]
+      .join(" ")
+      .trim()
+      .toLowerCase(),
+  };
 }
 
 function stringifyUnknown(value: unknown): string {
@@ -184,8 +278,8 @@ function timelineEntryFromTurnItem(
         id: itemId,
         threadId,
         turnId,
-        kind: "review",
-        title: "Plan update",
+        kind: "plan",
+        title: "Plan",
         body: typeof item.text === "string" ? item.text : "",
         tone: "accent",
         status,
@@ -212,7 +306,7 @@ function timelineEntryFromTurnItem(
         threadId,
         turnId,
         kind: "diff",
-        title: "File change",
+        title: "Edited content",
         body: (((item.changes as Array<{ path: string; kind: string; diff: string }>) ?? [])
           .map((change) =>
             bodyFromLines([
@@ -287,8 +381,8 @@ export class CodexBridge extends EventEmitter {
     sessionSettings: {
       model: null,
       effort: null,
+      planMode: false,
     },
-    bridgeLogs: [],
   };
   private readyPromise: Promise<void> | null = null;
 
@@ -331,11 +425,15 @@ export class CodexBridge extends EventEmitter {
     const activeTurnStartedAt = activeThreadId
       ? this.state.activeTurnStartedAt.get(activeThreadId) ?? null
       : null;
+    const threadList = threads.map((thread) =>
+      buildThreadListItem(thread, thread.id === activeThreadId),
+    );
 
     return {
       phase: this.state.phase,
       lastError: this.state.lastError,
       threads,
+      threadList,
       activeThreadId,
       activeTurnId,
       activeTurnStartedAt,
@@ -345,7 +443,6 @@ export class CodexBridge extends EventEmitter {
         .map(({ wireId: _wireId, ...request }) => request),
       models: this.state.models,
       sessionSettings: this.state.sessionSettings,
-      bridgeLogs: this.state.bridgeLogs,
     };
   }
 
@@ -418,7 +515,11 @@ export class CodexBridge extends EventEmitter {
   async setSessionSettings(settings: Partial<SessionSettings>): Promise<BridgeSnapshot> {
     this.state.sessionSettings = {
       ...this.state.sessionSettings,
-      ...settings,
+      ...(typeof settings.model !== "undefined" ? { model: settings.model } : {}),
+      ...(typeof settings.effort !== "undefined" ? { effort: settings.effort } : {}),
+      ...(typeof settings.planMode !== "undefined"
+        ? { planMode: settings.planMode }
+        : {}),
     };
     this.publish();
     return this.getSnapshot();
@@ -441,6 +542,19 @@ export class CodexBridge extends EventEmitter {
       throw new Error("No active thread available.");
     }
 
+    const resolvedModel = this.getResolvedModel();
+    const resolvedEffort = this.getResolvedEffort(resolvedModel);
+    const collaborationMode = this.state.sessionSettings.planMode && resolvedModel
+      ? {
+          mode: "plan" as const,
+          settings: {
+            model: resolvedModel.model,
+            reasoning_effort: resolvedEffort,
+            developer_instructions: null,
+          },
+        }
+      : undefined;
+
     await this.sendRequest<TurnStartResponse>("turn/start", {
       threadId,
       input: [
@@ -450,8 +564,9 @@ export class CodexBridge extends EventEmitter {
           text_elements: [],
         },
       ],
-      model: this.state.sessionSettings.model,
-      effort: this.state.sessionSettings.effort,
+      model: resolvedModel?.model ?? this.state.sessionSettings.model,
+      effort: resolvedEffort,
+      collaborationMode,
     });
 
     return this.getSnapshot();
@@ -576,8 +691,7 @@ export class CodexBridge extends EventEmitter {
       return;
     }
 
-    this.state.bridgeLogs = [...this.state.bridgeLogs.slice(-119), trimmed];
-    this.emit("snapshot", this.getSnapshot());
+    console.error(`[codex-bridge] ${trimmed}`);
   }
 
   private setError(message: string): void {
@@ -596,7 +710,10 @@ export class CodexBridge extends EventEmitter {
   }
 
   private async refreshThreads(): Promise<void> {
-    const response = (await this.sendRequest<ThreadListResponse>("thread/list", {})) as ThreadListResponse;
+    const response = (await this.sendRequest<ThreadListResponse>("thread/list", {
+      sourceKinds: ["cli", "vscode", "exec", "appServer"],
+      sortKey: "updated_at",
+    })) as ThreadListResponse;
 
     for (const thread of response.data) {
       this.state.threads.set(thread.id, thread);
@@ -609,6 +726,19 @@ export class CodexBridge extends EventEmitter {
   private async refreshModels(): Promise<void> {
     const response = (await this.sendRequest<ModelListResponse>("model/list", {})) as ModelListResponse;
     this.state.models = response.data.filter((model) => !model.hidden);
+  }
+
+  private getResolvedModel(): Model | null {
+    return (
+      this.state.models.find((model) => model.model === this.state.sessionSettings.model) ??
+      this.state.models.find((model) => model.isDefault) ??
+      this.state.models[0] ??
+      null
+    );
+  }
+
+  private getResolvedEffort(model: Model | null): ReasoningEffort | null {
+    return this.state.sessionSettings.effort ?? model?.defaultReasoningEffort ?? null;
   }
 
   private hydrateThreadTimeline(thread: Thread): void {
@@ -962,7 +1092,7 @@ export class CodexBridge extends EventEmitter {
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
-          this.appendDelta(threadId, itemId, "Agent message", delta, "accent");
+          this.appendDelta(threadId, itemId, "message", "Agent message", delta, "accent");
         }
         break;
       }
@@ -976,19 +1106,44 @@ export class CodexBridge extends EventEmitter {
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
-          const title =
+          const descriptor =
             method === "item/reasoning/textDelta"
-              ? "Reasoning"
+              ? {
+                  kind: "reasoning" as const,
+                  title: "Reasoning",
+                  tone: "muted" as const,
+                }
               : method === "item/reasoning/summaryTextDelta"
-                ? "Reasoning summary"
+                ? {
+                    kind: "reasoning" as const,
+                    title: "Reasoning summary",
+                    tone: "muted" as const,
+                  }
                 : method === "item/plan/delta"
-                  ? "Plan"
+                  ? {
+                      kind: "plan" as const,
+                      title: "Plan",
+                      tone: "accent" as const,
+                    }
                   : method === "item/fileChange/outputDelta"
-                    ? "File change"
-                    : "Command output";
-          const tone: TimelineTone =
-            method === "item/fileChange/outputDelta" ? "warning" : "muted";
-          this.appendDelta(threadId, itemId, title, delta, tone);
+                    ? {
+                        kind: "diff" as const,
+                        title: "Edited content",
+                        tone: "warning" as const,
+                      }
+                    : {
+                        kind: "command" as const,
+                        title: "Command output",
+                        tone: "muted" as const,
+                      };
+          this.appendDelta(
+            threadId,
+            itemId,
+            descriptor.kind,
+            descriptor.title,
+            delta,
+            descriptor.tone,
+          );
         }
         break;
       }
@@ -1003,7 +1158,7 @@ export class CodexBridge extends EventEmitter {
             threadId,
             turnId,
             kind: "diff",
-            title: "Turn diff updated",
+            title: "Edited content",
             body: diff,
             tone: "warning",
             status: "completed",
@@ -1067,6 +1222,7 @@ export class CodexBridge extends EventEmitter {
   private appendDelta(
     threadId: string,
     itemId: string,
+    kind: TimelineEntry["kind"],
     title: string,
     delta: string,
     tone: TimelineTone,
@@ -1078,7 +1234,7 @@ export class CodexBridge extends EventEmitter {
         id: itemId,
         threadId,
         turnId: null,
-        kind: tone === "accent" ? "message" : "system",
+        kind,
         title,
         body: delta,
         tone,
@@ -1088,7 +1244,17 @@ export class CodexBridge extends EventEmitter {
       return;
     }
 
-    existing.body += delta;
+    existing.body +=
+      kind === "command" &&
+      existing.body.length > 0 &&
+      !existing.body.endsWith("\n") &&
+      delta.length > 0
+        ? `\n${delta}`
+        : delta;
+    existing.kind = kind;
+    if (!(kind === "command" && existing.title.trim().startsWith("$ "))) {
+      existing.title = title;
+    }
     existing.updatedAt = Date.now();
     existing.status = "running";
   }
