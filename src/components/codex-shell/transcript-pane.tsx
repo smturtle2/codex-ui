@@ -5,7 +5,7 @@ import { useEffect, useState, type RefObject } from "react";
 import type { TimelineEntry } from "@/lib/shared";
 
 import type { UiCopy, UiLocale } from "./copy";
-import { formatClock, formatTimelineKind, formatTimelineStatus } from "./utils";
+import { formatTimelineKind, formatTimelineStatus } from "./utils";
 
 type TranscriptPaneProps = {
   timeline: TimelineEntry[];
@@ -323,7 +323,6 @@ export function TranscriptPane({
             }
 
             if (row.type === "messageGroup") {
-              const lastEntry = row.entries[row.entries.length - 1];
               const groupStatus = getMessageGroupStatus(row.entries);
 
               return (
@@ -340,16 +339,13 @@ export function TranscriptPane({
                         {formatTimelineStatus(groupStatus, locale)}
                       </span>
                     ) : null}
-                    <time className="history-message-time">
-                      {formatClock(locale, lastEntry.updatedAt)}
-                    </time>
                   </div>
 
-                  <div className="history-message-bubbles">
+                  <div className="history-message-stack">
                     {row.entries.map((entry) => {
                       const body = entry.body.trim() || entry.title.trim();
                       return (
-                        <div key={entry.id} className="history-message-bubble">
+                        <div key={entry.id} className="history-message-entry">
                           <pre className="history-message-line">{body}</pre>
                         </div>
                       );
@@ -371,54 +367,45 @@ export function TranscriptPane({
                   isExpanded ? "expanded" : ""
                 }`}
               >
-                {detail ? (
-                  <>
-                    <button
-                      type="button"
-                      className="history-event-toggle"
-                      onClick={() => {
-                        setExpandedEntries((current) => ({
-                          ...current,
-                          [entry.id]: !isExpanded,
-                        }));
-                      }}
-                    >
-                      <div className="history-event-summaryline">
-                        <span className="history-event-kind">
-                          {formatTimelineKind(entry.kind, locale)}
-                        </span>
-                        <span className="history-event-summary">{summary}</span>
-                        {entry.status !== "completed" && entry.status !== "idle" ? (
-                          <span className="history-event-state">
-                            {formatTimelineStatus(entry.status, locale)}
-                          </span>
-                        ) : null}
-                        <time className="history-message-time">
-                          {formatClock(locale, entry.updatedAt)}
-                        </time>
-                        <span className="history-event-marker">
-                          {getRevealLabel(entry, isExpanded, copy)}
-                        </span>
-                      </div>
-                    </button>
-                    {isExpanded ? <pre className="history-event-detail">{detail}</pre> : null}
-                  </>
-                ) : (
-                  <div className="history-event-summaryline">
-                    <span className="history-event-kind">
-                      {formatTimelineKind(entry.kind, locale)}
+                <div className="history-event-head">
+                  <span className="history-event-kind">
+                    {formatTimelineKind(entry.kind, locale)}
+                  </span>
+                  {entry.status !== "completed" && entry.status !== "idle" ? (
+                    <span className="history-event-state">
+                      {formatTimelineStatus(entry.status, locale)}
                     </span>
-                    <span className="history-event-summary">{summary}</span>
-                    {entry.status !== "completed" && entry.status !== "idle" ? (
-                      <span className="history-event-state">
-                        {formatTimelineStatus(entry.status, locale)}
-                      </span>
-                    ) : null}
-                    <time className="history-message-time">
-                      {formatClock(locale, entry.updatedAt)}
-                    </time>
-                  </div>
-                )}
+                  ) : null}
+                </div>
+
+                <div className="history-event-body">
+                  {detail ? (
+                    <>
+                      <button
+                        type="button"
+                        className="history-event-toggle"
+                        onClick={() => {
+                          setExpandedEntries((current) => ({
+                            ...current,
+                            [entry.id]: !isExpanded,
+                          }));
+                        }}
+                      >
+                        <div className="history-event-summaryline">
+                          <span className="history-event-summary">{summary}</span>
+                          <span className="history-event-marker">
+                            {getRevealLabel(entry, isExpanded, copy)}
+                          </span>
+                        </div>
+                      </button>
+                      {isExpanded ? <pre className="history-event-detail">{detail}</pre> : null}
+                    </>
+                  ) : (
+                    <div className="history-event-summaryline">
+                      <span className="history-event-summary">{summary}</span>
+                    </div>
+                  )}
+                </div>
               </article>
             );
           })}

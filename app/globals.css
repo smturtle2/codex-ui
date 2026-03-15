@@ -1,10 +1,10 @@
 :root {
-  --bg: #f5f5f5;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-muted: #f7f7f7;
-  --surface-soft: #efefef;
+  --surface-muted: #fafafa;
+  --surface-soft: #f1f1f1;
   --surface-float: #ffffff;
-  --line: #dadada;
+  --line: #d6d6d6;
   --line-strong: #111111;
   --text: #111111;
   --muted: #5f5f5f;
@@ -13,7 +13,8 @@
   --selection: rgba(17, 17, 17, 0.08);
   --content-width: 1520px;
   --measure: 72rem;
-  --radius: 1rem;
+  --radius: 0.7rem;
+  --label-column: 5.75rem;
   --font-sans:
     "IBM Plex Sans",
     "Noto Sans KR",
@@ -96,7 +97,8 @@ pre {
   min-height: 0;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0.7rem;
+  padding: max(0.7rem, env(safe-area-inset-top)) 0.7rem
+    max(0.7rem, env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 0.65rem;
@@ -115,7 +117,7 @@ pre {
 }
 
 .shell-header {
-  padding: 0.44rem 0.62rem;
+  padding: 0.34rem 0.56rem;
 }
 
 .shell-header-rail,
@@ -330,7 +332,7 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.15rem 1.25rem 1.5rem;
+  padding: 1.1rem 1.2rem 1.4rem;
 }
 
 .transcript-scroll-shell {
@@ -363,7 +365,7 @@ pre {
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 1.1rem;
+  gap: 0.95rem;
   align-content: start;
 }
 
@@ -378,64 +380,46 @@ pre {
 .history-message-group,
 .history-event {
   display: grid;
-  gap: 0.42rem;
-}
-
-.history-message-group.role-user {
-  width: min(100%, 42rem);
-  margin-left: auto;
-  text-align: right;
-}
-
-.history-message-group.role-assistant {
-  width: min(100%, 64rem);
+  grid-template-columns: var(--label-column) minmax(0, 1fr);
+  gap: 0.42rem 0.95rem;
+  align-items: start;
 }
 
 .history-message-group-head {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem 0.72rem;
-  flex-wrap: wrap;
-}
-
-.history-message-group.role-user .history-message-group-head {
-  justify-content: flex-end;
-}
-
-.history-message-time {
-  color: var(--soft);
-  white-space: nowrap;
-  font-size: 0.72rem;
-}
-
-.history-message-bubbles {
   display: grid;
-  gap: 0.48rem;
+  gap: 0.14rem;
+  align-content: start;
 }
 
-.history-message-bubble {
-  padding: 0.86rem 1rem;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 0.12rem);
-  background: var(--surface-muted);
+.history-message-stack {
+  display: grid;
+  gap: 0.78rem;
 }
 
-.history-message-group.role-user .history-message-bubble {
-  margin-left: auto;
-  background: var(--line-strong);
-  border-color: var(--line-strong);
-  color: var(--inverse);
-  text-align: left;
+.history-message-entry {
+  position: relative;
 }
 
 .history-message-line {
+  margin: 0;
   font-size: 0.98rem;
   line-height: 1.72;
 }
 
 .history-event {
-  padding-top: 0.82rem;
+  padding-top: 0.74rem;
   border-top: 1px solid var(--line);
+}
+
+.history-event-head {
+  display: grid;
+  gap: 0.14rem;
+  align-content: start;
+}
+
+.history-event-body {
+  display: grid;
+  gap: 0.4rem;
 }
 
 .history-event-toggle {
@@ -447,24 +431,26 @@ pre {
 }
 
 .history-event-summaryline {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
-  gap: 0.45rem 0.55rem;
-  align-items: center;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
 }
 
 .history-event-summary {
-  line-height: 1.5;
+  min-width: 0;
+  line-height: 1.6;
 }
 
 .history-event-marker {
   color: var(--text);
   font-size: 0.72rem;
+  white-space: nowrap;
 }
 
 .history-event-detail {
-  margin: 0.46rem 0 0 0.35rem;
-  padding: 0 0 0 0.9rem;
+  margin: 0;
+  padding: 0 0 0 0.82rem;
   border-left: 1px solid var(--line);
   color: var(--muted);
   line-height: 1.62;
@@ -923,7 +909,7 @@ pre {
   }
 
   .tui-shell {
-    gap: 0.55rem;
+    gap: 0.46rem;
   }
 
   .shell-header,
@@ -932,6 +918,10 @@ pre {
   .surface-dialog,
   .approval-modal {
     padding: 0.64rem;
+  }
+
+  .shell-header {
+    padding-block: 0.26rem;
   }
 
   .composer-controls-grid {
@@ -957,23 +947,18 @@ pre {
 
   .history-list {
     width: 100%;
-    gap: 0.82rem;
+    gap: 0.78rem;
   }
 
-  .history-message-group.role-user,
-  .history-message-group.role-assistant {
-    width: 100%;
+  .history-message-group,
+  .history-event {
+    grid-template-columns: 4.4rem minmax(0, 1fr);
+    gap: 0.35rem 0.72rem;
   }
 
   .history-event-summaryline {
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .history-message-time,
-  .history-event-state,
-  .history-event-marker {
-    justify-self: start;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .thread-drawer {
@@ -1010,6 +995,25 @@ pre {
     align-items: start;
   }
 
+  .shell-session-meta {
+    display: none;
+  }
+
+  .shell-session-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.9rem;
+  }
+
+  .sidebar-trigger,
+  .plain-action,
+  .action-button,
+  .composer-utility-action {
+    min-height: 1.9rem;
+    padding: 0.32rem 0.6rem;
+  }
+
   .composer-controls-grid {
     gap: 0.42rem;
   }
@@ -1028,7 +1032,8 @@ pre {
   }
 
   .composer-input {
-    min-height: 3rem;
+    min-height: 2.8rem;
+    line-height: 1.55;
   }
 
   .composer-toolbar {
@@ -1043,6 +1048,7 @@ pre {
   .composer-actions {
     width: 100%;
     justify-content: flex-end;
+    gap: 0.35rem;
   }
 
   .history-message-line {

@@ -20,6 +20,7 @@
 ## 이 UI가 최적화하는 것
 
 - transcript 우선. 대화면이 가장 크고 가장 읽기 쉬워야 합니다.
+- 평면 transcript. 메시지는 채팅 카드가 아니라 평평한 transcript 블록으로 보입니다.
 - 최소한의 chrome. 상태, 단축키, thread 관리 UI는 가볍게 유지합니다.
 - 직접 제어. `Model`, `Reasoning`, `Language` 는 composer 안에서 바로 고르는 드롭다운입니다.
 - 모바일 control rail. 작은 화면에서는 같은 제어가 transcript를 밀어내지 않도록 composer 안의 가로 레일로 유지됩니다.
@@ -31,10 +32,12 @@
 
 - 새로고침 폴링이 아닌 WebSocket 기반 실시간 업데이트
 - 검정/흰색만 사용하는 절제된 시각 체계와 얇은 테두리 중심 UI
+- 버블 카드 대신 역할 라벨과 텍스트 줄로 읽는 flat transcript
 - composer 안의 직접 드롭다운으로 `Model`, `Reasoning`, `Language` 제어
 - 모바일에서도 transcript를 더 크게 유지하는 compact control rail
 - 메뉴에 숨기지 않은 composer 내부 `Plan` 토글 버튼
 - `---` 만 사용하는 turn 구분과 user/assistant 메시지 그룹화
+- transcript 안의 시각적 시간 표시는 빼서 thread 재로딩과 실시간 출력 인상이 어긋나지 않게 유지
 - 기본 접힘 diff와 저잡음 이벤트 렌더링, 필요할 때만 펼치는 구조
 - 스트리밍 중 자동으로 최신 transcript를 따라가는 스크롤 동작
 - 모바일에서도 composer보다 transcript가 더 크게 보이는 비율 유지

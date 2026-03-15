@@ -20,6 +20,7 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 ## What This UI Optimizes For
 
 - Transcript first. The conversation surface stays largest and easiest to scan.
+- Flat transcript. Messages render as plain transcript blocks instead of chat cards.
 - Minimal chrome. Status, shortcuts, and thread management stay lightweight.
 - Direct control. `Model`, `Reasoning`, and `Language` live inside the composer as visible dropdowns.
 - Mobile control rail. On small screens the same controls stay in the composer as a compact horizontal strip instead of pushing the transcript down.
@@ -31,10 +32,12 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 
 - Real-time thread updates over WebSocket. No refresh polling.
 - Strict black/white visual system with compact borders and restrained spacing.
+- Flat transcript rows with role labels instead of bubble cards.
 - Composer control strip with direct selectors for `Model`, `Reasoning`, and `Language`.
 - Compact mobile control rail that keeps session settings reachable without letting the composer dominate the screen.
 - Dedicated `Plan` toggle inside the composer instead of burying it in a menu.
 - `---` turn separators with grouped user and assistant messages.
+- No inline transcript timestamps, so loaded threads and live output stay visually aligned.
 - Hidden diffs and low-noise event rendering by default, with explicit reveal when needed.
 - Automatic transcript follow mode while live output is streaming.
 - Mobile layout keeps the transcript taller than the composer while preserving usable controls.
