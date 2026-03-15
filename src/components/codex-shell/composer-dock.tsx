@@ -41,7 +41,7 @@ type ComposerDockProps = {
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
   onPlanModeToggle: () => void;
-  onSurfaceOpen: (surface: "transcript" | "status" | "shortcuts") => void;
+  onSurfaceOpen: (surface: "status" | "shortcuts") => void;
   onSubmit: () => void;
   onInterrupt: () => void;
 };
@@ -161,7 +161,7 @@ export function ComposerDock({
     effortOptions.find((option) => option.value === selectedEffort)?.label ??
     selectedEffort;
 
-  function handleSurfaceOpen(surface: "transcript" | "status" | "shortcuts") {
+  function handleSurfaceOpen(surface: "status" | "shortcuts") {
     setSessionOpen(false);
     onSurfaceOpen(surface);
   }
@@ -202,13 +202,13 @@ export function ComposerDock({
               }}
             >
               <span className="composer-session-copy">
-                <span className="composer-control-label">Model · Reasoning</span>
+                <span className="composer-control-label">Session</span>
                 <span className="composer-session-value">
-                  {selectedModelLabel} · {selectedEffortLabel}
+                  {selectedModelLabel} / {selectedEffortLabel}
                 </span>
               </span>
               <span className="composer-control-caret" aria-hidden="true">
-                {sessionOpen ? "−" : "+"}
+                {sessionOpen ? "^" : "v"}
               </span>
             </button>
 
@@ -237,13 +237,6 @@ export function ComposerDock({
                 </div>
 
                 <div className="composer-session-actions">
-                  <button
-                    className="plain-action"
-                    type="button"
-                    onClick={() => handleSurfaceOpen("transcript")}
-                  >
-                    Transcript
-                  </button>
                   <button
                     className="plain-action"
                     type="button"
@@ -284,9 +277,11 @@ export function ComposerDock({
         />
 
         <div className="composer-toolbar">
-          <div className="composer-meta" aria-live="polite">
+          <div className="composer-meta">
+            <span className="composer-inline-status" aria-live="polite">
+              {statusText}
+            </span>
             <span className="composer-helper">{helperText}</span>
-            <span className="composer-inline-status">{statusText}</span>
           </div>
           <div className="composer-actions">
             {activeTurn ? (

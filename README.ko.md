@@ -7,7 +7,7 @@
 ![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
 ![Local First](https://img.shields.io/badge/Workflow-Local%20First-111111?labelColor=ffffff)
 
-실제 `codex app-server`를 위한 흑백 로컬 채팅 UI입니다.
+실제 `codex app-server`를 위한 흑백 채팅 중심 로컬 UI입니다.
 
 이 프로젝트는 Codex를 일반적인 챗봇처럼 포장하지 않습니다. 흰 배경, 검은 타이포, 얇은 선, 실시간 스트리밍, 기본 접힘 diff, 입력창 바로 옆 세션 제어만 남기고 나머지 장식은 덜어냈습니다.
 
@@ -15,7 +15,7 @@
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Desktop preview](./docs/preview-desktop.svg) | ![Mobile preview](./docs/preview-mobile.svg) |
+| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
 ## 왜 만들었나
 
@@ -25,20 +25,21 @@
 
 ## 제품 방향
 
-- composer 안의 `Session` 드롭다운에서 `Model`, `Reasoning`, `Transcript`, `Status`, `Shortcuts` 제어
-- `Session` 안에서 다시 중첩 메뉴를 열지 않고 바로 고르는 select 기반 설정
-- 드롭다운과 별도로 항상 보이는 `Plan` 토글 버튼
-- 별도 상태 카드 대신 입력창 아래에 붙는 인라인 상태 표시
+- composer 안의 `Session` 드롭다운에서 `Model`, `Reasoning` 을 고르고, `Status` 와 `Shortcuts` 만 가볍게 오버레이로 엶
+- 드롭다운 옆에 항상 남아 있는 `Plan` 토글 버튼으로 plan mode를 바로 전환
+- transcript는 메인 화면에만 두고, 같은 내용을 다시 여는 중복 오버레이는 제거
 - 오직 `---` 만으로 구분하는 turn 경계와 그룹화된 user/assistant 메시지
-- 필요할 때만 펼치는 edited content와 reasoning 요약
-- 실시간 스트리밍 중 자동으로 따라가는 transcript
-- 모바일에서도 설정 UI가 입력창보다 더 커지지 않도록 조정된 밀도
+- edited content는 기본 접힘, reasoning 및 런타임 잡음은 약하게 보여서 대화 흐름을 우선
+- WebSocket 스트리밍 중 자동으로 최신 출력 위치를 따라감
+- 모바일에서도 composer보다 transcript가 더 크게 보이도록 비중 조정
 
 ## 핵심 특징
 
 - 새로고침이 아닌 WebSocket 기반 실시간 업데이트
+- 데스크톱과 모바일 모두 대화면을 우선하는 chat-first 레이아웃
 - 성공 로그는 숨기고, 에러와 approval만 남기는 최소한의 transcript 정책
 - 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
+- 모델, 추론, plan mode, runtime status, shortcuts를 composer 근처에서 바로 제어
 - command, file edit, permission, `request_user_input`까지 브라우저 안에서 처리
 - 저장소 내부 bridge와 generated protocol type을 그대로 사용
 
@@ -75,9 +76,10 @@ npm run dev
 
 1. 앱을 시작하고 `Threads` 에서 기존 세션을 열거나 새로 만듭니다.
 2. composer 옆 `Session` 을 열어 `Model` 과 `Reasoning` 을 설정합니다.
-3. 다음 turn에 plan collaboration mode가 필요하면 `Plan` 을 켭니다.
-4. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
-5. diff는 필요할 때만 펼치고 approval은 같은 화면에서 처리합니다.
+3. 바로 옆 `Plan` 버튼으로 다음 turn의 plan collaboration mode를 켜거나 끕니다.
+4. 필요할 때만 `Status` 또는 `Shortcuts` 를 열고, transcript는 메인 화면에서 그대로 봅니다.
+5. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
+6. diff는 필요할 때만 펼치고 approval은 같은 화면에서 처리합니다.
 
 ## 개발
 

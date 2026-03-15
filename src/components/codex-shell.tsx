@@ -675,12 +675,12 @@ export function CodexShell() {
     label: effort.reasoningEffort,
   }));
   const composerHelper = connectionState !== "live"
-    ? "Live updates reconnect automatically over WebSocket."
+    ? "WebSocket reconnects automatically."
     : visibleCommands.length
-      ? "Use ↑/↓ to choose, Enter to run, Tab to autocomplete, Esc to hide suggestions."
+      ? "Arrow keys move. Enter runs. Tab completes. Esc hides."
       : snapshot?.activeTurnId
-        ? "Streaming stays live over WebSocket. Diffs stay hidden until you open them."
-        : "Model · Reasoning opens the dropdown. / opens commands. Enter sends. Shift+Enter adds a newline.";
+        ? "Streaming live. Diffs stay folded until opened."
+        : "/ commands. Enter sends. Shift+Enter adds a newline.";
   const composerStatus = connectionState !== "live"
     ? connectionState === "connecting"
       ? "Connecting"
@@ -913,8 +913,6 @@ export function CodexShell() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const isMeta = event.metaKey || event.ctrlKey;
-
       if (pendingRequest) {
         if (event.key === "Escape" && cancelApprovalChoice) {
           event.preventDefault();
@@ -952,12 +950,6 @@ export function CodexShell() {
       if (surface && event.key === "Escape") {
         event.preventDefault();
         closeSurface();
-        return;
-      }
-
-      if (isMeta && event.key.toLowerCase() === "t") {
-        event.preventDefault();
-        openSurface("transcript", document.activeElement as HTMLElement | null);
         return;
       }
 
@@ -1135,28 +1127,6 @@ export function CodexShell() {
         />
       </section>
 
-      {activeOverlay === "transcript" ? (
-        <SurfaceDialog
-          ref={overlayPanelRef}
-          title="Transcript"
-          subtitle={activeThreadSummary?.title ?? "No active thread"}
-          footer="Esc closes this overlay."
-          size="wide"
-          onClose={() => closeSurface()}
-        >
-          <TranscriptPane
-            overlay
-            timeline={activeTimeline}
-            emptyTitle={activeThread ? "No transcript yet" : "No active session"}
-            emptyBody={
-              activeThread
-                ? "Send the first turn to begin."
-                : "Pick a thread first."
-            }
-          />
-        </SurfaceDialog>
-      ) : null}
-
       {activeOverlay === "status" && snapshot ? (
         <SurfaceDialog
           ref={overlayPanelRef}
@@ -1195,7 +1165,6 @@ last error: ${snapshot.lastError ?? "none"}`}
 Shift + Enter    insert newline
 Esc              close overlays / interrupt / hide slash suggestions
 ?                open shortcut panel
-Ctrl/Cmd + T     open transcript overlay
 /                trigger slash command suggestions`}
             </pre>
           </div>
