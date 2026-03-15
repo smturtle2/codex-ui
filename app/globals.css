@@ -1,19 +1,19 @@
 :root {
-  --bg: #ffffff;
+  --bg: #f5f5f5;
   --surface: #ffffff;
-  --surface-muted: #fafafa;
-  --surface-soft: #f4f4f4;
-  --surface-float: #fdfdfd;
-  --line: #e4e4e4;
+  --surface-muted: #f7f7f7;
+  --surface-soft: #efefef;
+  --surface-float: #ffffff;
+  --line: #dadada;
   --line-strong: #111111;
   --text: #111111;
   --muted: #5f5f5f;
-  --soft: #8b8b8b;
+  --soft: #787878;
   --inverse: #ffffff;
   --selection: rgba(17, 17, 17, 0.08);
-  --content-width: 1600px;
-  --measure: 76rem;
-  --radius: 0.78rem;
+  --content-width: 1520px;
+  --measure: 72rem;
+  --radius: 1rem;
   --font-sans:
     "IBM Plex Sans",
     "Noto Sans KR",
@@ -88,8 +88,7 @@ pre {
 .tui-page {
   height: 100dvh;
   min-height: 100vh;
-  background:
-    linear-gradient(180deg, #ffffff 0%, #ffffff 76%, #fbfbfb 100%);
+  background: var(--bg);
 }
 
 .tui-shell {
@@ -97,10 +96,10 @@ pre {
   min-height: 0;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0.55rem;
+  padding: 0.7rem;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .shell-header,
@@ -116,7 +115,7 @@ pre {
 }
 
 .shell-header {
-  padding: 0.5rem 0.72rem;
+  padding: 0.44rem 0.62rem;
 }
 
 .shell-header-rail,
@@ -142,7 +141,7 @@ pre {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "threads session status";
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.65rem;
 }
 
 .shell-session,
@@ -155,7 +154,7 @@ pre {
 }
 
 .shell-session-title {
-  font-size: clamp(0.94rem, 1vw, 1.04rem);
+  font-size: clamp(0.92rem, 0.95vw, 1rem);
   font-weight: 700;
   line-height: 1.25;
 }
@@ -215,8 +214,8 @@ pre {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 2.35rem;
-  padding: 0.5rem 0.78rem;
+  min-height: 2.15rem;
+  padding: 0.45rem 0.74rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
@@ -272,7 +271,7 @@ pre {
   grid-area: threads;
   justify-self: start;
   justify-content: space-between;
-  padding-inline: 0.82rem;
+  padding-inline: 0.84rem;
   flex: 0 0 auto;
 }
 
@@ -286,8 +285,8 @@ pre {
   align-items: center;
   justify-content: center;
   justify-self: end;
-  min-height: 2rem;
-  padding: 0.2rem 0.58rem;
+  min-height: 1.85rem;
+  padding: 0.15rem 0.56rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   flex: 0 0 auto;
@@ -300,6 +299,8 @@ pre {
 }
 
 .shell-session-meta {
+  font-size: 0.79rem;
+  line-height: 1.45;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -329,7 +330,7 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.05rem 1.15rem 1.35rem;
+  padding: 1.15rem 1.25rem 1.5rem;
 }
 
 .transcript-scroll-shell {
@@ -362,38 +363,38 @@ pre {
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 0.9rem;
+  gap: 1.1rem;
   align-content: start;
 }
 
 .history-turn-divider {
-  padding: 0.1rem 0;
+  padding: 0.08rem 0;
   color: var(--soft);
   text-align: center;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.22em;
   font-size: 0.74rem;
 }
 
 .history-message-group,
 .history-event {
   display: grid;
-  gap: 0.38rem;
+  gap: 0.42rem;
 }
 
 .history-message-group.role-user {
-  width: min(100%, 48rem);
+  width: min(100%, 42rem);
   margin-left: auto;
   text-align: right;
 }
 
 .history-message-group.role-assistant {
-  width: min(100%, 68rem);
+  width: min(100%, 64rem);
 }
 
 .history-message-group-head {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.55rem 0.72rem;
   flex-wrap: wrap;
 }
 
@@ -407,18 +408,33 @@ pre {
   font-size: 0.72rem;
 }
 
-.history-message-lines {
+.history-message-bubbles {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.48rem;
+}
+
+.history-message-bubble {
+  padding: 0.86rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 0.12rem);
+  background: var(--surface-muted);
+}
+
+.history-message-group.role-user .history-message-bubble {
+  margin-left: auto;
+  background: var(--line-strong);
+  border-color: var(--line-strong);
+  color: var(--inverse);
+  text-align: left;
 }
 
 .history-message-line {
-  font-size: 1rem;
-  line-height: 1.76;
+  font-size: 0.98rem;
+  line-height: 1.72;
 }
 
 .history-event {
-  padding-top: 0.72rem;
+  padding-top: 0.82rem;
   border-top: 1px solid var(--line);
 }
 
@@ -433,7 +449,7 @@ pre {
 .history-event-summaryline {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto auto;
-  gap: 0.55rem;
+  gap: 0.45rem 0.55rem;
   align-items: center;
 }
 
@@ -447,8 +463,8 @@ pre {
 }
 
 .history-event-detail {
-  margin: 0.5rem 0 0 0.75rem;
-  padding: 0 0 0 0.85rem;
+  margin: 0.46rem 0 0 0.35rem;
+  padding: 0 0 0 0.9rem;
   border-left: 1px solid var(--line);
   color: var(--muted);
   line-height: 1.62;
@@ -469,7 +485,7 @@ pre {
 
 .composer-dock {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .command-menu {
@@ -501,8 +517,8 @@ pre {
 
 .composer-frame {
   display: grid;
-  gap: 0.56rem;
-  padding: 0.72rem 0.82rem 0.8rem;
+  gap: 0.72rem;
+  padding: 0.78rem 0.9rem 0.88rem;
   position: relative;
   transition:
     border-color 120ms ease,
@@ -514,17 +530,18 @@ pre {
   box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.04);
 }
 
-.composer-session-row {
+.composer-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
   gap: 0.55rem;
+  padding-bottom: 0.08rem;
+  border-bottom: 1px solid var(--line);
 }
 
-.composer-session-shell {
-  position: relative;
-  min-width: 0;
-  flex: 1 1 auto;
+.composer-controls-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  align-items: end;
 }
 
 .composer-control-label {
@@ -533,53 +550,12 @@ pre {
   color: var(--muted);
 }
 
-.composer-session-trigger {
-  width: 100%;
-  justify-content: space-between;
-  align-items: center;
-  text-align: left;
-  border-radius: calc(var(--radius) + 0.1rem);
-  background: var(--surface-muted);
-}
-
-.composer-session-copy {
-  display: grid;
-  gap: 0.14rem;
-  min-width: 0;
-}
-
-.composer-session-value {
-  font-size: 0.93rem;
-  line-height: 1.35;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.composer-session-panel {
-  position: absolute;
-  left: 0;
-  right: auto;
-  bottom: calc(100% + 0.46rem);
-  z-index: 20;
-  width: min(40rem, calc(100vw - 2.9rem));
-  display: grid;
-  gap: 0.6rem;
-  padding: 0.72rem;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 0.08rem);
-  background: var(--surface-float);
-  box-shadow: 0 12px 26px rgba(17, 17, 17, 0.05);
-}
-
-.composer-session-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-}
-
 .composer-select-field {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.composer-plan-field {
   display: grid;
   gap: 0.24rem;
 }
@@ -591,7 +567,7 @@ pre {
   min-height: 2.7rem;
   padding-inline: 0.84rem;
   border: 1px solid var(--line);
-  border-radius: calc(var(--radius) + 0.02rem);
+  border-radius: calc(var(--radius) - 0.06rem);
   background: var(--surface);
   transition:
     border-color 120ms ease,
@@ -634,20 +610,16 @@ pre {
 }
 
 .composer-plan-toggle {
-  justify-content: space-between;
-  min-width: 4.9rem;
-  flex: 0 0 auto;
+  width: 100%;
+  min-height: 2.7rem;
+  justify-content: flex-start;
+  border-radius: calc(var(--radius) - 0.06rem);
+  background: var(--surface-muted);
 }
 
 .composer-plan-toggle-value {
-  font-size: 0.8rem;
-}
-
-.composer-session-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  flex-wrap: wrap;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 
 .composer-input,
@@ -657,14 +629,14 @@ pre {
 }
 
 .composer-input {
-  min-height: 4.75rem;
-  max-height: 13rem;
+  min-height: 4.15rem;
+  max-height: 12rem;
   padding: 0.08rem 0;
   border: 0;
   resize: none;
   background: transparent;
   outline: none;
-  font-size: 0.98rem;
+  font-size: 1rem;
   line-height: 1.62;
 }
 
@@ -686,7 +658,7 @@ pre {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem 0.85rem;
-  align-items: end;
+  align-items: center;
 }
 
 .composer-meta {
@@ -698,8 +670,8 @@ pre {
 }
 
 .composer-helper {
-  max-width: 40rem;
-  font-size: 0.76rem;
+  max-width: 36rem;
+  font-size: 0.74rem;
   line-height: 1.45;
 }
 
@@ -713,8 +685,13 @@ pre {
 
 .composer-actions {
   justify-content: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 0.45rem;
+}
+
+.composer-utility-action {
+  min-height: 1.95rem;
+  padding: 0.34rem 0.62rem;
 }
 
 .thread-drawer-backdrop,
@@ -942,7 +919,7 @@ pre {
   .tui-shell,
   .thread-drawer-backdrop,
   .screen-overlay {
-    padding: 0.45rem;
+    padding: 0.5rem;
   }
 
   .tui-shell {
@@ -957,11 +934,7 @@ pre {
     padding: 0.68rem;
   }
 
-  .composer-session-panel {
-    width: min(34rem, calc(100vw - 1.9rem));
-  }
-
-  .composer-session-grid {
+  .composer-controls-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1001,7 +974,7 @@ pre {
 @media (max-width: 640px) {
   .transcript-scroll,
   .overlay-scroll {
-    padding: 0.82rem 0.78rem 1.05rem;
+    padding: 0.88rem 0.82rem 1.08rem;
   }
 
   .thread-drawer-header,
@@ -1020,26 +993,21 @@ pre {
     align-items: start;
   }
 
-  .composer-session-panel {
-    left: 0;
-    right: 0;
-    width: auto;
-    max-width: none;
-    bottom: calc(100% + 0.4rem);
+  .composer-controls-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .composer-session-row,
-  .composer-session-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .composer-plan-toggle {
-    justify-self: end;
+  .composer-controls-grid > :first-child {
+    grid-column: 1 / -1;
   }
 
   .composer-toolbar {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .composer-helper {
+    display: none;
   }
 
   .composer-actions {

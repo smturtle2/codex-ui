@@ -7,9 +7,9 @@
 ![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
 ![Local First](https://img.shields.io/badge/Workflow-Local%20First-111111?labelColor=ffffff)
 
-실제 `codex app-server`를 위한 흑백 채팅 중심 로컬 UI입니다.
+실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-이 프로젝트는 Codex를 일반적인 챗봇처럼 포장하지 않습니다. 흰 배경, 검은 타이포, 얇은 선, 실시간 스트리밍, 기본 접힘 diff, 언어 전환 가능한 UI 문구, 입력창 바로 옆 세션 제어만 남기고 나머지 장식은 덜어냈습니다.
+`codex-ui`는 Codex를 시끄러운 대시보드로 바꾸지 않고, 원래의 작업 흐름에 가깝게 유지합니다. 흰 배경, 검은 타이포, 얇은 선, 직접 보이는 composer 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 대화가 가장 크게 보이는 구조만 남겼습니다.
 
 ## Preview
 
@@ -17,32 +17,27 @@
 | --- | --- |
 | ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
-## 왜 만들었나
+## 이 UI가 최적화하는 것
 
-- 긴 Codex 세션은 대시보드보다 읽기 좋은 transcript가 더 중요합니다.
-- 많은 래퍼 UI가 모델 설정, plan mode, approval을 엉뚱한 위치에 숨깁니다.
-- 이 UI는 필요한 제어를 composer 근처에 두고, 나머지 화면은 대화 자체에 집중하게 만듭니다.
+- transcript 우선. 대화면이 가장 크고 가장 읽기 쉬워야 합니다.
+- 최소한의 chrome. 상태, 단축키, thread 관리 UI는 가볍게 유지합니다.
+- 직접 제어. `Model`, `Reasoning`, `Language` 는 composer 안에서 바로 고르는 드롭다운입니다.
+- 한 번의 계획 전환. `Plan` 모드는 입력 흐름 옆에 항상 있는 버튼으로 둡니다.
+- 안정적인 출력. thread를 다시 불러올 때와 실시간 업데이트할 때 transcript 표기가 같은 경로를 따릅니다.
+- 적은 잡음. edited content는 기본 접힘이고, 런타임 잡음은 숨기며, 의미 있는 상태만 남깁니다.
 
-## 제품 방향
+## 핵심 UX
 
-- composer 안의 `Session` 드롭다운에서 `Model`, `Reasoning`, `Language` 를 고르고, `Status` 와 `Shortcuts` 만 가볍게 오버레이로 엶
-- 드롭다운 옆에 항상 남아 있는 `Plan` 토글 버튼으로 plan mode를 바로 전환
-- transcript는 메인 화면에만 두고, 같은 내용을 다시 여는 중복 오버레이는 제거
-- 오직 `---` 만으로 구분하는 turn 경계와 그룹화된 user/assistant 메시지
-- edited content는 기본 접힘, reasoning 및 런타임 잡음은 약하게 보여서 대화 흐름을 우선
-- WebSocket 스트리밍 중 자동으로 최신 출력 위치를 따라감
-- 모바일에서도 composer보다 transcript가 더 크게 보이도록 비중을 유지하면서 좁은 폭에서는 제어부를 단정하게 재배치
-
-## 핵심 특징
-
-- 새로고침이 아닌 WebSocket 기반 실시간 업데이트
-- 데스크톱과 모바일 모두 대화면을 우선하는 chat-first 레이아웃
-- `System`, `English`, `한국어` 를 고를 수 있는 UI 언어 전환과 `<html lang>` 동기화
-- 성공 로그는 숨기고, 에러와 approval만 남기는 최소한의 transcript 정책
+- 새로고침 폴링이 아닌 WebSocket 기반 실시간 업데이트
+- 검정/흰색만 사용하는 절제된 시각 체계와 얇은 테두리 중심 UI
+- composer 안의 직접 드롭다운으로 `Model`, `Reasoning`, `Language` 제어
+- 메뉴에 숨기지 않은 composer 내부 `Plan` 토글 버튼
+- `---` 만 사용하는 turn 구분과 user/assistant 메시지 그룹화
+- 기본 접힘 diff와 저잡음 이벤트 렌더링, 필요할 때만 펼치는 구조
+- 스트리밍 중 자동으로 최신 transcript를 따라가는 스크롤 동작
+- 모바일에서도 composer보다 transcript가 더 크게 보이는 비율 유지
 - 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
-- 모델, 추론, 언어, plan mode, runtime status, shortcuts를 composer 근처에서 바로 제어
-- command, file edit, permission, `request_user_input`까지 브라우저 안에서 처리
-- 저장소 내부 bridge와 generated protocol type을 그대로 사용
+- command, file change, permission, `request_user_input` 를 브라우저 안에서 바로 처리
 
 ## 아키텍처
 
@@ -75,12 +70,12 @@ npm run dev
 
 ## 사용 흐름
 
-1. 앱을 시작하고 `Threads` 에서 기존 세션을 열거나 새로 만듭니다.
-2. composer 옆 `Session` 을 열어 `Model`, `Reasoning`, `Language` 를 설정합니다.
-3. 바로 옆 `Plan` 버튼으로 다음 turn의 plan collaboration mode를 켜거나 끕니다.
-4. 필요할 때만 `Status` 또는 `Shortcuts` 를 열고, transcript는 메인 화면에서 그대로 봅니다.
-5. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
-6. diff는 필요할 때만 펼치고 approval은 같은 화면에서 처리합니다.
+1. 앱을 시작하고 `Threads` 에서 기존 thread를 열거나 새로 만듭니다.
+2. composer 제어줄에서 `Model`, `Reasoning`, `Language` 를 바로 선택합니다.
+3. 다음 turn을 plan collaboration mode로 보내고 싶다면 `Plan` 버튼을 토글합니다.
+4. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
+5. 필요할 때만 `Status` 와 `Shortcuts` 를 열고, transcript는 메인 화면에 그대로 둡니다.
+6. diff는 필요할 때만 펼치고 approval은 같은 흐름 안에서 처리합니다.
 
 ## 개발
 

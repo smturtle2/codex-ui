@@ -334,13 +334,13 @@ export function TranscriptPane({
                     </time>
                   </div>
 
-                  <div className="history-message-lines">
+                  <div className="history-message-bubbles">
                     {row.entries.map((entry) => {
                       const body = entry.body.trim() || entry.title.trim();
                       return (
-                        <pre key={entry.id} className="history-message-line">
-                          {body}
-                        </pre>
+                        <div key={entry.id} className="history-message-bubble">
+                          <pre className="history-message-line">{body}</pre>
+                        </div>
                       );
                     })}
                   </div>

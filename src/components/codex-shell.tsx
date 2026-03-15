@@ -114,7 +114,7 @@ export function CodexShell() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const composerSessionTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const threadDrawerPanelRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
@@ -558,7 +558,7 @@ export function CodexShell() {
         break;
       case "model":
         window.setTimeout(() => {
-          composerSessionTriggerRef.current?.focus();
+          composerModelSelectRef.current?.focus();
         }, 0);
         break;
       case "review":
@@ -1158,7 +1158,7 @@ export function CodexShell() {
           visibleCommands={visibleCommands}
           selectedCommandIndex={selectedCommandIndex}
           composerRef={composerRef}
-          sessionTriggerRef={composerSessionTriggerRef}
+          modelSelectRef={composerModelSelectRef}
           helperText={composerHelper}
           statusText={composerStatus}
           canSubmit={Boolean(composer.trim())}
@@ -1184,7 +1184,6 @@ export function CodexShell() {
             interrupt: copy.composer.interrupt,
             send: copy.composer.send,
             unavailable: copy.common.unavailable,
-            sessionAria: copy.composer.sessionAria,
           }}
           onComposerChange={handleComposerChange}
           onComposerKeyDown={handleComposerKeyDown}

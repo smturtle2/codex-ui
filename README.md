@@ -7,9 +7,9 @@
 ![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
 ![Local First](https://img.shields.io/badge/Workflow-Local%20First-111111?labelColor=ffffff)
 
-Monochrome, chat-first local UI for the real `codex app-server`.
+Monochrome, transcript-first local UI for the real `codex app-server`.
 
-This project keeps Codex close to its native workflow instead of disguising it as a generic chatbot. The shell stays restrained: white background, black type, thin borders, live streaming, hidden diffs by default, language-aware UI copy, and session controls placed directly next to the message box.
+`codex-ui` keeps Codex close to its native workflow instead of turning it into a noisy dashboard. The shell is intentionally strict: white background, black type, thin borders, direct composer controls, live WebSocket updates, folded diffs, and a transcript that stays visually dominant on both desktop and mobile.
 
 ## Preview
 
@@ -17,32 +17,27 @@ This project keeps Codex close to its native workflow instead of disguising it a
 | --- | --- |
 | ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
-## Why This Exists
+## What This UI Optimizes For
 
-- Long-running Codex sessions benefit from a readable transcript, not a dashboard full of noise.
-- Most wrappers bury model settings, plan mode, and approvals behind unrelated chrome.
-- This UI keeps the important controls near the composer and gets out of the way everywhere else.
+- Transcript first. The conversation surface stays largest and easiest to scan.
+- Minimal chrome. Status, shortcuts, and thread management stay lightweight.
+- Direct control. `Model`, `Reasoning`, and `Language` live inside the composer as visible dropdowns.
+- One-click planning. `Plan` mode stays next to the input flow as a dedicated button.
+- Stable output. Loaded threads and live updates follow the same transcript rendering path.
+- Less noise. Edited content starts folded, runtime chatter stays hidden, and only meaningful states stay visible.
 
-## Product Direction
+## Core UX
 
-- `Session` dropdown inside the composer for `Model`, `Reasoning`, and `Language`, with `Status` and `Shortcuts` as lightweight overlays
-- dedicated `Plan` toggle button next to the dropdown so planning mode is still one click away
-- transcript stays on the main surface instead of duplicating it in another overlay
-- grouped user and assistant messages with `---` turn separators only
-- edited content stays folded by default, and noisy reasoning or runtime events stay visually de-emphasized
-- automatic follow mode while live output is streaming over WebSocket
-- mobile layout keeps the transcript taller than the composer while stacking controls cleanly on narrow screens
-
-## Highlights
-
-- Real-time updates over WebSocket. No refresh loop.
-- Chat-first layout with restrained chrome on both desktop and mobile.
-- Persistent UI language switch with `System`, `English`, and `Korean`, including `<html lang>` updates.
-- Minimal transcript filtering. Success noise stays hidden; errors and pending approvals stay visible.
-- Local thread drawer for resume, search, sort, and new-thread creation.
-- Inline session controls for model, reasoning, language, plan mode, runtime status, and shortcuts.
-- Inline approval handling for commands, file edits, permissions, and `request_user_input`.
-- Works directly against the local Codex bridge and generated protocol types in this repo.
+- Real-time thread updates over WebSocket. No refresh polling.
+- Strict black/white visual system with compact borders and restrained spacing.
+- Composer control strip with direct selectors for `Model`, `Reasoning`, and `Language`.
+- Dedicated `Plan` toggle inside the composer instead of burying it in a menu.
+- `---` turn separators with grouped user and assistant messages.
+- Hidden diffs and low-noise event rendering by default, with explicit reveal when needed.
+- Automatic transcript follow mode while live output is streaming.
+- Mobile layout keeps the transcript taller than the composer while preserving usable controls.
+- Local thread drawer for search, sort, resume, and fresh-thread creation.
+- Inline approvals for commands, file changes, permissions, and `request_user_input`.
 
 ## Architecture
 
@@ -75,12 +70,12 @@ Open `http://127.0.0.1:3000`.
 
 ## Workflow
 
-1. Start the app and open a thread from `Threads`, or create a fresh one.
-2. Open `Session` beside the composer to set `Model`, `Reasoning`, and `Language`.
-3. Toggle `Plan` beside it if you want plan collaboration mode for the next turn.
-4. Use `Status` or `Shortcuts` only when needed; the transcript stays on the main surface.
-5. Send a message and follow the transcript live over WebSocket.
-6. Expand diffs only when needed and handle approvals in-place.
+1. Start the app and open an existing thread from `Threads`, or create a fresh one.
+2. Set `Model`, `Reasoning`, and `Language` directly in the composer control strip.
+3. Toggle `Plan` when you want plan collaboration mode for the next turn.
+4. Send a message and follow the transcript live over WebSocket.
+5. Open `Status` or `Shortcuts` only when needed; the transcript remains the main surface.
+6. Expand diffs only when needed and handle approvals inline.
 
 ## Development
 

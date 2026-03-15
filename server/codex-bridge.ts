@@ -222,6 +222,59 @@ function summarizeUserInputs(content: Array<{ type: string; text?: string; path?
     .join("\n");
 }
 
+function resolveTimelineEntryId(
+  itemType: string,
+  itemId: string,
+  turnId: string | null,
+): string {
+  if (itemType === "fileChange") {
+    return `diff:${turnId ?? itemId}`;
+  }
+
+  return itemId;
+}
+
+function buildFileChangeBody(
+  item: Record<string, unknown>,
+): string {
+  return (((item.changes as Array<{ path: string; kind: string; diff: string }>) ?? [])
+    .map((change) =>
+      bodyFromLines([
+        `${change.kind.toUpperCase()} ${change.path}`,
+        change.diff,
+      ]),
+    )
+    .join("\n\n"));
+}
+
+function createTurnTimelineEntry(
+  threadId: string,
+  turn: Pick<Turn, "id" | "status" | "error">,
+  updatedAt: number,
+): TimelineEntry {
+  return {
+    id: `turn:${turn.id}`,
+    threadId,
+    turnId: turn.id,
+    kind: "turn",
+    title: `Turn ${turn.id.slice(0, 8)}`,
+    body:
+      turn.status === "inProgress"
+        ? "Streaming live output."
+        : turn.status === "failed" && turn.error
+          ? stringifyUnknown(turn.error)
+          : `status: ${turn.status}`,
+    tone: turn.status === "failed" ? "danger" : "muted",
+    status:
+      turn.status === "failed"
+        ? "error"
+        : turn.status === "inProgress"
+          ? "running"
+          : "completed",
+    updatedAt,
+  };
+}
+
 function timelineEntryFromTurnItem(
   threadId: string,
   turnId: string | null,
@@ -230,12 +283,13 @@ function timelineEntryFromTurnItem(
 ): TimelineEntry {
   const itemId = typeof item.id === "string" ? item.id : `item-${Date.now()}`;
   const itemType = typeof item.type === "string" ? item.type : "unknown";
+  const entryId = resolveTimelineEntryId(itemType, itemId, turnId);
   const now = Date.now();
 
   switch (itemType) {
     case "userMessage":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "message",
@@ -248,7 +302,7 @@ function timelineEntryFromTurnItem(
       };
     case "agentMessage":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "message",
@@ -260,7 +314,7 @@ function timelineEntryFromTurnItem(
       };
     case "reasoning":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "reasoning",
@@ -275,7 +329,7 @@ function timelineEntryFromTurnItem(
       };
     case "plan":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "plan",
@@ -287,7 +341,7 @@ function timelineEntryFromTurnItem(
       };
     case "commandExecution":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "command",
@@ -302,19 +356,12 @@ function timelineEntryFromTurnItem(
       };
     case "fileChange":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "diff",
         title: "Edited content",
-        body: (((item.changes as Array<{ path: string; kind: string; diff: string }>) ?? [])
-          .map((change) =>
-            bodyFromLines([
-              `${change.kind.toUpperCase()} ${change.path}`,
-              change.diff,
-            ]),
-          )
-          .join("\n\n")),
+        body: buildFileChangeBody(item),
         tone: "warning",
         status,
         updatedAt: now,
@@ -326,7 +373,7 @@ function timelineEntryFromTurnItem(
     case "imageView":
     case "collabAgentToolCall":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "tool",
@@ -339,7 +386,7 @@ function timelineEntryFromTurnItem(
     case "enteredReviewMode":
     case "exitedReviewMode":
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "review",
@@ -351,7 +398,7 @@ function timelineEntryFromTurnItem(
       };
     default:
       return {
-        id: itemId,
+        id: entryId,
         threadId,
         turnId,
         kind: "system",
@@ -475,10 +522,11 @@ export class CodexBridge extends EventEmitter {
       threadId,
       persistExtendedHistory: true,
     })) as ThreadResumeResponse;
+    const fullThread = await this.readThreadWithTurns(response.thread.id);
 
-    this.state.activeThreadId = response.thread.id;
-    this.state.threads.set(response.thread.id, response.thread);
-    this.hydrateThreadTimeline(response.thread);
+    this.state.activeThreadId = fullThread.id;
+    this.state.threads.set(fullThread.id, fullThread);
+    this.hydrateThreadTimeline(fullThread);
     await this.refreshThreads();
     this.publish();
     return this.getSnapshot();
@@ -490,10 +538,11 @@ export class CodexBridge extends EventEmitter {
       threadId,
       persistExtendedHistory: true,
     })) as ThreadForkResponse;
+    const fullThread = await this.readThreadWithTurns(response.thread.id);
 
-    this.state.activeThreadId = response.thread.id;
-    this.state.threads.set(response.thread.id, response.thread);
-    this.hydrateThreadTimeline(response.thread);
+    this.state.activeThreadId = fullThread.id;
+    this.state.threads.set(fullThread.id, fullThread);
+    this.hydrateThreadTimeline(fullThread);
     await this.refreshThreads();
     this.publish();
     return this.getSnapshot();
@@ -501,13 +550,10 @@ export class CodexBridge extends EventEmitter {
 
   async readThread(threadId: string): Promise<BridgeSnapshot> {
     await this.ensureReady();
-    const response = (await this.sendRequest<ThreadReadResponse>("thread/read", {
-      threadId,
-      includeTurns: true,
-    })) as ThreadReadResponse;
+    const thread = await this.readThreadWithTurns(threadId);
 
-    this.state.threads.set(response.thread.id, response.thread);
-    this.hydrateThreadTimeline(response.thread);
+    this.state.threads.set(thread.id, thread);
+    this.hydrateThreadTimeline(thread);
     this.publish();
     return this.getSnapshot();
   }
@@ -728,6 +774,15 @@ export class CodexBridge extends EventEmitter {
     this.state.models = response.data.filter((model) => !model.hidden);
   }
 
+  private async readThreadWithTurns(threadId: string): Promise<Thread> {
+    const response = (await this.sendRequest<ThreadReadResponse>("thread/read", {
+      threadId,
+      includeTurns: true,
+    })) as ThreadReadResponse;
+
+    return response.thread;
+  }
+
   private getResolvedModel(): Model | null {
     return (
       this.state.models.find((model) => model.model === this.state.sessionSettings.model) ??
@@ -745,35 +800,13 @@ export class CodexBridge extends EventEmitter {
     const entries: TimelineEntry[] = [];
 
     for (const turn of thread.turns) {
-      entries.push(this.createTurnEntry(thread.id, turn));
+      entries.push(createTurnTimelineEntry(thread.id, turn, Date.now()));
       for (const item of turn.items as Array<Record<string, unknown>>) {
         entries.push(timelineEntryFromTurnItem(thread.id, turn.id, item, "completed"));
       }
     }
 
     this.state.timelineByThread.set(thread.id, entries);
-  }
-
-  private createTurnEntry(threadId: string, turn: Turn): TimelineEntry {
-    return {
-      id: `turn:${turn.id}`,
-      threadId,
-      turnId: turn.id,
-      kind: "turn",
-      title: `Turn ${turn.id.slice(0, 8)}`,
-      body:
-        turn.status === "failed" && turn.error
-          ? stringifyUnknown(turn.error)
-          : `status: ${turn.status}`,
-      tone: turn.status === "failed" ? "danger" : "muted",
-      status:
-        turn.status === "failed"
-          ? "error"
-          : turn.status === "inProgress"
-            ? "running"
-            : "completed",
-      updatedAt: Date.now(),
-    };
   }
 
   private async sendRequest<T>(method: string, params?: unknown): Promise<T> {
@@ -1011,18 +1044,11 @@ export class CodexBridge extends EventEmitter {
         if (threadId && turn) {
           this.state.activeTurnIds.set(threadId, turn.id);
           this.state.activeTurnStartedAt.set(threadId, now);
-          this.appendTimelineEntry(threadId, {
-            id: `turn:${turn.id}`,
+          this.upsertTimelineEntry(
             threadId,
-            turnId: turn.id,
-            kind: "turn",
-            title: `Turn ${turn.id.slice(0, 8)} started`,
-            body: "Streaming live app-server items.",
-            tone: "muted",
-            status: "running",
-            rawMethod: method,
-            updatedAt: now,
-          });
+            `turn:${turn.id}`,
+            createTurnTimelineEntry(threadId, turn, now),
+          );
         }
         break;
       }
@@ -1033,21 +1059,11 @@ export class CodexBridge extends EventEmitter {
         if (threadId && turn) {
           this.state.activeTurnIds.delete(threadId);
           this.state.activeTurnStartedAt.delete(threadId);
-          this.upsertTimelineEntry(threadId, `turn:${turn.id}`, {
-            id: `turn:${turn.id}`,
+          this.upsertTimelineEntry(
             threadId,
-            turnId: turn.id,
-            kind: "turn",
-            title: `Turn ${turn.id.slice(0, 8)} completed`,
-            body:
-              turn.status === "failed" && turn.error
-                ? stringifyUnknown(turn.error)
-                : `status: ${turn.status}`,
-            tone: turn.status === "failed" ? "danger" : "success",
-            status: turn.status === "failed" ? "error" : "completed",
-            rawMethod: method,
-            updatedAt: now,
-          });
+            `turn:${turn.id}`,
+            createTurnTimelineEntry(threadId, turn, now),
+          );
           const existing = this.state.threads.get(threadId);
           if (existing) {
             this.state.threads.set(threadId, {
@@ -1064,11 +1080,8 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
-          this.upsertTimelineEntry(
-            threadId,
-            typeof item.id === "string" ? item.id : `item:${now}`,
-            timelineEntryFromTurnItem(threadId, turnId, item, "running"),
-          );
+          const entry = timelineEntryFromTurnItem(threadId, turnId, item, "running");
+          this.upsertTimelineEntry(threadId, entry.id, entry);
         }
         break;
       }
@@ -1078,21 +1091,19 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
-          this.upsertTimelineEntry(
-            threadId,
-            typeof item.id === "string" ? item.id : `item:${now}`,
-            timelineEntryFromTurnItem(threadId, turnId, item, "completed"),
-          );
+          const entry = timelineEntryFromTurnItem(threadId, turnId, item, "completed");
+          this.upsertTimelineEntry(threadId, entry.id, entry);
         }
         break;
       }
       case "item/agentMessage/delta": {
         const threadId =
           typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
-          this.appendDelta(threadId, itemId, "message", "Agent message", delta, "accent");
+          this.appendDelta(threadId, itemId, turnId, "message", "Agent message", delta, "accent");
         }
         break;
       }
@@ -1103,6 +1114,7 @@ export class CodexBridge extends EventEmitter {
       case "item/fileChange/outputDelta": {
         const threadId =
           typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
@@ -1138,7 +1150,10 @@ export class CodexBridge extends EventEmitter {
                       };
           this.appendDelta(
             threadId,
-            itemId,
+            method === "item/fileChange/outputDelta"
+              ? resolveTimelineEntryId("fileChange", itemId, turnId)
+              : itemId,
+            turnId,
             descriptor.kind,
             descriptor.title,
             delta,
@@ -1153,8 +1168,9 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const diff = typeof params.diff === "string" ? params.diff : "";
         if (threadId) {
-          this.upsertTimelineEntry(threadId, `diff:${turnId ?? "unknown"}`, {
-            id: `diff:${turnId ?? "unknown"}`,
+          const diffEntryId = resolveTimelineEntryId("fileChange", "turn-diff", turnId);
+          this.upsertTimelineEntry(threadId, diffEntryId, {
+            id: diffEntryId,
             threadId,
             turnId,
             kind: "diff",
@@ -1221,19 +1237,20 @@ export class CodexBridge extends EventEmitter {
 
   private appendDelta(
     threadId: string,
-    itemId: string,
+    entryId: string,
+    turnId: string | null,
     kind: TimelineEntry["kind"],
     title: string,
     delta: string,
     tone: TimelineTone,
   ): void {
-    const existing = this.findTimelineEntry(threadId, itemId);
+    const existing = this.findTimelineEntry(threadId, entryId);
 
     if (!existing) {
       this.appendTimelineEntry(threadId, {
-        id: itemId,
+        id: entryId,
         threadId,
-        turnId: null,
+        turnId,
         kind,
         title,
         body: delta,
