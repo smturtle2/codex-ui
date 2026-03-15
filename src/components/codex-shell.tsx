@@ -441,8 +441,8 @@ export function CodexShell() {
     }
 
     textarea.style.height = "0px";
-    const minHeight = window.innerWidth <= 980 ? 68 : 76;
-    const maxHeight = window.innerWidth <= 980 ? 160 : 208;
+    const minHeight = window.innerWidth <= 980 ? 56 : 72;
+    const maxHeight = window.innerWidth <= 980 ? 132 : 192;
     const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${nextHeight}px`;
   }, [composer]);

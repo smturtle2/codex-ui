@@ -44,12 +44,16 @@ function isVisibleEntry(entry: TimelineEntry): boolean {
     return true;
   }
 
-  if (entry.kind === "diff" || entry.kind === "plan" || entry.kind === "approval") {
+  if (entry.kind === "diff" || entry.kind === "plan") {
     return true;
   }
 
+  if (entry.kind === "approval") {
+    return entry.status === "pending" || entry.status === "error";
+  }
+
   if (entry.kind === "review" || entry.kind === "reasoning") {
-    return entry.status === "running" || entry.status === "pending" || entry.status === "error";
+    return entry.status === "error";
   }
 
   if (entry.kind === "command" || entry.kind === "tool" || entry.kind === "input") {
@@ -183,7 +187,7 @@ function getEventSummary(
   }
 
   if (entry.kind === "plan") {
-    return firstBodyLine(entry) ?? copy.planHidden;
+    return copy.planHidden;
   }
 
   if (entry.kind === "approval") {
@@ -209,6 +213,13 @@ function getEventSummary(
 }
 
 function getEventDetail(entry: TimelineEntry): string | null {
+  if (
+    (entry.kind === "plan" || entry.kind === "diff") &&
+    entry.status === "running"
+  ) {
+    return null;
+  }
+
   const detail = entry.body.trim();
   if (!detail) {
     return null;

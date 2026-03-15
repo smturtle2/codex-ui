@@ -22,7 +22,6 @@ import type {
   PendingServerRequest,
   SessionSettings,
   TimelineEntry,
-  TimelineTone,
   ThreadListItem,
 } from "../src/lib/shared";
 
@@ -58,6 +57,11 @@ type TrackedPendingRequest = PendingServerRequest & {
   wireId: JsonRpcId;
 };
 
+type StreamingItemState = {
+  turnId: string | null;
+  item: Record<string, unknown>;
+};
+
 type InternalState = {
   phase: BridgeSnapshot["phase"];
   lastError: string | null;
@@ -66,6 +70,7 @@ type InternalState = {
   activeTurnIds: Map<string, string>;
   activeTurnStartedAt: Map<string, number>;
   timelineByThread: Map<string, TimelineEntry[]>;
+  streamingItemsByThread: Map<string, Map<string, StreamingItemState>>;
   pendingRequests: Map<string, TrackedPendingRequest>;
   models: Model[];
   sessionSettings: SessionSettings;
@@ -237,14 +242,134 @@ function resolveTimelineEntryId(
 function buildFileChangeBody(
   item: Record<string, unknown>,
 ): string {
-  return (((item.changes as Array<{ path: string; kind: string; diff: string }>) ?? [])
+  return (((item.changes as Array<{ path: string; kind: unknown; diff: string }>) ?? [])
     .map((change) =>
       bodyFromLines([
-        `${change.kind.toUpperCase()} ${change.path}`,
+        `${formatPatchChangeKind(change.kind)} ${change.path}`.trim(),
         change.diff,
       ]),
     )
     .join("\n\n"));
+}
+
+function formatPatchChangeKind(kind: unknown): string {
+  if (!isRecord(kind) || typeof kind.type !== "string") {
+    return "UPDATE";
+  }
+
+  switch (kind.type) {
+    case "add":
+      return "ADD";
+    case "delete":
+      return "DELETE";
+    case "update":
+      return typeof kind.move_path === "string" && kind.move_path.trim().length > 0
+        ? `RENAME ${kind.move_path}`
+        : "UPDATE";
+    default:
+      return kind.type.toUpperCase();
+  }
+}
+
+function buildReasoningBody(item: Record<string, unknown>): string {
+  return bodyFromLines([
+    ...(((item.summary as string[]) ?? []).map((line) => `• ${line}`)),
+    ...(((item.content as string[]) ?? []).map((line) => line)),
+  ]);
+}
+
+function ensureTextAtIndex(
+  currentValue: unknown,
+  index: number,
+  delta: string,
+): string[] {
+  const next = Array.isArray(currentValue)
+    ? currentValue.map((value) => (typeof value === "string" ? value : ""))
+    : [];
+
+  while (next.length <= index) {
+    next.push("");
+  }
+
+  next[index] += delta;
+  return next;
+}
+
+function appendText(
+  currentValue: unknown,
+  delta: string,
+  withNewline = false,
+): string {
+  const current = typeof currentValue === "string" ? currentValue : "";
+  if (
+    withNewline &&
+    current.length > 0 &&
+    !current.endsWith("\n") &&
+    delta.length > 0
+  ) {
+    return `${current}\n${delta}`;
+  }
+
+  return `${current}${delta}`;
+}
+
+function createStreamingItem(itemType: string, itemId: string): Record<string, unknown> {
+  switch (itemType) {
+    case "agentMessage":
+      return {
+        type: itemType,
+        id: itemId,
+        text: "",
+        phase: null,
+      };
+    case "reasoning":
+      return {
+        type: itemType,
+        id: itemId,
+        summary: [],
+        content: [],
+      };
+    case "plan":
+      return {
+        type: itemType,
+        id: itemId,
+        text: "",
+      };
+    case "commandExecution":
+      return {
+        type: itemType,
+        id: itemId,
+        command: "",
+        cwd: "",
+        processId: null,
+        status: "inProgress",
+        commandActions: [],
+        aggregatedOutput: "",
+        exitCode: null,
+        durationMs: null,
+      };
+    case "fileChange":
+      return {
+        type: itemType,
+        id: itemId,
+        changes: [
+          {
+            path: "Live patch",
+            kind: {
+              type: "update",
+              move_path: null,
+            },
+            diff: "",
+          },
+        ],
+        status: "inProgress",
+      };
+    default:
+      return {
+        type: itemType,
+        id: itemId,
+      };
+  }
 }
 
 function createTurnTimelineEntry(
@@ -319,10 +444,7 @@ function timelineEntryFromTurnItem(
         turnId,
         kind: "reasoning",
         title: "Reasoning",
-        body: bodyFromLines([
-          ...(((item.summary as string[]) ?? []).map((line) => `• ${line}`)),
-          ...(((item.content as string[]) ?? []).map((line) => line)),
-        ]),
+        body: buildReasoningBody(item),
         tone: "muted",
         status,
         updatedAt: now,
@@ -423,6 +545,7 @@ export class CodexBridge extends EventEmitter {
     activeTurnIds: new Map(),
     activeTurnStartedAt: new Map(),
     timelineByThread: new Map(),
+    streamingItemsByThread: new Map(),
     pendingRequests: new Map(),
     models: [],
     sessionSettings: {
@@ -511,6 +634,7 @@ export class CodexBridge extends EventEmitter {
     this.state.activeThreadId = response.thread.id;
     this.state.threads.set(response.thread.id, response.thread);
     this.state.timelineByThread.set(response.thread.id, []);
+    this.state.streamingItemsByThread.set(response.thread.id, new Map());
     await this.refreshThreads();
     this.publish();
     return this.getSnapshot();
@@ -668,6 +792,16 @@ export class CodexBridge extends EventEmitter {
     });
 
     this.state.pendingRequests.delete(requestId);
+    if (pending.threadId) {
+      const approvalEntry = this.findTimelineEntry(
+        pending.threadId,
+        `request:${requestId}`,
+      );
+      if (approvalEntry) {
+        approvalEntry.status = "completed";
+        approvalEntry.updatedAt = Date.now();
+      }
+    }
     this.publish();
     return this.getSnapshot();
   }
@@ -766,6 +900,9 @@ export class CodexBridge extends EventEmitter {
       if (!this.state.timelineByThread.has(thread.id)) {
         this.state.timelineByThread.set(thread.id, []);
       }
+      if (!this.state.streamingItemsByThread.has(thread.id)) {
+        this.state.streamingItemsByThread.set(thread.id, new Map());
+      }
     }
   }
 
@@ -807,6 +944,7 @@ export class CodexBridge extends EventEmitter {
     }
 
     this.state.timelineByThread.set(thread.id, entries);
+    this.state.streamingItemsByThread.set(thread.id, new Map());
   }
 
   private async sendRequest<T>(method: string, params?: unknown): Promise<T> {
@@ -986,6 +1124,9 @@ export class CodexBridge extends EventEmitter {
         if (!this.state.timelineByThread.has(thread.id)) {
           this.state.timelineByThread.set(thread.id, []);
         }
+        if (!this.state.streamingItemsByThread.has(thread.id)) {
+          this.state.streamingItemsByThread.set(thread.id, new Map());
+        }
         if (!this.state.activeThreadId) {
           this.state.activeThreadId = thread.id;
         }
@@ -1071,6 +1212,7 @@ export class CodexBridge extends EventEmitter {
               updatedAt: Math.floor(now / 1000),
             });
           }
+          this.clearStreamingItemsForTurn(threadId, turn.id);
         }
         break;
       }
@@ -1080,8 +1222,7 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
-          const entry = timelineEntryFromTurnItem(threadId, turnId, item, "running");
-          this.upsertTimelineEntry(threadId, entry.id, entry);
+          this.upsertStreamingTimelineEntry(threadId, turnId, item, "running");
         }
         break;
       }
@@ -1091,8 +1232,9 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
+          this.upsertStreamingTimelineEntry(threadId, turnId, item, "completed");
           const entry = timelineEntryFromTurnItem(threadId, turnId, item, "completed");
-          this.upsertTimelineEntry(threadId, entry.id, entry);
+          this.clearStreamingItem(threadId, entry.id);
         }
         break;
       }
@@ -1103,14 +1245,94 @@ export class CodexBridge extends EventEmitter {
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
-          this.appendDelta(threadId, itemId, turnId, "message", "Agent message", delta, "accent");
+          this.mutateStreamingItem(threadId, turnId, "agentMessage", itemId, (item) => ({
+            ...item,
+            text: appendText(item.text, delta),
+          }));
         }
         break;
       }
-      case "item/reasoning/textDelta":
-      case "item/reasoning/summaryTextDelta":
-      case "item/plan/delta":
-      case "item/commandExecution/outputDelta":
+      case "item/reasoning/summaryPartAdded": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const summaryIndex =
+          typeof params.summaryIndex === "number" ? params.summaryIndex : undefined;
+        if (threadId && itemId && typeof summaryIndex === "number") {
+          this.mutateStreamingItem(threadId, turnId, "reasoning", itemId, (item) => ({
+            ...item,
+            summary: ensureTextAtIndex(item.summary, summaryIndex, ""),
+          }));
+        }
+        break;
+      }
+      case "item/reasoning/textDelta": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const contentIndex =
+          typeof params.contentIndex === "number" ? params.contentIndex : undefined;
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (threadId && itemId && typeof contentIndex === "number") {
+          this.mutateStreamingItem(threadId, turnId, "reasoning", itemId, (item) => ({
+            ...item,
+            content: ensureTextAtIndex(item.content, contentIndex, delta),
+          }));
+        }
+        break;
+      }
+      case "item/reasoning/summaryTextDelta": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const summaryIndex =
+          typeof params.summaryIndex === "number" ? params.summaryIndex : undefined;
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (threadId && itemId && typeof summaryIndex === "number") {
+          this.mutateStreamingItem(threadId, turnId, "reasoning", itemId, (item) => ({
+            ...item,
+            summary: ensureTextAtIndex(item.summary, summaryIndex, delta),
+          }));
+        }
+        break;
+      }
+      case "item/plan/delta": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (threadId && itemId) {
+          this.mutateStreamingItem(threadId, turnId, "plan", itemId, (item) => ({
+            ...item,
+            text: appendText(item.text, delta),
+          }));
+        }
+        break;
+      }
+      case "item/commandExecution/outputDelta": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (threadId && itemId) {
+          this.mutateStreamingItem(
+            threadId,
+            turnId,
+            "commandExecution",
+            itemId,
+            (item) => ({
+              ...item,
+              aggregatedOutput: appendText(item.aggregatedOutput, delta, true),
+            }),
+          );
+        }
+        break;
+      }
       case "item/fileChange/outputDelta": {
         const threadId =
           typeof params.threadId === "string" ? params.threadId : undefined;
@@ -1118,47 +1340,28 @@ export class CodexBridge extends EventEmitter {
         const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
         const delta = typeof params.delta === "string" ? params.delta : "";
         if (threadId && itemId) {
-          const descriptor =
-            method === "item/reasoning/textDelta"
-              ? {
-                  kind: "reasoning" as const,
-                  title: "Reasoning",
-                  tone: "muted" as const,
-                }
-              : method === "item/reasoning/summaryTextDelta"
-                ? {
-                    kind: "reasoning" as const,
-                    title: "Reasoning summary",
-                    tone: "muted" as const,
-                  }
-                : method === "item/plan/delta"
-                  ? {
-                      kind: "plan" as const,
-                      title: "Plan",
-                      tone: "accent" as const,
-                    }
-                  : method === "item/fileChange/outputDelta"
-                    ? {
-                        kind: "diff" as const,
-                        title: "Edited content",
-                        tone: "warning" as const,
-                      }
-                    : {
-                        kind: "command" as const,
-                        title: "Command output",
-                        tone: "muted" as const,
-                      };
-          this.appendDelta(
-            threadId,
-            method === "item/fileChange/outputDelta"
-              ? resolveTimelineEntryId("fileChange", itemId, turnId)
-              : itemId,
-            turnId,
-            descriptor.kind,
-            descriptor.title,
-            delta,
-            descriptor.tone,
-          );
+          this.mutateStreamingItem(threadId, turnId, "fileChange", itemId, (item) => {
+            const nextChanges = Array.isArray(item.changes) ? [...item.changes] : [];
+            const firstChange =
+              (isRecord(nextChanges[0]) ? nextChanges[0] : null) ?? {
+                path: "Live patch",
+                kind: {
+                  type: "update",
+                  move_path: null,
+                },
+                diff: "",
+              };
+
+            nextChanges[0] = {
+              ...firstChange,
+              diff: appendText(firstChange.diff, delta),
+            };
+
+            return {
+              ...item,
+              changes: nextChanges,
+            };
+          });
         }
         break;
       }
@@ -1169,6 +1372,10 @@ export class CodexBridge extends EventEmitter {
         const diff = typeof params.diff === "string" ? params.diff : "";
         if (threadId) {
           const diffEntryId = resolveTimelineEntryId("fileChange", "turn-diff", turnId);
+          const existingDiff = this.findTimelineEntry(threadId, diffEntryId);
+          if (existingDiff && existingDiff.rawMethod !== method) {
+            break;
+          }
           this.upsertTimelineEntry(threadId, diffEntryId, {
             id: diffEntryId,
             threadId,
@@ -1186,7 +1393,18 @@ export class CodexBridge extends EventEmitter {
       }
       case "serverRequest/resolved": {
         const requestId = String(params.requestId ?? "");
+        const pending = this.state.pendingRequests.get(requestId);
         this.state.pendingRequests.delete(requestId);
+        if (pending?.threadId) {
+          const approvalEntry = this.findTimelineEntry(
+            pending.threadId,
+            `request:${requestId}`,
+          );
+          if (approvalEntry) {
+            approvalEntry.status = "completed";
+            approvalEntry.updatedAt = now;
+          }
+        }
         break;
       }
       case "error": {
@@ -1235,45 +1453,71 @@ export class CodexBridge extends EventEmitter {
     this.publish();
   }
 
-  private appendDelta(
+  private getStreamingItemsForThread(
     threadId: string,
-    entryId: string,
-    turnId: string | null,
-    kind: TimelineEntry["kind"],
-    title: string,
-    delta: string,
-    tone: TimelineTone,
-  ): void {
-    const existing = this.findTimelineEntry(threadId, entryId);
+  ): Map<string, StreamingItemState> {
+    const current = this.state.streamingItemsByThread.get(threadId);
+    if (current) {
+      return current;
+    }
 
-    if (!existing) {
-      this.appendTimelineEntry(threadId, {
-        id: entryId,
-        threadId,
-        turnId,
-        kind,
-        title,
-        body: delta,
-        tone,
-        status: "running",
-        updatedAt: Date.now(),
-      });
+    const next = new Map<string, StreamingItemState>();
+    this.state.streamingItemsByThread.set(threadId, next);
+    return next;
+  }
+
+  private upsertStreamingTimelineEntry(
+    threadId: string,
+    turnId: string | null,
+    item: Record<string, unknown>,
+    status: TimelineEntry["status"],
+  ): void {
+    const entry = timelineEntryFromTurnItem(threadId, turnId, item, status);
+    this.upsertTimelineEntry(threadId, entry.id, entry);
+    this.getStreamingItemsForThread(threadId).set(entry.id, {
+      turnId,
+      item,
+    });
+  }
+
+  private mutateStreamingItem(
+    threadId: string,
+    turnId: string | null,
+    itemType: string,
+    itemId: string,
+    mutate: (item: Record<string, unknown>) => Record<string, unknown>,
+  ): void {
+    const entryId = resolveTimelineEntryId(itemType, itemId, turnId);
+    const registry = this.getStreamingItemsForThread(threadId);
+    const current = registry.get(entryId)?.item ?? createStreamingItem(itemType, itemId);
+    const next = mutate(current);
+
+    registry.set(entryId, {
+      turnId,
+      item: next,
+    });
+    this.upsertTimelineEntry(
+      threadId,
+      entryId,
+      timelineEntryFromTurnItem(threadId, turnId, next, "running"),
+    );
+  }
+
+  private clearStreamingItem(threadId: string, entryId: string): void {
+    this.state.streamingItemsByThread.get(threadId)?.delete(entryId);
+  }
+
+  private clearStreamingItemsForTurn(threadId: string, turnId: string): void {
+    const registry = this.state.streamingItemsByThread.get(threadId);
+    if (!registry) {
       return;
     }
 
-    existing.body +=
-      kind === "command" &&
-      existing.body.length > 0 &&
-      !existing.body.endsWith("\n") &&
-      delta.length > 0
-        ? `\n${delta}`
-        : delta;
-    existing.kind = kind;
-    if (!(kind === "command" && existing.title.trim().startsWith("$ "))) {
-      existing.title = title;
+    for (const [entryId, entry] of registry.entries()) {
+      if (entry.turnId === turnId) {
+        registry.delete(entryId);
+      }
     }
-    existing.updatedAt = Date.now();
-    existing.status = "running";
   }
 
   private findTimelineEntry(threadId: string, entryId: string): TimelineEntry | undefined {

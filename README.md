@@ -22,8 +22,9 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 - Transcript first. The conversation surface stays largest and easiest to scan.
 - Minimal chrome. Status, shortcuts, and thread management stay lightweight.
 - Direct control. `Model`, `Reasoning`, and `Language` live inside the composer as visible dropdowns.
+- Mobile control rail. On small screens the same controls stay in the composer as a compact horizontal strip instead of pushing the transcript down.
 - One-click planning. `Plan` mode stays next to the input flow as a dedicated button.
-- Stable output. Loaded threads and live updates follow the same transcript rendering path.
+- Stable output. Loaded threads and live updates normalize through the same item-to-transcript path.
 - Less noise. Edited content starts folded, runtime chatter stays hidden, and only meaningful states stay visible.
 
 ## Core UX
@@ -31,6 +32,7 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 - Real-time thread updates over WebSocket. No refresh polling.
 - Strict black/white visual system with compact borders and restrained spacing.
 - Composer control strip with direct selectors for `Model`, `Reasoning`, and `Language`.
+- Compact mobile control rail that keeps session settings reachable without letting the composer dominate the screen.
 - Dedicated `Plan` toggle inside the composer instead of burying it in a menu.
 - `---` turn separators with grouped user and assistant messages.
 - Hidden diffs and low-noise event rendering by default, with explicit reveal when needed.
@@ -50,7 +52,8 @@ Browser UI
 Local bridge
   ├─ server/index.ts
   └─ server/codex-bridge.ts
-       └─ codex app-server over stdio JSON-RPC
+       ├─ codex app-server over stdio JSON-RPC
+       └─ shared normalization for live deltas and thread/read hydration
 ```
 
 ## Quick Start
