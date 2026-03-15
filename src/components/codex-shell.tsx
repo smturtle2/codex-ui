@@ -12,6 +12,14 @@ import {
 } from "react";
 
 import { ApprovalDialog, type ApprovalOption, type ApprovalQuestion } from "@/components/codex-shell/approval-dialog";
+import {
+  LANGUAGE_STORAGE_KEY,
+  getLanguageOptions,
+  getUiCopy,
+  parseUiLanguage,
+  resolveUiLocale,
+  type UiLanguage,
+} from "@/components/codex-shell/copy";
 import { ComposerDock } from "@/components/codex-shell/composer-dock";
 import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
@@ -91,6 +99,8 @@ export function CodexShell() {
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
   const [surface, setSurface] = useState<SurfaceKind | null>(null);
   const [composer, setComposer] = useState("");
+  const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
+  const [browserLanguage, setBrowserLanguage] = useState("en");
   const [threadSearch, setThreadSearch] = useState("");
   const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -117,6 +127,11 @@ export function CodexShell() {
   const approvalOriginRef = useRef<HTMLElement | null>(null);
   const previousPendingRequestIdRef = useRef<string | null>(null);
   const deferredThreadSearch = useDeferredValue(threadSearch);
+  const locale = useMemo(
+    () => resolveUiLocale(uiLanguage, browserLanguage),
+    [browserLanguage, uiLanguage],
+  );
+  const copy = useMemo(() => getUiCopy(locale), [locale]);
 
   const applySnapshot = useEffectEvent((nextSnapshot: BridgeSnapshot) => {
     startTransition(() => {
@@ -133,7 +148,7 @@ export function CodexShell() {
         return;
       }
 
-      setToast(error instanceof Error ? error.message : "Failed to load bootstrap.");
+      setToast(error instanceof Error ? error.message : copy.common.bootstrapError);
     }
   });
 
@@ -210,6 +225,19 @@ export function CodexShell() {
       websocket?.close();
     };
   }, []);
+
+  useEffect(() => {
+    setBrowserLanguage(window.navigator.language || "en");
+    setUiLanguage(parseUiLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)));
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, uiLanguage);
+  }, [uiLanguage]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     if (!toast) {
@@ -339,7 +367,7 @@ export function CodexShell() {
   }, [pendingRequest?.id, surface]);
 
   const visibleCommands = !commandMenuDismissed && composer.trimStart().startsWith("/")
-    ? filterCommands(composer.trimStart())
+    ? filterCommands(composer.trimStart(), locale)
     : [];
 
   useEffect(() => {
@@ -467,7 +495,10 @@ export function CodexShell() {
   }
 
   async function handleCreateThread(closeCurrentSurface = false) {
-    await syncSnapshotFromResult(() => callApi("/api/thread/start", {}), "Starting thread");
+    await syncSnapshotFromResult(
+      () => callApi("/api/thread/start", {}),
+      copy.actions.startingThread,
+    );
 
     if (closeCurrentSurface) {
       setSurface(null);
@@ -492,7 +523,7 @@ export function CodexShell() {
 
     await syncSnapshotFromResult(
       () => callApi("/api/turn/start", { text: value }),
-      "Sending turn",
+      copy.actions.sendingTurn,
     );
     setComposer("");
   }
@@ -502,7 +533,7 @@ export function CodexShell() {
     const command = BUILTIN_COMMANDS.find((entry) => entry.name === commandName);
 
     if (!command) {
-      setToast(`Unknown slash command: ${rawValue}`);
+      setToast(copy.common.unknownSlashCommand(rawValue));
       return;
     }
 
@@ -516,13 +547,13 @@ export function CodexShell() {
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
-          setToast("No active thread to fork.");
+          setToast(copy.common.noActiveThreadToFork);
           return;
         }
 
         await syncSnapshotFromResult(
           () => callApi("/api/thread/fork", { threadId: snapshot.activeThreadId }),
-          "Forking thread",
+          copy.actions.forkingThread,
         );
         break;
       case "model":
@@ -533,7 +564,7 @@ export function CodexShell() {
       case "review":
         await syncSnapshotFromResult(
           () => callApi("/api/review/start", {}),
-          "Starting review",
+          copy.actions.startingReview,
         );
         break;
       case "status":
@@ -550,7 +581,7 @@ export function CodexShell() {
   async function handleResumeThread(threadId: string) {
     await syncSnapshotFromResult(
       () => callApi("/api/thread/resume", { threadId }),
-      "Resuming thread",
+      copy.actions.resumingThread,
     );
     setSurface(null);
     window.setTimeout(() => {
@@ -561,14 +592,14 @@ export function CodexShell() {
   async function handleInterrupt() {
     await syncSnapshotFromResult(
       () => callApi("/api/turn/interrupt", {}),
-      "Interrupting turn",
+      copy.actions.interruptingTurn,
     );
   }
 
   async function handleModelChange(model: string, effort: string | null) {
     await syncSnapshotFromResult(
       () => callApi("/api/session/settings", { model, effort }),
-      "Updating session settings",
+      copy.actions.updatingSessionSettings,
     );
     window.setTimeout(() => {
       composerRef.current?.focus();
@@ -599,13 +630,20 @@ export function CodexShell() {
     await handleModelChange(currentModel.model, effort);
   }
 
+  function handleLanguageChange(language: UiLanguage) {
+    setUiLanguage(language);
+    window.setTimeout(() => {
+      composerRef.current?.focus();
+    }, 0);
+  }
+
   async function handlePlanModeToggle() {
     await syncSnapshotFromResult(
       () =>
         callApi("/api/session/settings", {
           planMode: !(snapshot?.sessionSettings.planMode ?? false),
         }),
-      "Updating session settings",
+      copy.actions.updatingSessionSettings,
     );
     window.setTimeout(() => {
       composerRef.current?.focus();
@@ -619,7 +657,7 @@ export function CodexShell() {
           requestId,
           result,
         }),
-      "Responding to server request",
+      copy.actions.respondingToServerRequest,
     );
   }
 
@@ -638,7 +676,7 @@ export function CodexShell() {
       ? ((pendingRequest?.params as { command?: string }).command ?? null)
       : null;
   const activeOverlay = surface && surface !== "threads" ? surface : null;
-  const sessionTitle = activeThreadSummary?.title ?? "New session";
+  const sessionTitle = activeThreadSummary?.title ?? (locale === "ko" ? "새 세션" : "New session");
   const sessionMeta = activeThreadSummary
     ? [
         activeThreadSummary.workspaceLabel,
@@ -647,25 +685,31 @@ export function CodexShell() {
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Open a thread or send the first message.";
+    : locale === "ko"
+      ? "thread를 열거나 첫 메시지를 보내세요."
+      : "Open a thread or send the first message.";
   const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
   const headerStatus = connectionState !== "live"
     ? {
-        label: connectionState === "connecting" ? "connecting" : "reconnecting",
+        label:
+          connectionState === "connecting"
+            ? copy.header.connecting
+            : copy.header.reconnecting,
         tone: "starting" as const,
       }
     : snapshot?.lastError
-      ? { label: "error", tone: "error" as const }
+      ? { label: copy.header.error, tone: "error" as const }
       : pendingRequest
-        ? { label: "pending request", tone: "pending" as const }
+        ? { label: copy.header.pendingRequest, tone: "pending" as const }
         : snapshot?.activeTurnId
-          ? { label: "working", tone: "working" as const }
+          ? { label: copy.header.working, tone: "working" as const }
           : snapshot?.phase && snapshot.phase !== "ready"
-            ? { label: snapshot.phase, tone: "starting" as const }
-            : { label: "ready", tone: "ready" as const };
+            ? { label: copy.statusPanel.phase[snapshot.phase], tone: "starting" as const }
+            : { label: copy.header.ready, tone: "ready" as const };
   const selectedModelValue = currentModel?.model ?? "";
   const selectedEffortValue = currentEffort ?? currentModel?.defaultReasoningEffort ?? "";
   const selectedPlanMode = snapshot?.sessionSettings.planMode ?? false;
+  const selectedLanguageValue = uiLanguage;
   const sessionModelOptions = (snapshot?.models ?? []).map((model) => ({
     value: model.model,
     label: model.displayName,
@@ -674,26 +718,27 @@ export function CodexShell() {
     value: effort.reasoningEffort,
     label: effort.reasoningEffort,
   }));
+  const languageOptions = getLanguageOptions(locale);
   const composerHelper = connectionState !== "live"
-    ? "WebSocket reconnects automatically."
+    ? copy.composer.helperReconnect
     : visibleCommands.length
-      ? "Arrow keys move. Enter runs. Tab completes. Esc hides."
+      ? copy.composer.helperSlash
       : snapshot?.activeTurnId
-        ? "Streaming live. Diffs stay folded until opened."
-        : "/ commands. Enter sends. Shift+Enter adds a newline.";
+        ? copy.composer.helperStreaming
+        : copy.composer.helperIdle;
   const composerStatus = connectionState !== "live"
     ? connectionState === "connecting"
-      ? "Connecting"
-      : "Reconnecting"
+      ? copy.composer.connecting
+      : copy.composer.reconnecting
     : snapshot?.activeTurnId
-      ? "Working"
+      ? copy.composer.working
       : pendingRequest
         ? pendingRequest.summary
         : busyAction
         ? busyAction
         : selectedPlanMode
-          ? "Ready · plan"
-          : "Ready";
+          ? copy.composer.readyPlan
+          : copy.composer.ready;
 
   const approvalChoices = useMemo<ApprovalChoice[]>(() => {
     if (!pendingRequest) {
@@ -712,7 +757,7 @@ export function CodexShell() {
           ]
         ).map((decision) => ({
           key: summarizeDecision(decision),
-          label: approvalDecisionLabel(decision, currentCommandText),
+          label: approvalDecisionLabel(decision, currentCommandText, locale),
           result: { decision },
           isCancel: decision === "cancel",
         }));
@@ -720,15 +765,21 @@ export function CodexShell() {
       case "item/fileChange/requestApproval":
         return ["accept", "acceptForSession", "decline", "cancel"].map((decision) => ({
           key: decision,
-          label: fileApprovalDecisionLabel(decision),
+          label: fileApprovalDecisionLabel(decision, locale),
           result: { decision },
           isCancel: decision === "cancel",
         }));
 
       case "item/permissions/requestApproval":
         return [
-          { label: "Default", scope: "turn" },
-          { label: "Full Access", scope: "session" },
+          {
+            label: locale === "ko" ? "기본 권한" : "Default",
+            scope: "turn",
+          },
+          {
+            label: locale === "ko" ? "전체 권한" : "Full Access",
+            scope: "session",
+          },
         ].map((option) => {
           const params = (pendingRequest.params as { permissions?: unknown }) ?? {};
           return {
@@ -744,7 +795,7 @@ export function CodexShell() {
       default:
         return [];
     }
-  }, [currentCommandText, pendingRequest]);
+  }, [currentCommandText, locale, pendingRequest]);
 
   const approvalQuestionModels = useMemo<ApprovalQuestion[]>(() => {
     if (pendingRequest?.method !== "item/tool/requestUserInput") {
@@ -788,21 +839,21 @@ export function CodexShell() {
 
   const approvalTitle =
     pendingRequest?.method === "item/commandExecution/requestApproval"
-      ? "Run command?"
+      ? copy.approval.runCommandTitle
       : pendingRequest?.method === "item/fileChange/requestApproval"
-        ? "Approve file changes?"
+        ? copy.approval.approveFilesTitle
         : pendingRequest?.method === "item/permissions/requestApproval"
-          ? "Update permissions?"
+          ? copy.approval.updatePermissionsTitle
           : pendingRequest?.method === "item/tool/requestUserInput"
-            ? "Additional input required"
-            : "Server request";
+            ? copy.approval.additionalInputTitle
+            : copy.approval.serverRequestTitle;
   const approvalIntro =
     pendingRequest?.method === "item/commandExecution/requestApproval"
-      ? "Codex wants to run the following command."
+      ? copy.approval.runCommandIntro
       : pendingRequest?.method === "item/fileChange/requestApproval"
-        ? "Codex wants to make the following edits."
+        ? copy.approval.editFilesIntro
         : pendingRequest?.method === "item/permissions/requestApproval"
-          ? "Codex wants to update model permissions."
+          ? copy.approval.updatePermissionsIntro
           : pendingRequest?.summary ?? "";
   const approvalReason =
     typeof (pendingRequest?.params as { reason?: string | null } | undefined)?.reason ===
@@ -818,10 +869,10 @@ export function CodexShell() {
   const approvalFooter = pendingRequest
     ? approvalChoices.length > 0
       ? cancelApprovalChoice
-        ? "Use ↑/↓ then Enter to choose. Esc cancels."
-        : "Use ↑/↓ then Enter to choose."
+        ? copy.approval.footerChooseWithEsc
+        : copy.approval.footerChoose
       : approvalQuestionModels.length > 0
-        ? "Fill in the answers, then submit."
+        ? copy.approval.footerSubmit
         : null
     : null;
 
@@ -1029,6 +1080,24 @@ export function CodexShell() {
       {surface === "threads" ? (
         <ThreadDrawer
           ref={threadDrawerPanelRef}
+          locale={locale}
+          copy={{
+            title: copy.header.threads,
+            sessions: copy.threadDrawer.sessions,
+            close: copy.common.close,
+            search: copy.threadDrawer.search,
+            searchPlaceholder: copy.threadDrawer.searchPlaceholder,
+            newThread: copy.threadDrawer.newThread,
+            threadControls: copy.threadDrawer.threadControls,
+            sortThreads: copy.threadDrawer.sortThreads,
+            current: copy.common.current,
+            recent: copy.common.recent,
+            recentAvailable: copy.threadDrawer.recentAvailable,
+            noMatchingThreads: copy.threadDrawer.noMatchingThreads,
+            noOtherThreads: copy.threadDrawer.noOtherThreads,
+            recentSort: copy.threadDrawer.recentSort,
+            createdSort: copy.threadDrawer.createdSort,
+          }}
           search={threadSearch}
           sort={threadSort}
           filteredCount={filteredThreads.length}
@@ -1053,6 +1122,7 @@ export function CodexShell() {
           sessionTitle={sessionTitle}
           sessionMeta={sessionMeta}
           sessionMetaTitle={sessionMetaTitle}
+          threadsLabel={copy.header.threads}
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           threadButtonRef={threadButtonRef}
@@ -1070,11 +1140,15 @@ export function CodexShell() {
           <TranscriptPane
             scrollRef={transcriptScrollRef}
             timeline={activeTimeline}
-            emptyTitle={activeThread ? "No transcript yet" : "No active session"}
+            locale={locale}
+            copy={copy.transcript}
+            emptyTitle={
+              activeThread ? copy.transcript.noTranscriptYet : copy.transcript.noActiveSession
+            }
             emptyBody={
               activeThread
-                ? "Send the first turn to begin."
-                : "Type a message or open the thread drawer."
+                ? copy.transcript.sendFirstTurn
+                : copy.transcript.typeMessageOrOpenThreadDrawer
             }
           />
         </section>
@@ -1091,9 +1165,27 @@ export function CodexShell() {
           activeTurn={Boolean(snapshot?.activeTurnId)}
           selectedModel={selectedModelValue}
           selectedEffort={selectedEffortValue}
+          selectedLanguage={selectedLanguageValue}
           planMode={selectedPlanMode}
           modelOptions={sessionModelOptions}
           effortOptions={sessionEffortOptions}
+          languageOptions={languageOptions}
+          labels={{
+            session: copy.composer.session,
+            model: copy.composer.model,
+            reasoning: copy.composer.reasoning,
+            language: copy.composer.language,
+            status: copy.composer.status,
+            shortcuts: copy.composer.shortcuts,
+            plan: copy.composer.plan,
+            on: copy.composer.on,
+            off: copy.composer.off,
+            placeholder: copy.composer.placeholder,
+            interrupt: copy.composer.interrupt,
+            send: copy.composer.send,
+            unavailable: copy.common.unavailable,
+            sessionAria: copy.composer.sessionAria,
+          }}
           onComposerChange={handleComposerChange}
           onComposerKeyDown={handleComposerKeyDown}
           onCommandPick={(commandName) => {
@@ -1109,6 +1201,7 @@ export function CodexShell() {
           onEffortChange={(value) => {
             void handleComposerEffortChange(value);
           }}
+          onLanguageChange={handleLanguageChange}
           onPlanModeToggle={() => {
             void handlePlanModeToggle();
           }}
@@ -1130,22 +1223,25 @@ export function CodexShell() {
       {activeOverlay === "status" && snapshot ? (
         <SurfaceDialog
           ref={overlayPanelRef}
-          title="Status"
-          subtitle={buildStatusLine(snapshot)}
-          footer="Esc closes this overlay."
+          title={copy.surface.statusTitle}
+          subtitle={buildStatusLine(snapshot, locale)}
+          footer={copy.surface.statusFooter}
+          kickerLabel={copy.surface.overlay}
+          closeLabel={copy.common.close}
           onClose={() => closeSurface()}
         >
           <div className="picker-scroll">
             <pre className="status-pre">
-{`bridge: ${snapshot.phase}
-connection: ${connectionState}
-active thread: ${activeThreadSummary?.title ?? "none"}
-model: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
-reasoning: ${currentEffort ?? "default"}
-plan mode: ${selectedPlanMode ? "on" : "off"}
-pending requests: ${snapshot.pendingRequests.length}
-runtime: ${runtime}
-last error: ${snapshot.lastError ?? "none"}`}
+{`${copy.statusPanel.bridge}: ${copy.statusPanel.phase[snapshot.phase]}
+${copy.statusPanel.connection}: ${connectionState === "live" ? copy.statusPanel.live : headerStatus.label}
+${copy.statusPanel.activeThread}: ${activeThreadSummary?.title ?? copy.common.none}
+${copy.statusPanel.model}: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
+${copy.statusPanel.reasoning}: ${currentEffort ?? "default"}
+${copy.statusPanel.planMode}: ${selectedPlanMode ? copy.common.on : copy.common.off}
+${copy.statusPanel.uiLanguage}: ${languageOptions.find((option) => option.value === selectedLanguageValue)?.label ?? selectedLanguageValue}
+${copy.statusPanel.pendingRequests}: ${snapshot.pendingRequests.length}
+${copy.statusPanel.runtime}: ${runtime}
+${copy.statusPanel.lastError}: ${snapshot.lastError ?? copy.common.none}`}
             </pre>
           </div>
         </SurfaceDialog>
@@ -1154,19 +1250,15 @@ last error: ${snapshot.lastError ?? "none"}`}
       {activeOverlay === "shortcuts" ? (
         <SurfaceDialog
           ref={overlayPanelRef}
-          title="Shortcuts"
-          subtitle="Keyboard help that matches the current browser behavior."
-          footer="Browser-reserved shortcuts keep visible fallback controls in the shell."
+          title={copy.surface.shortcutsTitle}
+          subtitle={copy.surface.shortcutsSubtitle}
+          footer={copy.surface.shortcutsFooter}
+          kickerLabel={copy.surface.overlay}
+          closeLabel={copy.common.close}
           onClose={() => closeSurface()}
         >
           <div className="picker-scroll">
-            <pre className="status-pre">
-{`Enter            send current turn
-Shift + Enter    insert newline
-Esc              close overlays / interrupt / hide slash suggestions
-?                open shortcut panel
-/                trigger slash command suggestions`}
-            </pre>
+            <pre className="status-pre">{copy.shortcutsPanel.lines.join("\n")}</pre>
           </div>
         </SurfaceDialog>
       ) : null}
@@ -1176,13 +1268,19 @@ Esc              close overlays / interrupt / hide slash suggestions
           ref={approvalDialogRef}
           title={approvalTitle}
           intro={approvalIntro}
+          kickerLabel={copy.approval.approval}
+          cancelLabel={copy.common.cancel}
+          reasonLabel={copy.approval.reason}
+          typeAnswerLabel={copy.approval.typeAnswer}
+          advancedJsonLabel={copy.approval.advancedJson}
+          sendJsonLabel={copy.approval.sendJson}
           reason={approvalReason}
           detail={approvalDetail}
           options={approvalOptions}
           selectedOptionIndex={selectedApprovalIndex}
           questions={approvalQuestionModels}
           submitLabel={
-            approvalQuestionModels.length > 0 ? "Submit answers" : null
+            approvalQuestionModels.length > 0 ? copy.approval.submitAnswers : null
           }
           onSubmitQuestions={
             approvalQuestionModels.length > 0
@@ -1220,7 +1318,7 @@ Esc              close overlays / interrupt / hide slash suggestions
               setToast(
                 error instanceof Error
                   ? error.message
-                  : "Invalid JSON for server request response.",
+                  : copy.common.invalidJson,
               );
             }
           }}

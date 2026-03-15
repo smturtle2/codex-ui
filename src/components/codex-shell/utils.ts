@@ -7,7 +7,7 @@ import type {
   SlashCommandDefinition,
   TimelineEntry,
 } from "@/lib/shared";
-import { BUILTIN_COMMANDS } from "@/lib/shared";
+import { getIntlLocale, getLocalizedCommands, getUiCopy, type UiLocale } from "./copy";
 
 export const FOCUSABLE_SELECTOR = [
   "button:not([disabled])",
@@ -18,26 +18,27 @@ export const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex='-1'])",
 ].join(", ");
 
-export function formatRelativeTime(unixSeconds: number): string {
+export function formatRelativeTime(locale: UiLocale, unixSeconds: number): string {
+  const copy = getUiCopy(locale);
   const delta = Date.now() - unixSeconds * 1000;
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
 
   if (delta < minute) {
-    return "just now";
+    return copy.timeline.time.justNow;
   }
   if (delta < hour) {
-    return `${Math.floor(delta / minute)}m ago`;
+    return copy.timeline.time.minutesAgo(Math.floor(delta / minute));
   }
   if (delta < day) {
-    return `${Math.floor(delta / hour)}h ago`;
+    return copy.timeline.time.hoursAgo(Math.floor(delta / hour));
   }
-  return `${Math.floor(delta / day)}d ago`;
+  return copy.timeline.time.daysAgo(Math.floor(delta / day));
 }
 
-export function formatClock(updatedAt: number): string {
-  return new Intl.DateTimeFormat("en-US", {
+export function formatClock(locale: UiLocale, updatedAt: number): string {
+  return new Intl.DateTimeFormat(getIntlLocale(locale), {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(updatedAt));
@@ -51,13 +52,17 @@ export function formatRuntime(startedAt: number | null, now: number = Date.now()
   return `${Math.max(0, Math.floor((now - startedAt) / 1000))}s`;
 }
 
-export function filterCommands(input: string): SlashCommandDefinition[] {
+export function filterCommands(
+  input: string,
+  locale: UiLocale,
+): SlashCommandDefinition[] {
   const query = input.replace(/^\//, "").trim().toLowerCase();
+  const commands = getLocalizedCommands(locale);
   if (!query) {
-    return BUILTIN_COMMANDS;
+    return commands;
   }
 
-  return BUILTIN_COMMANDS.filter((command) =>
+  return commands.filter((command) =>
     `${command.name} ${command.description}`.toLowerCase().includes(query),
   );
 }
@@ -84,20 +89,24 @@ export function getCurrentEffort(snapshot: BridgeSnapshot | null): string | null
   );
 }
 
-export function buildStatusLine(snapshot: BridgeSnapshot | null): string {
+export function buildStatusLine(
+  snapshot: BridgeSnapshot | null,
+  locale: UiLocale,
+): string {
   if (!snapshot) {
-    return "starting";
+    return getUiCopy(locale).statusPanel.phase.starting;
   }
 
+  const copy = getUiCopy(locale);
   const currentModel = getCurrentModel(snapshot);
   const effort = getCurrentEffort(snapshot);
 
   return [
     currentModel?.displayName ?? currentModel?.model ?? "default",
     effort,
-    snapshot.sessionSettings.planMode ? "plan" : null,
-    snapshot.phase,
-    `${snapshot.threadList.length} sessions`,
+    snapshot.sessionSettings.planMode ? copy.statusPanel.plan : null,
+    copy.statusPanel.phase[snapshot.phase],
+    copy.statusPanel.sessions(snapshot.threadList.length),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -173,85 +182,62 @@ export function summarizeDecision(decision: CommandExecutionApprovalDecision): s
 export function approvalDecisionLabel(
   decision: CommandExecutionApprovalDecision,
   commandText: string | null,
+  locale: UiLocale,
 ): string {
+  const copy = getUiCopy(locale);
+
   if (typeof decision === "string") {
     switch (decision) {
       case "accept":
-        return "Yes, proceed";
+        return copy.approval.accept;
       case "acceptForSession":
-        return "Yes, proceed for this session";
+        return copy.approval.acceptForSession;
       case "decline":
-        return "No, and tell Codex what to do differently";
+        return copy.approval.decline;
       case "cancel":
-        return "Cancel";
+        return copy.common.cancel;
     }
   }
 
   if ("acceptWithExecpolicyAmendment" in decision) {
-    return `Yes, and don't ask again for commands that start with \`${commandText ?? ""}\``;
+    return `${copy.approval.acceptWithoutAskingPrefix} \`${commandText ?? ""}\``;
   }
 
-  return "Allow the proposed network rule";
+  return copy.approval.allowNetworkRule;
 }
 
-export function fileApprovalDecisionLabel(decision: string): string {
+export function fileApprovalDecisionLabel(
+  decision: string,
+  locale: UiLocale,
+): string {
+  const copy = getUiCopy(locale);
+
   switch (decision) {
     case "accept":
-      return "Yes, make the edits";
+      return copy.approval.acceptEdits;
     case "acceptForSession":
-      return "Yes, allow edits for this session";
+      return copy.approval.acceptEditsForSession;
     case "decline":
-      return "No, and tell Codex what to do differently";
+      return copy.approval.decline;
     case "cancel":
-      return "Cancel";
+      return copy.common.cancel;
     default:
       return decision;
   }
 }
 
-export function formatTimelineKind(kind: TimelineEntry["kind"]): string {
-  switch (kind) {
-    case "thread":
-      return "Thread";
-    case "turn":
-      return "Turn";
-    case "message":
-      return "Message";
-    case "reasoning":
-      return "Reasoning";
-    case "plan":
-      return "Plan";
-    case "command":
-      return "Command";
-    case "diff":
-      return "Diff";
-    case "review":
-      return "Review";
-    case "tool":
-      return "Tool";
-    case "approval":
-      return "Approval";
-    case "input":
-      return "Input";
-    case "system":
-      return "System";
-  }
+export function formatTimelineKind(
+  kind: TimelineEntry["kind"],
+  locale: UiLocale,
+): string {
+  return getUiCopy(locale).timeline.kinds[kind];
 }
 
-export function formatTimelineStatus(status: TimelineEntry["status"]): string {
-  switch (status) {
-    case "running":
-      return "running";
-    case "pending":
-      return "pending";
-    case "error":
-      return "error";
-    case "completed":
-      return "completed";
-    case "idle":
-    default:
-      return "idle";
-  }
+export function formatTimelineStatus(
+  status: TimelineEntry["status"],
+  locale: UiLocale,
+): string {
+  return getUiCopy(locale).timeline.status[status];
 }
 
 export function getFocusableElements(container: HTMLElement | null): HTMLElement[] {

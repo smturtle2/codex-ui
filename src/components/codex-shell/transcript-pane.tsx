@@ -4,12 +4,15 @@ import { useEffect, useState, type RefObject } from "react";
 
 import type { TimelineEntry } from "@/lib/shared";
 
-import { formatClock, formatTimelineKind } from "./utils";
+import type { UiCopy, UiLocale } from "./copy";
+import { formatClock, formatTimelineKind, formatTimelineStatus } from "./utils";
 
 type TranscriptPaneProps = {
   timeline: TimelineEntry[];
   emptyTitle: string;
   emptyBody: string;
+  locale: UiLocale;
+  copy: UiCopy["transcript"];
   scrollRef?: RefObject<HTMLDivElement | null>;
   overlay?: boolean;
 };
@@ -84,22 +87,25 @@ function getMessageGroupStatus(entries: TimelineEntry[]): TimelineEntry["status"
   return "idle";
 }
 
-function getMessageLabel(entries: TimelineEntry[]): string {
+function getMessageLabel(
+  entries: TimelineEntry[],
+  copy: UiCopy["transcript"],
+): string {
   const role = getMessageRole(entries[0]);
   if (role === "user") {
-    return "You";
+    return copy.you;
   }
 
   const status = getMessageGroupStatus(entries);
   if (status === "running") {
-    return "Codex running";
+    return copy.codexRunning;
   }
 
   if (status === "error") {
-    return "Codex error";
+    return copy.codexError;
   }
 
-  return "Codex";
+  return copy.codex;
 }
 
 function buildTranscriptRows(timeline: TimelineEntry[]): TranscriptRow[] {
@@ -150,42 +156,45 @@ function firstBodyLine(entry: TimelineEntry): string | null {
     .find(Boolean) ?? null;
 }
 
-function summarizeEditedContent(entry: TimelineEntry): string {
+function summarizeEditedContent(
+  entry: TimelineEntry,
+  copy: UiCopy["transcript"],
+): string {
   const changeMatches = [
     ...entry.body.matchAll(/^(ADD|CREATE|UPDATE|DELETE|MODIFY|RENAME)\s+.+$/gm),
   ];
   const diffMatches = [...entry.body.matchAll(/^diff --git a\/.+ b\/.+$/gm)];
   const fileCount = changeMatches.length || diffMatches.length;
 
-  if (fileCount > 0) {
-    return `Edited content hidden · ${fileCount} file${fileCount === 1 ? "" : "s"}`;
-  }
-
-  return "Edited content hidden";
+  return copy.editedContentHidden(fileCount);
 }
 
-function getEventSummary(entry: TimelineEntry): string {
+function getEventSummary(
+  entry: TimelineEntry,
+  locale: UiLocale,
+  copy: UiCopy["transcript"],
+): string {
   if (entry.kind === "diff") {
-    return summarizeEditedContent(entry);
+    return summarizeEditedContent(entry, copy);
   }
 
   if (entry.kind === "reasoning") {
-    return "Reasoning hidden";
+    return copy.reasoningHidden;
   }
 
   if (entry.kind === "plan") {
-    return firstBodyLine(entry) ?? "Plan hidden";
+    return firstBodyLine(entry) ?? copy.planHidden;
   }
 
   if (entry.kind === "approval") {
-    return entry.title.trim() || "Approval needed";
+    return entry.title.trim() || copy.approvalNeeded;
   }
 
   if (entry.kind === "command" && entry.title.trim()) {
     return entry.title.trim();
   }
 
-  const title = entry.title.trim() || formatTimelineKind(entry.kind);
+  const title = entry.title.trim() || formatTimelineKind(entry.kind, locale);
   const bodyLine = firstBodyLine(entry);
 
   if (!bodyLine) {
@@ -220,22 +229,28 @@ function shouldAutoExpand(entry: TimelineEntry): boolean {
   return entry.status === "error";
 }
 
-function getRevealLabel(entry: TimelineEntry, isExpanded: boolean): string {
+function getRevealLabel(
+  entry: TimelineEntry,
+  isExpanded: boolean,
+  copy: UiCopy["transcript"],
+): string {
   if (isExpanded) {
-    return "Hide";
+    return copy.hide;
   }
 
   if (entry.kind === "diff") {
-    return "Show diff";
+    return copy.showDiff;
   }
 
-  return "Show";
+  return copy.show;
 }
 
 export function TranscriptPane({
   timeline,
   emptyTitle,
   emptyBody,
+  locale,
+  copy,
   scrollRef,
   overlay = false,
 }: TranscriptPaneProps) {
@@ -289,7 +304,7 @@ export function TranscriptPane({
                   key={row.key}
                   className={`history-turn-divider status-${row.entry.status}`}
                   role="separator"
-                  aria-label="Turn separator"
+                  aria-label={copy.turnSeparator}
                 >
                   ---
                 </div>
@@ -306,12 +321,16 @@ export function TranscriptPane({
                   className={`history-message-group role-${row.role} status-${groupStatus}`}
                 >
                   <div className="history-message-group-head">
-                    <span className="history-message-role">{getMessageLabel(row.entries)}</span>
+                    <span className="history-message-role">
+                      {getMessageLabel(row.entries, copy)}
+                    </span>
                     {groupStatus !== "completed" && groupStatus !== "idle" ? (
-                      <span className="history-message-state">{groupStatus}</span>
+                      <span className="history-message-state">
+                        {formatTimelineStatus(groupStatus, locale)}
+                      </span>
                     ) : null}
                     <time className="history-message-time">
-                      {formatClock(lastEntry.updatedAt)}
+                      {formatClock(locale, lastEntry.updatedAt)}
                     </time>
                   </div>
 
@@ -332,7 +351,7 @@ export function TranscriptPane({
             const { entry } = row;
             const detail = getEventDetail(entry);
             const isExpanded = expandedEntries[entry.id] ?? false;
-            const summary = getEventSummary(entry);
+            const summary = getEventSummary(entry, locale, copy);
 
             return (
               <article
@@ -354,14 +373,20 @@ export function TranscriptPane({
                       }}
                     >
                       <div className="history-event-summaryline">
-                        <span className="history-event-kind">{formatTimelineKind(entry.kind)}</span>
+                        <span className="history-event-kind">
+                          {formatTimelineKind(entry.kind, locale)}
+                        </span>
                         <span className="history-event-summary">{summary}</span>
                         {entry.status !== "completed" && entry.status !== "idle" ? (
-                          <span className="history-event-state">{entry.status}</span>
+                          <span className="history-event-state">
+                            {formatTimelineStatus(entry.status, locale)}
+                          </span>
                         ) : null}
-                        <time className="history-message-time">{formatClock(entry.updatedAt)}</time>
+                        <time className="history-message-time">
+                          {formatClock(locale, entry.updatedAt)}
+                        </time>
                         <span className="history-event-marker">
-                          {getRevealLabel(entry, isExpanded)}
+                          {getRevealLabel(entry, isExpanded, copy)}
                         </span>
                       </div>
                     </button>
@@ -369,12 +394,18 @@ export function TranscriptPane({
                   </>
                 ) : (
                   <div className="history-event-summaryline">
-                    <span className="history-event-kind">{formatTimelineKind(entry.kind)}</span>
+                    <span className="history-event-kind">
+                      {formatTimelineKind(entry.kind, locale)}
+                    </span>
                     <span className="history-event-summary">{summary}</span>
                     {entry.status !== "completed" && entry.status !== "idle" ? (
-                      <span className="history-event-state">{entry.status}</span>
+                      <span className="history-event-state">
+                        {formatTimelineStatus(entry.status, locale)}
+                      </span>
                     ) : null}
-                    <time className="history-message-time">{formatClock(entry.updatedAt)}</time>
+                    <time className="history-message-time">
+                      {formatClock(locale, entry.updatedAt)}
+                    </time>
                   </div>
                 )}
               </article>

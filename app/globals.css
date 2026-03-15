@@ -11,16 +11,16 @@
   --soft: #8b8b8b;
   --inverse: #ffffff;
   --selection: rgba(17, 17, 17, 0.08);
-  --content-width: 1480px;
-  --measure: 62rem;
+  --content-width: 1600px;
+  --measure: 76rem;
   --radius: 0.78rem;
   --font-sans:
-    "Iowan Old Style",
-    "Palatino Linotype",
-    "Book Antiqua",
+    "IBM Plex Sans",
     "Noto Sans KR",
+    "Segoe UI",
     "Apple SD Gothic Neo",
     "Malgun Gothic",
+    "Helvetica Neue",
     sans-serif;
   --font-mono:
     "IBM Plex Mono",
@@ -97,10 +97,10 @@ pre {
   min-height: 0;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0.6rem;
+  padding: 0.55rem;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 
 .shell-header,
@@ -116,7 +116,7 @@ pre {
 }
 
 .shell-header {
-  padding: 0.56rem 0.72rem;
+  padding: 0.5rem 0.72rem;
 }
 
 .shell-header-rail,
@@ -182,14 +182,7 @@ pre {
 .history-message-state,
 .history-event-kind,
 .history-event-state,
-.thread-drawer-section-label,
-.sidebar-trigger,
-.plain-action,
-.picker-chip,
-.action-button,
-.composer-plan-toggle,
 .composer-control-label,
-.composer-select,
 .history-message-time,
 .history-event-marker,
 .thread-drawer-item-time,
@@ -336,7 +329,7 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 0.9rem 0.95rem 1.15rem;
+  padding: 1.05rem 1.15rem 1.35rem;
 }
 
 .transcript-scroll-shell {
@@ -369,7 +362,7 @@ pre {
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 0.82rem;
+  gap: 0.9rem;
   align-content: start;
 }
 
@@ -388,13 +381,13 @@ pre {
 }
 
 .history-message-group.role-user {
-  width: min(100%, 40rem);
+  width: min(100%, 48rem);
   margin-left: auto;
   text-align: right;
 }
 
 .history-message-group.role-assistant {
-  width: min(100%, 56rem);
+  width: min(100%, 68rem);
 }
 
 .history-message-group-head {
@@ -420,8 +413,8 @@ pre {
 }
 
 .history-message-line {
-  font-size: 0.96rem;
-  line-height: 1.72;
+  font-size: 1rem;
+  line-height: 1.76;
 }
 
 .history-event {
@@ -509,7 +502,7 @@ pre {
 .composer-frame {
   display: grid;
   gap: 0.56rem;
-  padding: 0.68rem 0.76rem 0.74rem;
+  padding: 0.72rem 0.82rem 0.8rem;
   position: relative;
   transition:
     border-color 120ms ease,
@@ -522,9 +515,10 @@ pre {
 }
 
 .composer-session-row {
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.55rem;
 }
 
 .composer-session-shell {
@@ -555,9 +549,9 @@ pre {
 }
 
 .composer-session-value {
-  font-size: 0.88rem;
-  line-height: 1.3;
-  font-weight: 500;
+  font-size: 0.93rem;
+  line-height: 1.35;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -569,7 +563,7 @@ pre {
   right: auto;
   bottom: calc(100% + 0.46rem);
   z-index: 20;
-  width: min(32rem, calc(100vw - 2.9rem));
+  width: min(40rem, calc(100vw - 2.9rem));
   display: grid;
   gap: 0.6rem;
   padding: 0.72rem;
@@ -581,7 +575,7 @@ pre {
 
 .composer-session-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.65rem;
 }
 
@@ -641,7 +635,7 @@ pre {
 
 .composer-plan-toggle {
   justify-content: space-between;
-  min-width: 5.8rem;
+  min-width: 4.9rem;
   flex: 0 0 auto;
 }
 
@@ -663,7 +657,7 @@ pre {
 }
 
 .composer-input {
-  min-height: 4.25rem;
+  min-height: 4.75rem;
   max-height: 13rem;
   padding: 0.08rem 0;
   border: 0;
@@ -691,14 +685,14 @@ pre {
 .composer-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.65rem;
-  align-items: center;
+  gap: 0.55rem 0.85rem;
+  align-items: end;
 }
 
 .composer-meta {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.24rem 0.72rem;
   min-width: 0;
 }
@@ -720,6 +714,7 @@ pre {
 .composer-actions {
   justify-content: flex-end;
   flex-wrap: nowrap;
+  gap: 0.45rem;
 }
 
 .thread-drawer-backdrop,
@@ -963,10 +958,15 @@ pre {
   }
 
   .composer-session-panel {
-    width: min(30rem, calc(100vw - 1.9rem));
+    width: min(34rem, calc(100vw - 1.9rem));
+  }
+
+  .composer-session-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .history-list {
+    width: 100%;
     gap: 0.82rem;
   }
 
@@ -1021,13 +1021,20 @@ pre {
   }
 
   .composer-session-panel {
-    width: calc(100vw - 1.1rem);
-    max-width: calc(100vw - 1.1rem);
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
     bottom: calc(100% + 0.4rem);
   }
 
+  .composer-session-row,
   .composer-session-grid {
     grid-template-columns: 1fr;
+  }
+
+  .composer-plan-toggle {
+    justify-self: end;
   }
 
   .composer-toolbar {
@@ -1037,7 +1044,7 @@ pre {
 
   .composer-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   .history-message-line {

@@ -7,13 +7,24 @@ type SurfaceDialogProps = {
   subtitle?: string | null;
   footer?: string | null;
   size?: "medium" | "wide";
+  kickerLabel: string;
+  closeLabel: string;
   onClose: () => void;
   children: ReactNode;
 };
 
 export const SurfaceDialog = forwardRef<HTMLDivElement, SurfaceDialogProps>(
   function SurfaceDialog(
-    { title, subtitle = null, footer = null, size = "medium", onClose, children },
+    {
+      title,
+      subtitle = null,
+      footer = null,
+      size = "medium",
+      kickerLabel,
+      closeLabel,
+      onClose,
+      children,
+    },
     ref,
   ) {
     return (
@@ -29,7 +40,7 @@ export const SurfaceDialog = forwardRef<HTMLDivElement, SurfaceDialogProps>(
         >
           <div className="surface-dialog-header">
             <div className="surface-dialog-copy">
-              <span className="surface-dialog-kicker">Overlay</span>
+              <span className="surface-dialog-kicker">{kickerLabel}</span>
               <strong id="surface-dialog-title">{title}</strong>
               {subtitle ? <span className="surface-dialog-subtitle">{subtitle}</span> : null}
             </div>
@@ -39,7 +50,7 @@ export const SurfaceDialog = forwardRef<HTMLDivElement, SurfaceDialogProps>(
               data-autofocus="true"
               onClick={onClose}
             >
-              Close
+              {closeLabel}
             </button>
           </div>
 

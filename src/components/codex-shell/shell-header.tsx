@@ -10,6 +10,7 @@ type ShellHeaderProps = {
   sessionTitle: string;
   sessionMeta: string;
   sessionMetaTitle?: string | null;
+  threadsLabel: string;
   statusLabel: string;
   statusTone: HeaderStatusTone;
   threadButtonRef: RefObject<HTMLButtonElement | null>;
@@ -22,6 +23,7 @@ export function ShellHeader({
   sessionTitle,
   sessionMeta,
   sessionMetaTitle = null,
+  threadsLabel,
   statusLabel,
   statusTone,
   threadButtonRef,
@@ -39,7 +41,7 @@ export function ShellHeader({
           aria-controls="thread-drawer"
           onClick={onThreadsClick}
         >
-          <span className="sidebar-trigger-label">Threads</span>
+          <span className="sidebar-trigger-label">{threadsLabel}</span>
           <span className="sidebar-trigger-count">{threadCount}</span>
         </button>
 

@@ -21,6 +21,12 @@ export type ApprovalQuestion = {
 type ApprovalDialogProps = {
   title: string;
   intro: string;
+  kickerLabel: string;
+  cancelLabel: string;
+  reasonLabel: string;
+  typeAnswerLabel: string;
+  advancedJsonLabel: string;
+  sendJsonLabel: string;
   reason?: string | null;
   detail?: string | null;
   options: ApprovalOption[];
@@ -40,6 +46,12 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
     {
       title,
       intro,
+      kickerLabel,
+      cancelLabel,
+      reasonLabel,
+      typeAnswerLabel,
+      advancedJsonLabel,
+      sendJsonLabel,
       reason = null,
       detail = null,
       options,
@@ -67,7 +79,7 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
         >
           <div className="surface-dialog-header">
             <div className="surface-dialog-copy">
-              <span className="surface-dialog-kicker">Approval</span>
+              <span className="surface-dialog-kicker">{kickerLabel}</span>
               <strong id="approval-dialog-title">{title}</strong>
             </div>
             {onCancel ? (
@@ -76,7 +88,7 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
                 type="button"
                 onClick={onCancel}
               >
-                Cancel
+                {cancelLabel}
               </button>
             ) : null}
           </div>
@@ -84,7 +96,7 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
           <div className="approval-scroll">
             <div className="approval-copy">
               <p>{intro}</p>
-              {reason ? <p>Reason: {reason}</p> : null}
+              {reason ? <p>{reasonLabel}: {reason}</p> : null}
               {detail ? <pre className="approval-command">{detail}</pre> : null}
             </div>
 
@@ -147,7 +159,7 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
                           }
                           value={question.value}
                           onChange={(event) => question.onChange(event.target.value)}
-                          placeholder="Type an answer"
+                          placeholder={typeAnswerLabel}
                         />
                       ) : null}
                     </div>
@@ -165,14 +177,14 @@ export const ApprovalDialog = forwardRef<HTMLDivElement, ApprovalDialogProps>(
             ) : null}
 
             <details className="advanced-json">
-              <summary>Advanced response JSON</summary>
+              <summary>{advancedJsonLabel}</summary>
               <textarea
                 className="raw-json-editor"
                 value={requestDraft}
                 onChange={(event) => onRequestDraftChange(event.target.value)}
               />
               <button className="plain-action" type="button" onClick={onSendJson}>
-                Send JSON response
+                {sendJsonLabel}
               </button>
             </details>
           </div>

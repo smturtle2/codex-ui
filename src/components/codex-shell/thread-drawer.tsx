@@ -4,10 +4,29 @@ import { forwardRef } from "react";
 
 import type { ThreadListItem } from "@/lib/shared";
 
+import type { UiLocale } from "./copy";
 import type { ThreadDrawerSort } from "./types";
 import { formatRelativeTime } from "./utils";
 
 type ThreadDrawerProps = {
+  locale: UiLocale;
+  copy: {
+    title: string;
+    sessions: (count: number) => string;
+    close: string;
+    search: string;
+    searchPlaceholder: string;
+    newThread: string;
+    threadControls: string;
+    sortThreads: string;
+    current: string;
+    recent: string;
+    recentAvailable: (count: number) => string;
+    noMatchingThreads: string;
+    noOtherThreads: string;
+    recentSort: string;
+    createdSort: string;
+  };
   search: string;
   sort: ThreadDrawerSort;
   filteredCount: number;
@@ -29,6 +48,8 @@ function joinMeta(thread: ThreadListItem): string {
 export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
   function ThreadDrawer(
     {
+      locale,
+      copy,
       search,
       sort,
       filteredCount,
@@ -55,17 +76,17 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
           <div ref={ref} className="thread-drawer-surface" tabIndex={-1}>
             <div className="thread-drawer-header">
               <div className="thread-drawer-header-copy">
-                <strong id="thread-drawer-title">Threads</strong>
-                <span>{filteredCount} sessions</span>
+                <strong id="thread-drawer-title">{copy.title}</strong>
+                <span>{copy.sessions(filteredCount)}</span>
               </div>
 
               <button className="plain-action" type="button" onClick={onClose}>
-                Close
+                {copy.close}
               </button>
             </div>
 
             <label className="sr-only" htmlFor="thread-drawer-search">
-              Search threads
+              {copy.search}
             </label>
             <input
               id="thread-drawer-search"
@@ -73,22 +94,22 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
               value={search}
               data-autofocus="true"
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search title, workspace, branch, or source"
+              placeholder={copy.searchPlaceholder}
             />
 
-            <div className="thread-drawer-toolbar" role="group" aria-label="Thread controls">
+            <div className="thread-drawer-toolbar" role="group" aria-label={copy.threadControls}>
               <button className="plain-action" type="button" onClick={onCreateThread}>
-                New thread
+                {copy.newThread}
               </button>
 
-              <div className="thread-drawer-sort" role="group" aria-label="Sort threads">
+              <div className="thread-drawer-sort" role="group" aria-label={copy.sortThreads}>
                 <button
                   className={`picker-chip ${sort === "updated" ? "selected" : ""}`}
                   type="button"
                   aria-pressed={sort === "updated"}
                   onClick={() => onSortChange("updated")}
                 >
-                  Recent
+                  {copy.recentSort}
                 </button>
                 <button
                   className={`picker-chip ${sort === "created" ? "selected" : ""}`}
@@ -96,7 +117,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                   aria-pressed={sort === "created"}
                   onClick={() => onSortChange("created")}
                 >
-                  Created
+                  {copy.createdSort}
                 </button>
               </div>
             </div>
@@ -105,7 +126,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
               {activeThread ? (
                 <section className="thread-drawer-section" aria-label="Current thread">
                   <div className="thread-drawer-section-head">
-                    <div className="thread-drawer-section-label">Current</div>
+                    <div className="thread-drawer-section-label">{copy.current}</div>
                   </div>
 
                   <div className="thread-drawer-item thread-drawer-item-current" aria-current="true">
@@ -114,7 +135,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                         {activeThread.title}
                       </strong>
                       <span className="thread-drawer-item-time">
-                        {formatRelativeTime(activeThread.updatedAt)}
+                        {formatRelativeTime(locale, activeThread.updatedAt)}
                       </span>
                     </div>
                     <div className="thread-drawer-item-cwd" title={activeThread.workspacePath}>
@@ -129,16 +150,16 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
 
               <section className="thread-drawer-list-shell">
                 <div className="thread-drawer-list-header">
-                  <div className="thread-drawer-section-label">Recent</div>
-                  <span>{recentThreads.length} available</span>
+                  <div className="thread-drawer-section-label">{copy.recent}</div>
+                  <span>{copy.recentAvailable(recentThreads.length)}</span>
                 </div>
 
                 <div className="thread-drawer-list" role="list" aria-label="Recent threads">
                   {recentThreads.length === 0 ? (
                     <div className="thread-drawer-empty">
                       {filteredCount === 0
-                        ? "No matching threads."
-                        : "No other threads to switch to yet."}
+                        ? copy.noMatchingThreads
+                        : copy.noOtherThreads}
                     </div>
                   ) : (
                     recentThreads.map((thread) => (
@@ -153,7 +174,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                             {thread.title}
                           </strong>
                           <span className="thread-drawer-item-time">
-                            {formatRelativeTime(thread.updatedAt)}
+                            {formatRelativeTime(locale, thread.updatedAt)}
                           </span>
                         </div>
                         <div className="thread-drawer-item-cwd" title={thread.workspacePath}>

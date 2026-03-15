@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 
+import type { UiLanguage } from "@/components/codex-shell/copy";
 import type { SlashCommandDefinition } from "@/lib/shared";
 
 type SessionModelOption = {
@@ -32,14 +33,37 @@ type ComposerDockProps = {
   activeTurn: boolean;
   selectedModel: string;
   selectedEffort: string;
+  selectedLanguage: UiLanguage;
   planMode: boolean;
   modelOptions: SessionModelOption[];
   effortOptions: SessionEffortOption[];
+  languageOptions: SessionModelOption[];
+  labels: {
+    session: string;
+    model: string;
+    reasoning: string;
+    language: string;
+    status: string;
+    shortcuts: string;
+    plan: string;
+    on: string;
+    off: string;
+    placeholder: string;
+    interrupt: string;
+    send: string;
+    unavailable: string;
+    sessionAria: (
+      selectedModelLabel: string,
+      selectedEffortLabel: string,
+      selectedLanguageLabel: string,
+    ) => string;
+  };
   onComposerChange: (value: string) => void;
   onComposerKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
   onCommandPick: (commandName: string) => void;
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
+  onLanguageChange: (value: UiLanguage) => void;
   onPlanModeToggle: () => void;
   onSurfaceOpen: (surface: "status" | "shortcuts") => void;
   onSubmit: () => void;
@@ -51,6 +75,7 @@ type SessionSelectFieldProps = {
   label: string;
   value: string;
   options: Array<{ value: string; label: string }>;
+  unavailableLabel: string;
   onChange: (value: string) => void;
 };
 
@@ -59,12 +84,13 @@ function SessionSelectField({
   label,
   value,
   options,
+  unavailableLabel,
   onChange,
 }: SessionSelectFieldProps) {
   const normalizedOptions =
     options.length > 0
       ? options
-      : [{ value: value || "__unavailable__", label: value || "Unavailable" }];
+      : [{ value: value || "__unavailable__", label: value || unavailableLabel }];
 
   return (
     <label className="composer-select-field" htmlFor={id}>
@@ -103,14 +129,18 @@ export function ComposerDock({
   activeTurn,
   selectedModel,
   selectedEffort,
+  selectedLanguage,
   planMode,
   modelOptions,
   effortOptions,
+  languageOptions,
+  labels,
   onComposerChange,
   onComposerKeyDown,
   onCommandPick,
   onModelChange,
   onEffortChange,
+  onLanguageChange,
   onPlanModeToggle,
   onSurfaceOpen,
   onSubmit,
@@ -160,6 +190,9 @@ export function ComposerDock({
   const selectedEffortLabel =
     effortOptions.find((option) => option.value === selectedEffort)?.label ??
     selectedEffort;
+  const selectedLanguageLabel =
+    languageOptions.find((option) => option.value === selectedLanguage)?.label ??
+    selectedLanguage;
 
   function handleSurfaceOpen(surface: "status" | "shortcuts") {
     setSessionOpen(false);
@@ -188,7 +221,7 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div ref={menuRootRef} className="composer-session-row" aria-label="Session settings">
+        <div ref={menuRootRef} className="composer-session-row" aria-label={labels.session}>
           <div className="composer-session-shell">
             <button
               ref={sessionTriggerRef}
@@ -196,13 +229,17 @@ export function ComposerDock({
               className={`composer-session-trigger ${sessionOpen ? "open" : ""}`}
               aria-haspopup="dialog"
               aria-expanded={sessionOpen}
-              aria-label={`Model and reasoning controls. Current model ${selectedModelLabel}. Current reasoning ${selectedEffortLabel}.`}
+              aria-label={labels.sessionAria(
+                selectedModelLabel,
+                selectedEffortLabel,
+                selectedLanguageLabel,
+              )}
               onClick={() => {
                 setSessionOpen((current) => !current);
               }}
             >
               <span className="composer-session-copy">
-                <span className="composer-control-label">Session</span>
+                <span className="composer-control-label">{labels.session}</span>
                 <span className="composer-session-value">
                   {selectedModelLabel} / {selectedEffortLabel}
                 </span>
@@ -216,23 +253,38 @@ export function ComposerDock({
               <div
                 className="composer-session-panel"
                 role="dialog"
-                aria-label="Model and reasoning controls"
+                aria-label={labels.sessionAria(
+                  selectedModelLabel,
+                  selectedEffortLabel,
+                  selectedLanguageLabel,
+                )}
               >
                 <div className="composer-session-grid">
                   <SessionSelectField
                     id="composer-model"
-                    label="Model"
+                    label={labels.model}
                     value={selectedModel}
                     options={modelOptions}
+                    unavailableLabel={labels.unavailable}
                     onChange={onModelChange}
                   />
 
                   <SessionSelectField
                     id="composer-effort"
-                    label="Reasoning"
+                    label={labels.reasoning}
                     value={selectedEffort}
                     options={effortOptions}
+                    unavailableLabel={labels.unavailable}
                     onChange={onEffortChange}
+                  />
+
+                  <SessionSelectField
+                    id="composer-language"
+                    label={labels.language}
+                    value={selectedLanguage}
+                    options={languageOptions}
+                    unavailableLabel={labels.unavailable}
+                    onChange={(value) => onLanguageChange(value as UiLanguage)}
                   />
                 </div>
 
@@ -242,14 +294,14 @@ export function ComposerDock({
                     type="button"
                     onClick={() => handleSurfaceOpen("status")}
                   >
-                    Status
+                    {labels.status}
                   </button>
                   <button
                     className="plain-action"
                     type="button"
                     onClick={() => handleSurfaceOpen("shortcuts")}
                   >
-                    Shortcuts
+                    {labels.shortcuts}
                   </button>
                 </div>
               </div>
@@ -262,8 +314,10 @@ export function ComposerDock({
             aria-pressed={planMode}
             onClick={onPlanModeToggle}
           >
-            <span className="composer-plan-toggle-label">Plan</span>
-            <span className="composer-plan-toggle-value">{planMode ? "On" : "Off"}</span>
+            <span className="composer-plan-toggle-label">{labels.plan}</span>
+            <span className="composer-plan-toggle-value">
+              {planMode ? labels.on : labels.off}
+            </span>
           </button>
         </div>
 
@@ -272,7 +326,7 @@ export function ComposerDock({
           value={composer}
           onChange={(event) => onComposerChange(event.target.value)}
           onKeyDown={onComposerKeyDown}
-          placeholder="Message Codex"
+          placeholder={labels.placeholder}
           className="composer-input"
         />
 
@@ -286,7 +340,7 @@ export function ComposerDock({
           <div className="composer-actions">
             {activeTurn ? (
               <button className="plain-action" type="button" onClick={onInterrupt}>
-                Interrupt
+                {labels.interrupt}
               </button>
             ) : null}
             <button
@@ -295,7 +349,7 @@ export function ComposerDock({
               disabled={!canSubmit}
               onClick={onSubmit}
             >
-              Send
+              {labels.send}
             </button>
           </div>
         </div>
