@@ -2,25 +2,41 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Minimal black-and-white local WebUI for Codex, backed by the real `codex app-server`.
+Monochrome local WebUI for Codex, backed by the real `codex app-server`.
 
-Codex UI keeps the Codex workflow visible instead of hiding it behind a generic chat wrapper. Threads, turns, approvals, diffs, review, model selection, reasoning level, and plan mode stay in the browser while updates stream live over WebSocket.
+Codex UI keeps Codex closer to its native workflow instead of flattening it into a generic chat shell. Threads, approvals, model selection, reasoning level, plan mode, and live transcript updates stay visible in one restrained black-and-white interface.
 
-## Why This Exists
+## Preview
 
-- The terminal workflow is strong, but some tasks benefit from a persistent visual transcript.
-- Existing chat UIs often flatten Codex into a generic assistant and bury the real execution flow.
-- This project aims for a restrained browser shell: white background, black text, thin borders, no ornamental chrome.
+| Desktop | Mobile |
+| --- | --- |
+| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
+
+## Why
+
+- The terminal workflow is strong, but long-running sessions benefit from a readable visual transcript.
+- Many chat wrappers hide the actual execution flow behind decorative UI and noisy activity cards.
+- This project aims for the opposite: white background, black text, thin borders, compact density, live streaming, and no unnecessary chrome.
 
 ## Highlights
 
-- Live updates over WebSocket without page refreshes
-- Monochrome transcript with `---` turn separators
-- Inline composer controls for model, reasoning level, and plan mode
-- Collapsed edited-content blocks that can be expanded on demand
-- Thread drawer for browsing and resuming local Codex sessions
-- Approval and `request_user_input` flows handled directly in the UI
-- Review trigger, thread fork, interrupt, and slash commands
+- Live updates over WebSocket with no page refresh workflow
+- Composer-level controls for `Model`, `Reasoning`, and `Plan`
+- `---` turn separators with grouped chat messages instead of repetitive per-message cards
+- Hidden diffs that stay collapsed until you open them
+- Success command logs suppressed from the main transcript to keep the conversation readable
+- Thread drawer with internal scrolling and mobile-friendly layout
+- Approval and `request_user_input` handling directly in the browser
+
+## Interface
+
+| Surface | Purpose |
+| --- | --- |
+| Header | Current thread, workspace context, connection/runtime state |
+| Transcript | Grouped user/assistant messages, turn boundaries, collapsible plan/diff events |
+| Composer | Message input plus model dropdown, reasoning dropdown, and plan toggle |
+| Thread Drawer | Search, sort, create, and resume local Codex sessions |
+| Approval Modal | Command approval, file edits, permission requests, and user input |
 
 ## Quick Start
 
@@ -30,7 +46,7 @@ npm run up
 
 Open `http://127.0.0.1:3000` after startup.
 
-`npm run up` installs dependencies if needed, boots the local bridge, and starts the Next.js app.
+`npm run up` installs dependencies if needed, starts the local bridge, and boots the Next.js app.
 
 ## Requirements
 
@@ -43,20 +59,10 @@ If `codex` is missing or not authenticated, the UI cannot function because it ta
 ## Workflow
 
 1. Start the app with `npm run up`.
-2. Open the browser UI and either create a new thread or resume an existing one from `Threads`.
-3. Set `Model`, `Reasoning`, and `Plan` directly inside the composer.
-4. Send a message and watch the transcript update live.
-5. Expand diffs only when you want to inspect edited content.
-6. Handle approvals in the modal instead of switching back to the terminal.
-
-## Interface Map
-
-- Header: current thread identity, workspace context, runtime state
-- Transcript: user messages, assistant messages, turn boundaries, and collapsible execution events
-- Composer: message input, model dropdown, reasoning dropdown, plan toggle, send and interrupt controls
-- Thread Drawer: search, sort, create, and resume threads
-- Overlays: transcript mirror, status summary, keyboard shortcut help
-- Approval Modal: command approval, file approval, permissions, and user input
+2. Open an existing thread from `Threads` or start a new one.
+3. Set `Model`, `Reasoning`, and `Plan` directly in the composer.
+4. Send a message and watch the transcript update over WebSocket.
+5. Expand diffs only when needed and handle approvals inside the modal.
 
 ## Keyboard Shortcuts
 
@@ -79,8 +85,8 @@ npm run check
 
 - Next.js renders the client UI
 - a local Node server exposes browser-facing HTTP and WebSocket endpoints
-- `server/codex-bridge.ts` translates browser actions into real Codex app-server RPC calls over stdio
-- vendored generated types keep the UI aligned with the actual Codex protocol
+- [`server/codex-bridge.ts`](./server/codex-bridge.ts) translates browser actions into real Codex app-server RPC calls over stdio
+- vendored generated types keep the UI aligned with the current Codex protocol
 
 ## Notes
 

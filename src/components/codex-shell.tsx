@@ -102,10 +102,9 @@ export function CodexShell() {
   >({});
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [runtimeNow, setRuntimeNow] = useState(() => Date.now());
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
+  const composerModelTriggerRef = useRef<HTMLButtonElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const threadDrawerPanelRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
@@ -211,21 +210,6 @@ export function CodexShell() {
       websocket?.close();
     };
   }, []);
-
-  useEffect(() => {
-    if (!snapshot?.activeTurnId) {
-      return;
-    }
-
-    setRuntimeNow(Date.now());
-    const interval = window.setInterval(() => {
-      setRuntimeNow(Date.now());
-    }, 1000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [snapshot?.activeTurnId]);
 
   useEffect(() => {
     if (!toast) {
@@ -543,7 +527,7 @@ export function CodexShell() {
         break;
       case "model":
         window.setTimeout(() => {
-          composerModelSelectRef.current?.focus();
+          composerModelTriggerRef.current?.focus();
         }, 0);
         break;
       case "review":
@@ -647,7 +631,7 @@ export function CodexShell() {
   const currentModel = getCurrentModel(snapshot);
   const currentEffort = getCurrentEffort(snapshot);
   const runtime = snapshot?.activeTurnId
-    ? formatRuntime(snapshot.activeTurnStartedAt ?? null, runtimeNow)
+    ? formatRuntime(snapshot.activeTurnStartedAt ?? null)
     : "idle";
   const currentCommandText =
     typeof (pendingRequest?.params as { command?: string } | undefined)?.command === "string"
@@ -663,7 +647,7 @@ export function CodexShell() {
       ]
         .filter(Boolean)
         .join(" · ")
-    : "Pick a thread or send the first message.";
+    : "Open a thread or send the first message.";
   const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
   const headerStatus = connectionState !== "live"
     ? {
@@ -695,17 +679,17 @@ export function CodexShell() {
     : visibleCommands.length
       ? "Use ↑/↓ to choose, Enter to run, Tab to autocomplete, Esc to hide suggestions."
       : snapshot?.activeTurnId
-        ? "Streaming stays live over WebSocket. Diffs stay collapsed until you open them."
-        : "Enter sends, Shift+Enter adds a newline, / opens commands.";
+        ? "Streaming stays live over WebSocket. Diffs stay hidden until you open them."
+        : "Enter sends. Shift+Enter adds a newline. / opens commands.";
   const composerStatus = connectionState !== "live"
     ? connectionState === "connecting"
       ? "Connecting"
       : "Reconnecting"
     : snapshot?.activeTurnId
-      ? `Working · ${runtime}`
-    : pendingRequest
-      ? pendingRequest.summary
-      : busyAction
+      ? "Working"
+      : pendingRequest
+        ? pendingRequest.summary
+        : busyAction
         ? busyAction
         : selectedPlanMode
           ? "Ready · plan"
@@ -1108,7 +1092,7 @@ export function CodexShell() {
           visibleCommands={visibleCommands}
           selectedCommandIndex={selectedCommandIndex}
           composerRef={composerRef}
-          modelSelectRef={composerModelSelectRef}
+          modelTriggerRef={composerModelTriggerRef}
           helperText={composerHelper}
           statusText={composerStatus}
           canSubmit={Boolean(composer.trim())}

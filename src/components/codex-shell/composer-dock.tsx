@@ -1,6 +1,12 @@
 "use client";
 
-import type { KeyboardEventHandler, RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEventHandler,
+  type RefObject,
+} from "react";
 
 import type { SlashCommandDefinition } from "@/lib/shared";
 
@@ -19,7 +25,7 @@ type ComposerDockProps = {
   visibleCommands: SlashCommandDefinition[];
   selectedCommandIndex: number;
   composerRef: RefObject<HTMLTextAreaElement | null>;
-  modelSelectRef: RefObject<HTMLSelectElement | null>;
+  modelTriggerRef: RefObject<HTMLButtonElement | null>;
   helperText: string;
   statusText: string;
   canSubmit: boolean;
@@ -39,12 +45,74 @@ type ComposerDockProps = {
   onInterrupt: () => void;
 };
 
+type ComposerMenuFieldProps = {
+  kind: "model" | "effort";
+  label: string;
+  value: string;
+  valueLabel: string;
+  openMenu: "model" | "effort" | null;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  options: Array<{ value: string; label: string }>;
+  onToggle: (kind: "model" | "effort") => void;
+  onPick: (kind: "model" | "effort", value: string) => void;
+};
+
+function ComposerMenuField({
+  kind,
+  label,
+  value,
+  valueLabel,
+  openMenu,
+  triggerRef,
+  options,
+  onToggle,
+  onPick,
+}: ComposerMenuFieldProps) {
+  return (
+    <div className="composer-menu-shell">
+      <span className="composer-control-label">{label}</span>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`composer-control ${openMenu === kind ? "open" : ""}`}
+        aria-haspopup="listbox"
+        aria-expanded={openMenu === kind}
+        onClick={() => onToggle(kind)}
+      >
+        <span className="composer-control-value">{valueLabel}</span>
+        <span className="composer-control-caret" aria-hidden="true">
+          {openMenu === kind ? "−" : "+"}
+        </span>
+      </button>
+
+      {openMenu === kind ? (
+        <div className="composer-menu" role="listbox" aria-label={`${label} options`}>
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`composer-menu-option ${
+                option.value === value ? "selected" : ""
+              }`}
+              aria-selected={option.value === value}
+              onClick={() => onPick(kind, option.value)}
+            >
+              <span>{option.label}</span>
+              {option.value === value ? <span aria-hidden="true">•</span> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ComposerDock({
   composer,
   visibleCommands,
   selectedCommandIndex,
   composerRef,
-  modelSelectRef,
+  modelTriggerRef,
   helperText,
   statusText,
   canSubmit,
@@ -63,6 +131,67 @@ export function ComposerDock({
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
+  const [openMenu, setOpenMenu] = useState<"model" | "effort" | null>(null);
+  const effortTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuRootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openMenu) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (menuRootRef.current?.contains(target)) {
+        return;
+      }
+
+      setOpenMenu(null);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenMenu(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown, { passive: true });
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenu]);
+
+  const selectedModelLabel =
+    modelOptions.find((option) => option.value === selectedModel)?.label ??
+    selectedModel;
+  const selectedEffortLabel =
+    effortOptions.find((option) => option.value === selectedEffort)?.label ??
+    selectedEffort;
+
+  function handleToggleMenu(kind: "model" | "effort") {
+    setOpenMenu((current) => (current === kind ? null : kind));
+  }
+
+  function handlePick(kind: "model" | "effort", value: string) {
+    setOpenMenu(null);
+
+    if (kind === "model") {
+      onModelChange(value);
+      return;
+    }
+
+    onEffortChange(value);
+  }
+
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -85,50 +214,46 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-settings" aria-label="Session settings">
-          <label className="composer-setting">
-            <span className="composer-setting-label">Model</span>
-            <select
-              ref={modelSelectRef}
-              className="composer-setting-select"
+        <div ref={menuRootRef} className="composer-topbar" aria-label="Session settings">
+          <div className="composer-control-group">
+            <ComposerMenuField
+              kind="model"
+              label="Model"
               value={selectedModel}
-              onChange={(event) => onModelChange(event.target.value)}
-            >
-              {modelOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              valueLabel={selectedModelLabel}
+              openMenu={openMenu}
+              triggerRef={modelTriggerRef}
+              options={modelOptions}
+              onToggle={handleToggleMenu}
+              onPick={handlePick}
+            />
 
-          <label className="composer-setting">
-            <span className="composer-setting-label">Reasoning</span>
-            <select
-              className="composer-setting-select"
+            <ComposerMenuField
+              kind="effort"
+              label="Reasoning"
               value={selectedEffort}
-              onChange={(event) => onEffortChange(event.target.value)}
-            >
-              {effortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              valueLabel={selectedEffortLabel}
+              openMenu={openMenu}
+              triggerRef={effortTriggerRef}
+              options={effortOptions}
+              onToggle={handleToggleMenu}
+              onPick={handlePick}
+            />
 
-          <button
-            className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
-            type="button"
-            aria-pressed={planMode}
-            onClick={onPlanModeToggle}
-          >
-            <span className="composer-plan-toggle-label">Plan</span>
-            <span className="composer-plan-toggle-value">{planMode ? "On" : "Off"}</span>
-          </button>
+            <button
+              className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+              type="button"
+              aria-pressed={planMode}
+              onClick={onPlanModeToggle}
+            >
+              <span className="composer-plan-toggle-label">Plan</span>
+              <span className="composer-plan-toggle-value">{planMode ? "On" : "Off"}</span>
+            </button>
+          </div>
 
           <div className="composer-status" aria-live="polite">
-            {statusText}
+            <span className="composer-control-label">Status</span>
+            <span>{statusText}</span>
           </div>
         </div>
 

@@ -59,11 +59,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                 <span>{filteredCount} sessions</span>
               </div>
 
-              <button
-                className="plain-action"
-                type="button"
-                onClick={onClose}
-              >
+              <button className="plain-action" type="button" onClick={onClose}>
                 Close
               </button>
             </div>
@@ -105,70 +101,72 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
               </div>
             </div>
 
-            {activeThread ? (
-              <section className="thread-drawer-current" aria-label="Current thread">
-                <div className="thread-drawer-section-label">Current</div>
-                <div className="thread-drawer-current-card">
-                  <div className="thread-drawer-item-head">
-                    <strong className="thread-drawer-item-title" title={activeThread.title}>
-                      {activeThread.title}
-                    </strong>
-                    <span className="thread-drawer-item-time">
-                      {formatRelativeTime(activeThread.updatedAt)}
-                    </span>
+            <div className="thread-drawer-stack">
+              {activeThread ? (
+                <section className="thread-drawer-section" aria-label="Current thread">
+                  <div className="thread-drawer-section-head">
+                    <div className="thread-drawer-section-label">Current</div>
                   </div>
-                  <div
-                    className="thread-drawer-item-cwd"
-                    title={activeThread.workspacePath}
-                  >
-                    {activeThread.workspaceLabel}
+
+                  <div className="thread-drawer-item thread-drawer-item-current" aria-current="true">
+                    <div className="thread-drawer-item-head">
+                      <strong className="thread-drawer-item-title" title={activeThread.title}>
+                        {activeThread.title}
+                      </strong>
+                      <span className="thread-drawer-item-time">
+                        {formatRelativeTime(activeThread.updatedAt)}
+                      </span>
+                    </div>
+                    <div className="thread-drawer-item-cwd" title={activeThread.workspacePath}>
+                      {activeThread.workspaceLabel}
+                    </div>
+                    {joinMeta(activeThread) ? (
+                      <div className="thread-drawer-item-meta">{joinMeta(activeThread)}</div>
+                    ) : null}
                   </div>
-                  {joinMeta(activeThread) ? (
-                    <div className="thread-drawer-item-meta">{joinMeta(activeThread)}</div>
-                  ) : null}
+                </section>
+              ) : null}
+
+              <section className="thread-drawer-list-shell">
+                <div className="thread-drawer-list-header">
+                  <div className="thread-drawer-section-label">Recent</div>
+                  <span>{recentThreads.length} available</span>
+                </div>
+
+                <div className="thread-drawer-list" role="list" aria-label="Recent threads">
+                  {recentThreads.length === 0 ? (
+                    <div className="thread-drawer-empty">
+                      {filteredCount === 0
+                        ? "No matching threads."
+                        : "No other threads to switch to yet."}
+                    </div>
+                  ) : (
+                    recentThreads.map((thread) => (
+                      <button
+                        key={thread.id}
+                        type="button"
+                        className="thread-drawer-item"
+                        onClick={() => onResumeThread(thread.id)}
+                      >
+                        <div className="thread-drawer-item-head">
+                          <strong className="thread-drawer-item-title" title={thread.title}>
+                            {thread.title}
+                          </strong>
+                          <span className="thread-drawer-item-time">
+                            {formatRelativeTime(thread.updatedAt)}
+                          </span>
+                        </div>
+                        <div className="thread-drawer-item-cwd" title={thread.workspacePath}>
+                          {thread.workspaceLabel}
+                        </div>
+                        {joinMeta(thread) ? (
+                          <div className="thread-drawer-item-meta">{joinMeta(thread)}</div>
+                        ) : null}
+                      </button>
+                    ))
+                  )}
                 </div>
               </section>
-            ) : null}
-
-            <div className="thread-drawer-list-shell">
-              <div className="thread-drawer-list-header">
-                <div className="thread-drawer-section-label">Recent</div>
-                <span>{recentThreads.length} available</span>
-              </div>
-
-              <div className="thread-drawer-list" role="list" aria-label="Recent threads">
-                {recentThreads.length === 0 ? (
-                  <div className="thread-drawer-empty">
-                    {filteredCount === 0
-                      ? "No matching threads."
-                      : "No other threads to switch to yet."}
-                  </div>
-                ) : (
-                  recentThreads.map((thread) => (
-                    <button
-                      key={thread.id}
-                      type="button"
-                      className="thread-drawer-item"
-                      onClick={() => onResumeThread(thread.id)}
-                    >
-                      <div className="thread-drawer-item-head">
-                        <strong className="thread-drawer-item-title" title={thread.title}>
-                          {thread.title}
-                        </strong>
-                        <span className="thread-drawer-item-time">
-                          {formatRelativeTime(thread.updatedAt)}
-                        </span>
-                      </div>
-                      <div className="thread-drawer-item-cwd" title={thread.workspacePath}>
-                        {thread.workspaceLabel}
-                      </div>
-                      {joinMeta(thread) ? (
-                        <div className="thread-drawer-item-meta">{joinMeta(thread)}</div>
-                      ) : null}
-                    </button>
-                  ))
-                )}
-              </div>
             </div>
           </div>
         </aside>

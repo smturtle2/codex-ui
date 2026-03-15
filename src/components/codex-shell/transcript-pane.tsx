@@ -14,6 +14,24 @@ type TranscriptPaneProps = {
   overlay?: boolean;
 };
 
+type TranscriptRow =
+  | {
+      type: "turn";
+      key: string;
+      entry: TimelineEntry;
+    }
+  | {
+      type: "messageGroup";
+      key: string;
+      entries: TimelineEntry[];
+      role: "user" | "assistant";
+    }
+  | {
+      type: "event";
+      key: string;
+      entry: TimelineEntry;
+    };
+
 function isPrimaryMessage(entry: TimelineEntry): boolean {
   return entry.kind === "message" && (entry.tone === "neutral" || entry.tone === "accent");
 }
@@ -23,82 +41,106 @@ function isVisibleEntry(entry: TimelineEntry): boolean {
     return true;
   }
 
-  if (entry.kind === "tool") {
-    return entry.status === "error";
+  if (entry.kind === "diff" || entry.kind === "plan" || entry.kind === "approval") {
+    return true;
   }
 
-  if (entry.kind === "system") {
+  if (entry.kind === "review" || entry.kind === "reasoning") {
+    return entry.status !== "idle";
+  }
+
+  if (entry.kind === "command" || entry.kind === "tool" || entry.kind === "input") {
     return entry.status === "error" || entry.status === "pending";
   }
 
-  return true;
+  if (entry.kind === "system" || entry.kind === "thread") {
+    return entry.status === "error" || entry.status === "pending";
+  }
+
+  return false;
 }
 
 function getMessageRole(entry: TimelineEntry): "user" | "assistant" {
   return entry.tone === "neutral" ? "user" : "assistant";
 }
 
-function getMessageLabel(entry: TimelineEntry): string {
-  const role = getMessageRole(entry);
+function getMessageGroupStatus(entries: TimelineEntry[]): TimelineEntry["status"] {
+  if (entries.some((entry) => entry.status === "error")) {
+    return "error";
+  }
 
+  if (entries.some((entry) => entry.status === "running")) {
+    return "running";
+  }
+
+  if (entries.some((entry) => entry.status === "pending")) {
+    return "pending";
+  }
+
+  if (entries.some((entry) => entry.status === "completed")) {
+    return "completed";
+  }
+
+  return "idle";
+}
+
+function getMessageLabel(entries: TimelineEntry[]): string {
+  const role = getMessageRole(entries[0]);
   if (role === "user") {
     return "You";
   }
 
-  if (entry.status === "running") {
+  const status = getMessageGroupStatus(entries);
+  if (status === "running") {
     return "Codex running";
   }
 
-  if (entry.status === "error") {
+  if (status === "error") {
     return "Codex error";
   }
 
   return "Codex";
 }
 
-type TranscriptRow =
-  | {
-      type: "turn";
-      key: string;
-      entry: TimelineEntry;
-    }
-  | {
-      type: "message";
-      key: string;
-      entry: TimelineEntry;
-    }
-  | {
-      type: "event";
-      key: string;
-      entry: TimelineEntry;
-    };
-
 function buildTranscriptRows(timeline: TimelineEntry[]): TranscriptRow[] {
-  return timeline
-    .filter(isVisibleEntry)
-    .map((entry) => {
-      if (entry.kind === "turn") {
-        return {
-          type: "turn",
-          key: entry.id,
-          entry,
-        };
-      }
+  const rows: TranscriptRow[] = [];
 
-      if (isPrimaryMessage(entry)) {
-        return {
-          type: "message",
-          key: entry.id,
-          entry,
-        };
-      }
-
-      return {
-        type: "event",
+  for (const entry of timeline.filter(isVisibleEntry)) {
+    if (entry.kind === "turn") {
+      rows.push({
+        type: "turn",
         key: entry.id,
         entry,
-      };
+      });
+      continue;
+    }
+
+    if (isPrimaryMessage(entry)) {
+      const role = getMessageRole(entry);
+      const previousRow = rows[rows.length - 1];
+
+      if (previousRow?.type === "messageGroup" && previousRow.role === role) {
+        previousRow.entries.push(entry);
+        continue;
+      }
+
+      rows.push({
+        type: "messageGroup",
+        key: entry.id,
+        entries: [entry],
+        role,
+      });
+      continue;
+    }
+
+    rows.push({
+      type: "event",
+      key: entry.id,
+      entry,
     });
+  }
+
+  return rows;
 }
 
 function firstBodyLine(entry: TimelineEntry): string | null {
@@ -127,12 +169,8 @@ function getEventSummary(entry: TimelineEntry): string {
     return summarizeEditedContent(entry);
   }
 
-  if (entry.kind === "command" && entry.title.trim()) {
-    return entry.title.trim();
-  }
-
   if (entry.kind === "reasoning") {
-    return firstBodyLine(entry) ?? "Reasoning hidden";
+    return "Reasoning hidden";
   }
 
   if (entry.kind === "plan") {
@@ -141,6 +179,10 @@ function getEventSummary(entry: TimelineEntry): string {
 
   if (entry.kind === "approval") {
     return entry.title.trim() || "Approval needed";
+  }
+
+  if (entry.kind === "command" && entry.title.trim()) {
+    return entry.title.trim();
   }
 
   const title = entry.title.trim() || formatTimelineKind(entry.kind);
@@ -254,24 +296,35 @@ export function TranscriptPane({
               );
             }
 
-            if (row.type === "message") {
-              const { entry } = row;
-              const role = getMessageRole(entry);
-              const body = entry.body.trim() || entry.title.trim();
+            if (row.type === "messageGroup") {
+              const lastEntry = row.entries[row.entries.length - 1];
+              const groupStatus = getMessageGroupStatus(row.entries);
 
               return (
                 <article
                   key={row.key}
-                  className={`history-message role-${role} status-${entry.status}`}
+                  className={`history-message-group role-${row.role} status-${groupStatus}`}
                 >
-                  <div className="history-message-head">
-                    <span className="history-message-role">{getMessageLabel(entry)}</span>
-                    {entry.status !== "completed" && entry.status !== "idle" ? (
-                      <span className="history-message-state">{entry.status}</span>
+                  <div className="history-message-group-head">
+                    <span className="history-message-role">{getMessageLabel(row.entries)}</span>
+                    {groupStatus !== "completed" && groupStatus !== "idle" ? (
+                      <span className="history-message-state">{groupStatus}</span>
                     ) : null}
-                    <time className="history-message-time">{formatClock(entry.updatedAt)}</time>
+                    <time className="history-message-time">
+                      {formatClock(lastEntry.updatedAt)}
+                    </time>
                   </div>
-                  <pre className="history-message-body">{body}</pre>
+
+                  <div className="history-message-lines">
+                    {row.entries.map((entry) => {
+                      const body = entry.body.trim() || entry.title.trim();
+                      return (
+                        <pre key={entry.id} className="history-message-line">
+                          {body}
+                        </pre>
+                      );
+                    })}
+                  </div>
                 </article>
               );
             }

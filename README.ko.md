@@ -2,25 +2,42 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-실제 `codex app-server` 위에서 동작하는 미니멀 흑백 로컬 WebUI입니다.
+실제 `codex app-server` 위에서 동작하는 흑백 로컬 WebUI입니다.
 
-Codex UI의 목표는 Codex를 일반 채팅 앱처럼 포장하는 것이 아니라, 실제 워크플로우를 브라우저에서 더 읽기 좋게 유지하는 것입니다. thread, turn, approval, diff, review, 모델 선택, 추론 레벨, plan 모드를 그대로 드러내고, 갱신은 새로고침이 아니라 WebSocket으로 스트리밍합니다.
+Codex UI는 Codex를 일반 채팅 앱처럼 포장하기보다, 원래 워크플로우를 브라우저에서 더 읽기 좋게 유지하는 데 집중합니다. thread, approval, model 선택, reasoning 레벨, plan mode, live transcript를 하나의 절제된 흑백 인터페이스 안에 담았습니다.
+
+## 미리보기
+
+| Desktop | Mobile |
+| --- | --- |
+| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
 ## 왜 만들었나
 
-- 터미널 워크플로우는 강력하지만 긴 세션을 시각적으로 추적하기는 불편할 수 있습니다.
-- 많은 웹 UI가 Codex의 실행 흐름을 숨기고 일반 챗 UI처럼 평평하게 만듭니다.
-- 이 프로젝트는 흰 배경, 검은 텍스트, 얇은 선 위주의 절제된 셸을 목표로 합니다.
+- 터미널 워크플로우는 강력하지만, 긴 세션은 시각적으로 추적할 수 있는 transcript가 더 편할 때가 있습니다.
+- 많은 웹 UI가 실제 실행 흐름을 숨기고, 장식적인 카드와 로그로 화면을 복잡하게 만듭니다.
+- 이 프로젝트는 반대로 흰 배경, 검은 텍스트, 얇은 선, 높은 밀도, 실시간 스트리밍, 불필요한 장식 제거를 목표로 합니다.
 
 ## 핵심 특징
 
-- 페이지 새로고침 없이 WebSocket으로 실시간 업데이트
-- turn 구분을 `---` 로만 처리하는 모노크롬 transcript
-- 채팅 입력 영역 안에서 바로 조절하는 model, reasoning, plan 설정
-- 기본적으로 접혀 있고 필요할 때만 펼치는 edited content
-- 로컬 Codex 세션을 탐색하고 이어서 여는 thread drawer
+- 페이지 새로고침이 아닌 WebSocket 기반 실시간 업데이트
+- composer 안에서 바로 바꾸는 `Model`, `Reasoning`, `Plan`
+- 메시지마다 카드가 반복되지 않고, 연속 발화가 그룹화되는 transcript
+- turn 구분을 `---` 로만 처리하는 단순한 흐름
+- 기본적으로 접혀 있고 필요할 때만 펼치는 diff
+- 성공한 command 로그를 메인 transcript에서 숨겨 대화 가독성 유지
+- 내부 스크롤이 정상 동작하는 thread drawer와 모바일 대응 레이아웃
 - 브라우저 안에서 처리하는 approval 및 `request_user_input`
-- review 시작, thread fork, interrupt, slash command 지원
+
+## 화면 구성
+
+| 영역 | 역할 |
+| --- | --- |
+| Header | 현재 thread, 작업 경로, 연결/실행 상태 |
+| Transcript | 그룹화된 user/assistant 메시지, turn 경계, 접을 수 있는 plan/diff 이벤트 |
+| Composer | 입력창, model 드롭다운, reasoning 드롭다운, plan 토글 |
+| Thread Drawer | 검색, 정렬, 새 thread 생성, 기존 세션 재개 |
+| Approval Modal | 명령 승인, 파일 편집 승인, 권한 요청, 사용자 입력 |
 
 ## 빠른 시작
 
@@ -43,20 +60,10 @@ npm run up
 ## 기본 사용 흐름
 
 1. `npm run up`으로 앱을 시작합니다.
-2. 브라우저에서 새 thread를 만들거나 `Threads`에서 기존 세션을 엽니다.
-3. composer 안에서 `Model`, `Reasoning`, `Plan`을 바로 설정합니다.
-4. 메시지를 보내고 transcript가 실시간으로 갱신되는 것을 확인합니다.
-5. 편집된 내용은 필요할 때만 펼쳐서 확인합니다.
-6. 승인 요청이나 추가 입력은 모달에서 바로 처리합니다.
-
-## 화면 구성
-
-- Header: 현재 thread, 작업 경로, 실행 상태
-- Transcript: 사용자/assistant 메시지, turn 경계, 접을 수 있는 실행 이벤트
-- Composer: 입력창, model 드롭다운, reasoning 드롭다운, plan 토글, send/interrupt
-- Thread Drawer: 검색, 정렬, 새 thread 생성, 기존 thread 재개
-- Overlay: transcript 미러, 상태 요약, 키보드 단축키 도움말
-- Approval Modal: 명령 실행 승인, 파일 변경 승인, 권한 변경, 사용자 입력
+2. `Threads`에서 기존 세션을 열거나 새 thread를 시작합니다.
+3. composer 안에서 `Model`, `Reasoning`, `Plan`을 설정합니다.
+4. 메시지를 보내고 transcript가 WebSocket으로 갱신되는 것을 확인합니다.
+5. diff는 필요할 때만 펼치고, approval은 모달에서 바로 처리합니다.
 
 ## 키보드 단축키
 
@@ -79,8 +86,8 @@ npm run check
 
 - Next.js가 클라이언트 UI를 렌더링합니다.
 - 로컬 Node 서버가 브라우저용 HTTP와 WebSocket 엔드포인트를 제공합니다.
-- `server/codex-bridge.ts`가 브라우저 액션을 실제 Codex app-server RPC 호출로 변환합니다.
-- 이 저장소에 포함된 generated type을 사용해 UI와 Codex 프로토콜을 맞춥니다.
+- [`server/codex-bridge.ts`](./server/codex-bridge.ts)가 브라우저 액션을 실제 Codex app-server RPC 호출로 변환합니다.
+- 저장소에 포함된 generated type을 사용해 UI와 Codex 프로토콜을 맞춥니다.
 
 ## 참고
 
