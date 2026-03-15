@@ -3,6 +3,7 @@
   --surface: #ffffff;
   --surface-muted: #fafafa;
   --surface-soft: #f4f4f4;
+  --surface-float: #fdfdfd;
   --line: #e4e4e4;
   --line-strong: #111111;
   --text: #111111;
@@ -10,9 +11,24 @@
   --soft: #8b8b8b;
   --inverse: #ffffff;
   --selection: rgba(17, 17, 17, 0.08);
-  --content-width: 1480px;
+  --content-width: 1400px;
   --measure: 54rem;
-  --radius: 0.9rem;
+  --radius: 0.78rem;
+  --font-sans:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    "Noto Sans KR",
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    sans-serif;
+  --font-mono:
+    "IBM Plex Mono",
+    "Cascadia Mono",
+    "SFMono-Regular",
+    "Fira Mono",
+    "Menlo",
+    monospace;
 }
 
 * {
@@ -72,7 +88,8 @@ pre {
 .tui-page {
   height: 100dvh;
   min-height: 100vh;
-  background: linear-gradient(180deg, #ffffff 0%, #ffffff 82%, #fcfcfc 100%);
+  background:
+    linear-gradient(180deg, #ffffff 0%, #ffffff 76%, #fbfbfb 100%);
 }
 
 .tui-shell {
@@ -80,10 +97,10 @@ pre {
   min-height: 0;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0.75rem;
+  padding: 0.9rem;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.75rem;
+  gap: 0.55rem;
 }
 
 .shell-header,
@@ -99,12 +116,10 @@ pre {
 }
 
 .shell-header {
-  display: grid;
-  gap: 0.7rem;
-  padding: 0.85rem 1rem;
+  padding: 0.68rem 0.84rem;
 }
 
-.shell-header-top,
+.shell-header-rail,
 .thread-drawer-header,
 .thread-drawer-toolbar,
 .thread-drawer-list-header,
@@ -112,6 +127,7 @@ pre {
 .surface-dialog-footer,
 .picker-inline-options,
 .approval-actions,
+.composer-session-row,
 .composer-toolbar,
 .composer-actions {
   display: flex;
@@ -121,8 +137,9 @@ pre {
   flex-wrap: wrap;
 }
 
-.shell-header-top {
-  align-items: flex-start;
+.shell-header-rail {
+  flex-wrap: nowrap;
+  gap: 0.85rem;
 }
 
 .shell-session,
@@ -135,7 +152,7 @@ pre {
 }
 
 .shell-session-title {
-  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  font-size: clamp(0.98rem, 1.1vw, 1.08rem);
   font-weight: 700;
   line-height: 1.25;
 }
@@ -150,7 +167,7 @@ pre {
 .surface-dialog-subtitle,
 .surface-dialog-footer,
 .composer-helper,
-.composer-status,
+.composer-inline-status,
 .command-menu-copy,
 .status-pre,
 .approval-copy p:last-child {
@@ -168,9 +185,8 @@ pre {
 .picker-chip,
 .action-button,
 .composer-plan-toggle,
-.composer-control,
 .composer-control-label,
-.composer-status,
+.composer-select,
 .history-message-time,
 .history-event-marker,
 .thread-drawer-item-time,
@@ -198,13 +214,13 @@ pre {
 .picker-chip,
 .action-button,
 .composer-plan-toggle,
-.composer-control {
+.composer-session-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  min-height: 2.6rem;
-  padding: 0.62rem 0.9rem;
+  min-height: 2.5rem;
+  padding: 0.58rem 0.86rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
@@ -218,11 +234,10 @@ pre {
 .plain-action:hover,
 .picker-chip:hover,
 .composer-plan-toggle:hover,
-.composer-control:hover,
+.composer-session-trigger:hover,
 .command-menu-row:hover,
 .thread-drawer-item:hover,
-.approval-option:hover,
-.composer-menu-option:hover {
+.approval-option:hover {
   border-color: var(--line-strong);
   background: var(--surface-muted);
 }
@@ -231,10 +246,9 @@ pre {
 .plain-action.selected,
 .picker-chip.selected,
 .composer-plan-toggle.selected,
-.composer-menu-option.selected,
 .approval-option.selected,
 .command-menu-row.selected,
-.composer-control.open {
+.composer-session-trigger.open {
   border-color: var(--line-strong);
   background: var(--surface-soft);
 }
@@ -261,6 +275,7 @@ pre {
 .sidebar-trigger {
   justify-content: space-between;
   padding-inline: 0.88rem;
+  flex: 0 0 auto;
 }
 
 .sidebar-trigger-count {
@@ -270,10 +285,22 @@ pre {
 .shell-status-badge {
   display: inline-flex;
   align-items: center;
-  min-height: 2rem;
-  padding: 0.28rem 0.65rem;
+  min-height: 2.25rem;
+  padding: 0.2rem 0.64rem;
   border: 1px solid var(--line);
   border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.shell-session {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.shell-session-meta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shell-status-badge.tone-working,
@@ -291,8 +318,7 @@ pre {
 .overlay-scroll,
 .thread-drawer-list,
 .picker-scroll,
-.approval-scroll,
-.composer-menu {
+.approval-scroll {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -301,7 +327,7 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.35rem 1.2rem 1.7rem;
+  padding: 1.2rem 1.1rem 1.55rem;
 }
 
 .transcript-scroll-shell {
@@ -334,7 +360,7 @@ pre {
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
   align-content: start;
 }
 
@@ -385,12 +411,12 @@ pre {
 }
 
 .history-message-line {
-  font-size: 1rem;
-  line-height: 1.74;
+  font-size: 0.98rem;
+  line-height: 1.78;
 }
 
 .history-event {
-  padding-top: 0.82rem;
+  padding-top: 0.88rem;
   border-top: 1px solid var(--line);
 }
 
@@ -473,96 +499,149 @@ pre {
 
 .composer-frame {
   display: grid;
-  gap: 0.9rem;
-  padding: 0.95rem 1rem 1rem;
-}
-
-.composer-topbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
   gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.composer-control-group {
-  display: flex;
-  align-items: stretch;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-}
-
-.composer-menu-shell {
+  padding: 0.88rem 0.92rem 0.92rem;
   position: relative;
+}
+
+.composer-session-row {
+  align-items: stretch;
+  gap: 0.6rem;
+  flex-wrap: nowrap;
+}
+
+.composer-session-shell {
+  position: relative;
+  min-width: 0;
+  flex: 1 1 26rem;
 }
 
 .composer-control-label {
   display: block;
-  margin-bottom: 0.32rem;
+  margin-bottom: 0.24rem;
   color: var(--muted);
 }
 
-.composer-control {
-  min-width: 13.5rem;
+.composer-session-trigger {
+  width: 100%;
   justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  border-radius: calc(var(--radius) + 0.1rem);
+  background: var(--surface-muted);
 }
 
-.composer-control-value {
+.composer-session-copy {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.composer-session-value,
+.composer-status-value {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  font-weight: 500;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
+.composer-status-value {
+  color: var(--text);
+}
+
+.composer-session-panel {
+  position: absolute;
+  left: 0;
+  right: auto;
+  bottom: calc(100% + 0.58rem);
+  z-index: 20;
+  width: min(38rem, calc(100vw - 2.9rem));
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.82rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 0.08rem);
+  background: var(--surface-float);
+  box-shadow: 0 20px 45px rgba(17, 17, 17, 0.08);
+}
+
+.composer-session-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.composer-select-field {
+  display: grid;
+  gap: 0.24rem;
+}
+
+.composer-select-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 2.7rem;
+  padding-inline: 0.84rem;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--radius) + 0.02rem);
+  background: var(--surface);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease;
+}
+
+.composer-select-shell:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-muted);
+}
+
+.composer-select-shell:has(.composer-select:focus-visible) {
+  border-color: var(--line-strong);
+}
+
+.composer-select {
+  width: 100%;
+  appearance: none;
+  border: 0;
+  padding: 0.6rem 1.35rem 0.6rem 0;
+  background: transparent;
+  outline: none;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.composer-select:disabled {
+  color: var(--soft);
+}
+
+.composer-select-caret,
 .composer-control-caret {
   color: var(--muted);
 }
 
-.composer-menu {
+.composer-select-caret {
   position: absolute;
-  top: calc(100% + 0.45rem);
-  left: 0;
-  z-index: 20;
-  width: max-content;
-  min-width: min(18rem, calc(100vw - 2rem));
-  max-width: min(24rem, calc(100vw - 2rem));
-  max-height: 16rem;
-  padding: 0.28rem;
-  border: 1px solid var(--line);
-  border-radius: calc(var(--radius) - 0.05rem);
-  background: var(--surface);
-  box-shadow: 0 14px 34px rgba(17, 17, 17, 0.06);
-}
-
-.composer-menu-option {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.65rem;
-  padding: 0.66rem 0.74rem;
-  border: 1px solid transparent;
-  border-radius: calc(var(--radius) - 0.2rem);
-  background: transparent;
-  text-align: left;
+  right: 0.82rem;
+  pointer-events: none;
 }
 
 .composer-plan-toggle {
   justify-content: space-between;
-  min-width: 7.8rem;
+  min-width: 7rem;
+  flex: 0 0 auto;
 }
 
 .composer-plan-toggle-value {
   font-size: 0.8rem;
 }
 
-.composer-status {
-  display: grid;
-  gap: 0.18rem;
-  padding-top: 0.04rem;
-  min-width: 9rem;
-  text-align: right;
-  font-size: 0.82rem;
-  line-height: 1.4;
+.composer-session-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
 }
 
 .composer-input,
@@ -572,7 +651,7 @@ pre {
 }
 
 .composer-input {
-  min-height: 6.5rem;
+  min-height: 5.6rem;
   max-height: 16rem;
   padding: 0;
   border: 0;
@@ -601,10 +680,25 @@ pre {
   align-items: flex-end;
 }
 
+.composer-meta {
+  display: grid;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
 .composer-helper {
-  max-width: 42rem;
+  max-width: 38rem;
   font-size: 0.79rem;
   line-height: 1.5;
+}
+
+.composer-inline-status {
+  font-size: 0.76rem;
+  line-height: 1.4;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-actions {
@@ -851,36 +945,30 @@ pre {
     padding: 0.82rem;
   }
 
-  .composer-topbar {
-    flex-direction: column;
-    align-items: stretch;
+  .shell-header-rail,
+  .composer-session-row {
+    flex-wrap: wrap;
   }
 
-  .composer-control-group {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .shell-session {
+    order: 2;
+    flex-basis: 100%;
   }
 
-  .composer-menu-shell {
-    min-width: 0;
+  .composer-session-shell {
+    flex-basis: 100%;
   }
 
-  .composer-control {
-    width: 100%;
-    min-width: 0;
-  }
-
-  .composer-plan-toggle {
-    width: 100%;
-  }
-
-  .composer-status {
-    padding-top: 0;
-    text-align: left;
+  .composer-session-panel {
+    width: min(34rem, calc(100vw - 1.9rem));
   }
 
   .composer-toolbar {
     align-items: stretch;
+  }
+
+  .composer-meta {
+    width: 100%;
   }
 
   .composer-actions {
@@ -929,7 +1017,7 @@ pre {
     padding: 1rem 0.9rem 1.35rem;
   }
 
-  .shell-header-top,
+  .shell-header-rail,
   .thread-drawer-header,
   .thread-drawer-toolbar,
   .surface-dialog-header,
@@ -946,14 +1034,28 @@ pre {
     width: 100%;
   }
 
-  .composer-control-group {
+  .shell-status-badge {
+    align-self: stretch;
+    justify-content: center;
+  }
+
+  .composer-session-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .composer-session-panel {
+    width: calc(100vw - 1.8rem);
+    max-width: calc(100vw - 1.8rem);
+    bottom: calc(100% + 0.5rem);
+  }
+
+  .composer-session-grid {
     grid-template-columns: 1fr;
   }
 
-  .composer-menu {
+  .composer-plan-toggle {
     width: 100%;
-    min-width: 100%;
-    max-width: 100%;
   }
 
   .history-message-line {

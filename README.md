@@ -2,94 +2,93 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-Monochrome local WebUI for Codex, backed by the real `codex app-server`.
+![Next.js](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&labelColor=ffffff)
+![WebSocket](https://img.shields.io/badge/Transport-WebSocket-111111?labelColor=ffffff)
+![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
+![Local First](https://img.shields.io/badge/Workflow-Local%20First-111111?labelColor=ffffff)
 
-Codex UI keeps Codex closer to its native workflow instead of flattening it into a generic chat shell. Threads, approvals, model selection, reasoning level, plan mode, and live transcript updates stay visible in one restrained black-and-white interface.
+Monochrome local chat UI for the real `codex app-server`.
+
+This project keeps Codex close to its native workflow instead of disguising it as a generic chatbot. The shell stays restrained: white background, black type, thin borders, live streaming, hidden diffs by default, and session controls placed directly next to the message box.
 
 ## Preview
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
+| ![Desktop preview](./docs/preview-desktop.svg) | ![Mobile preview](./docs/preview-mobile.svg) |
 
-## Why
+## Why This Exists
 
-- The terminal workflow is strong, but long-running sessions benefit from a readable visual transcript.
-- Many chat wrappers hide the actual execution flow behind decorative UI and noisy activity cards.
-- This project aims for the opposite: white background, black text, thin borders, compact density, live streaming, and no unnecessary chrome.
+- Long-running Codex sessions benefit from a readable transcript, not a dashboard full of noise.
+- Most wrappers bury model settings, plan mode, and approvals behind unrelated chrome.
+- This UI keeps the important controls near the composer and gets out of the way everywhere else.
+
+## Product Direction
+
+- `Session` dropdown inside the composer for `Model`, `Reasoning`, `Transcript`, `Status`, and `Shortcuts`
+- direct select controls inside `Session` instead of nested mini-menus
+- separate `Plan` toggle button that stays visible even when the dropdown is closed
+- inline live status under the message box instead of a second status card
+- grouped user and assistant messages with `---` turn separators only
+- hidden edited content and hidden reasoning summaries unless you explicitly expand them
+- automatic transcript follow mode while live output is streaming
+- mobile layout that prioritizes the input area instead of turning controls into a giant settings slab
 
 ## Highlights
 
-- Live updates over WebSocket with no page refresh workflow
-- Composer-level controls for `Model`, `Reasoning`, and `Plan`
-- `---` turn separators with grouped chat messages instead of repetitive per-message cards
-- Hidden diffs that stay collapsed until you open them
-- Success command logs suppressed from the main transcript to keep the conversation readable
-- Thread drawer with internal scrolling and mobile-friendly layout
-- Approval and `request_user_input` handling directly in the browser
+- Real-time updates over WebSocket. No refresh loop.
+- Minimal transcript filtering. Success noise stays hidden; errors and pending approvals stay visible.
+- Local thread drawer for resume, search, sort, and new-thread creation.
+- Inline approval handling for commands, file edits, permissions, and `request_user_input`.
+- Works directly against the local Codex bridge and generated protocol types in this repo.
 
-## Interface
+## Architecture
 
-| Surface | Purpose |
-| --- | --- |
-| Header | Current thread, workspace context, connection/runtime state |
-| Transcript | Grouped user/assistant messages, turn boundaries, collapsible plan/diff events |
-| Composer | Message input plus model dropdown, reasoning dropdown, and plan toggle |
-| Thread Drawer | Search, sort, create, and resume local Codex sessions |
-| Approval Modal | Command approval, file edits, permission requests, and user input |
+```text
+Browser UI
+  ├─ Next.js app router shell
+  ├─ WebSocket snapshot stream (/ws)
+  └─ HTTP actions (/api/*)
+
+Local bridge
+  ├─ server/index.ts
+  └─ server/codex-bridge.ts
+       └─ codex app-server over stdio JSON-RPC
+```
 
 ## Quick Start
 
 ```bash
-npm run up
+npm install
+npm run dev
 ```
 
-Open `http://127.0.0.1:3000` after startup.
-
-`npm run up` installs dependencies if needed, starts the local bridge, and boots the Next.js app.
+Open `http://127.0.0.1:3000`.
 
 ## Requirements
 
 - Node.js 20+
-- `codex` available on `PATH`
+- `codex` on `PATH`
 - an authenticated local Codex session
-
-If `codex` is missing or not authenticated, the UI cannot function because it talks to the real local app-server.
 
 ## Workflow
 
-1. Start the app with `npm run up`.
-2. Open an existing thread from `Threads` or start a new one.
-3. Set `Model`, `Reasoning`, and `Plan` directly in the composer.
-4. Send a message and watch the transcript update over WebSocket.
-5. Expand diffs only when needed and handle approvals inside the modal.
-
-## Keyboard Shortcuts
-
-- `Enter` sends the current turn
-- `Shift+Enter` inserts a newline
-- `Esc` closes overlays, hides slash suggestions, or interrupts the active turn
-- `Ctrl/Cmd+T` opens the transcript overlay
-- `?` opens shortcut help
+1. Start the app and open a thread from `Threads`, or create a fresh one.
+2. Open `Session` next to the composer to set `Model` and `Reasoning`.
+3. Toggle `Plan` if you want plan collaboration mode for the next turn.
+4. Send a message and follow the transcript live over WebSocket.
+5. Expand diffs only when needed and handle approvals in-place.
 
 ## Development
 
 ```bash
-npm run dev
 npm run typecheck
 npm run build
 npm run check
 ```
 
-## Architecture
-
-- Next.js renders the client UI
-- a local Node server exposes browser-facing HTTP and WebSocket endpoints
-- [`server/codex-bridge.ts`](./server/codex-bridge.ts) translates browser actions into real Codex app-server RPC calls over stdio
-- vendored generated types keep the UI aligned with the current Codex protocol
-
 ## Notes
 
-- The thread drawer reads the local Codex home, so sessions from other repositories may appear.
+- The thread drawer reads local Codex sessions, so threads from other workspaces can appear.
 - Default host and port are `127.0.0.1:3000`.
-- Override the port with `PORT=3001 npm run up`.
+- Override the port with `PORT=3001 node --import tsx server/index.ts` if needed.

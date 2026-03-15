@@ -29,7 +29,7 @@ export function ShellHeader({
 }: ShellHeaderProps) {
   return (
     <header className="shell-header">
-      <div className="shell-header-top">
+      <div className="shell-header-rail">
         <button
           ref={threadButtonRef}
           className={`sidebar-trigger ${threadDrawerOpen ? "selected" : ""}`}
@@ -43,12 +43,12 @@ export function ShellHeader({
           <span className="sidebar-trigger-count">{threadCount}</span>
         </button>
 
-        <span className={`shell-status-badge tone-${statusTone}`}>{statusLabel}</span>
-      </div>
+        <div className="shell-session" title={sessionMetaTitle ?? sessionMeta}>
+          <strong className="shell-session-title">{sessionTitle}</strong>
+          <span className="shell-session-meta">{sessionMeta}</span>
+        </div>
 
-      <div className="shell-session" title={sessionMetaTitle ?? sessionMeta}>
-        <strong className="shell-session-title">{sessionTitle}</strong>
-        <span className="shell-session-meta">{sessionMeta}</span>
+        <span className={`shell-status-badge tone-${statusTone}`}>{statusLabel}</span>
       </div>
     </header>
   );

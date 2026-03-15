@@ -2,95 +2,93 @@
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-실제 `codex app-server` 위에서 동작하는 흑백 로컬 WebUI입니다.
+![Next.js](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&labelColor=ffffff)
+![WebSocket](https://img.shields.io/badge/Transport-WebSocket-111111?labelColor=ffffff)
+![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
+![Local First](https://img.shields.io/badge/Workflow-Local%20First-111111?labelColor=ffffff)
 
-Codex UI는 Codex를 일반 채팅 앱처럼 포장하기보다, 원래 워크플로우를 브라우저에서 더 읽기 좋게 유지하는 데 집중합니다. thread, approval, model 선택, reasoning 레벨, plan mode, live transcript를 하나의 절제된 흑백 인터페이스 안에 담았습니다.
+실제 `codex app-server`를 위한 흑백 로컬 채팅 UI입니다.
 
-## 미리보기
+이 프로젝트는 Codex를 일반적인 챗봇처럼 포장하지 않습니다. 흰 배경, 검은 타이포, 얇은 선, 실시간 스트리밍, 기본 접힘 diff, 입력창 바로 옆 세션 제어만 남기고 나머지 장식은 덜어냈습니다.
+
+## Preview
 
 | Desktop | Mobile |
 | --- | --- |
-| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
+| ![Desktop preview](./docs/preview-desktop.svg) | ![Mobile preview](./docs/preview-mobile.svg) |
 
 ## 왜 만들었나
 
-- 터미널 워크플로우는 강력하지만, 긴 세션은 시각적으로 추적할 수 있는 transcript가 더 편할 때가 있습니다.
-- 많은 웹 UI가 실제 실행 흐름을 숨기고, 장식적인 카드와 로그로 화면을 복잡하게 만듭니다.
-- 이 프로젝트는 반대로 흰 배경, 검은 텍스트, 얇은 선, 높은 밀도, 실시간 스트리밍, 불필요한 장식 제거를 목표로 합니다.
+- 긴 Codex 세션은 대시보드보다 읽기 좋은 transcript가 더 중요합니다.
+- 많은 래퍼 UI가 모델 설정, plan mode, approval을 엉뚱한 위치에 숨깁니다.
+- 이 UI는 필요한 제어를 composer 근처에 두고, 나머지 화면은 대화 자체에 집중하게 만듭니다.
+
+## 제품 방향
+
+- composer 안의 `Session` 드롭다운에서 `Model`, `Reasoning`, `Transcript`, `Status`, `Shortcuts` 제어
+- `Session` 안에서 다시 중첩 메뉴를 열지 않고 바로 고르는 select 기반 설정
+- 드롭다운과 별도로 항상 보이는 `Plan` 토글 버튼
+- 별도 상태 카드 대신 입력창 아래에 붙는 인라인 상태 표시
+- 오직 `---` 만으로 구분하는 turn 경계와 그룹화된 user/assistant 메시지
+- 필요할 때만 펼치는 edited content와 reasoning 요약
+- 실시간 스트리밍 중 자동으로 따라가는 transcript
+- 모바일에서도 설정 UI가 입력창보다 더 커지지 않도록 조정된 밀도
 
 ## 핵심 특징
 
-- 페이지 새로고침이 아닌 WebSocket 기반 실시간 업데이트
-- composer 안에서 바로 바꾸는 `Model`, `Reasoning`, `Plan`
-- 메시지마다 카드가 반복되지 않고, 연속 발화가 그룹화되는 transcript
-- turn 구분을 `---` 로만 처리하는 단순한 흐름
-- 기본적으로 접혀 있고 필요할 때만 펼치는 diff
-- 성공한 command 로그를 메인 transcript에서 숨겨 대화 가독성 유지
-- 내부 스크롤이 정상 동작하는 thread drawer와 모바일 대응 레이아웃
-- 브라우저 안에서 처리하는 approval 및 `request_user_input`
+- 새로고침이 아닌 WebSocket 기반 실시간 업데이트
+- 성공 로그는 숨기고, 에러와 approval만 남기는 최소한의 transcript 정책
+- 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
+- command, file edit, permission, `request_user_input`까지 브라우저 안에서 처리
+- 저장소 내부 bridge와 generated protocol type을 그대로 사용
 
-## 화면 구성
+## 아키텍처
 
-| 영역 | 역할 |
-| --- | --- |
-| Header | 현재 thread, 작업 경로, 연결/실행 상태 |
-| Transcript | 그룹화된 user/assistant 메시지, turn 경계, 접을 수 있는 plan/diff 이벤트 |
-| Composer | 입력창, model 드롭다운, reasoning 드롭다운, plan 토글 |
-| Thread Drawer | 검색, 정렬, 새 thread 생성, 기존 세션 재개 |
-| Approval Modal | 명령 승인, 파일 편집 승인, 권한 요청, 사용자 입력 |
+```text
+Browser UI
+  ├─ Next.js app router shell
+  ├─ WebSocket snapshot stream (/ws)
+  └─ HTTP actions (/api/*)
+
+Local bridge
+  ├─ server/index.ts
+  └─ server/codex-bridge.ts
+       └─ codex app-server over stdio JSON-RPC
+```
 
 ## 빠른 시작
 
 ```bash
-npm run up
+npm install
+npm run dev
 ```
 
-실행 후 `http://127.0.0.1:3000` 을 열면 됩니다.
-
-`npm run up`은 필요 시 의존성을 설치하고, 로컬 브리지와 Next.js 앱을 함께 시작합니다.
+브라우저에서 `http://127.0.0.1:3000` 을 열면 됩니다.
 
 ## 요구사항
 
-- Node.js 20 이상
-- `PATH` 에서 실행 가능한 `codex`
-- 이미 로그인된 로컬 Codex 상태
+- Node.js 20+
+- `PATH` 에 있는 `codex`
+- 로그인된 로컬 Codex 세션
 
-`codex`가 없거나 인증되지 않았다면 앱은 동작할 수 없습니다. 이 UI는 실제 로컬 app-server와 직접 통신합니다.
+## 사용 흐름
 
-## 기본 사용 흐름
+1. 앱을 시작하고 `Threads` 에서 기존 세션을 열거나 새로 만듭니다.
+2. composer 옆 `Session` 을 열어 `Model` 과 `Reasoning` 을 설정합니다.
+3. 다음 turn에 plan collaboration mode가 필요하면 `Plan` 을 켭니다.
+4. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
+5. diff는 필요할 때만 펼치고 approval은 같은 화면에서 처리합니다.
 
-1. `npm run up`으로 앱을 시작합니다.
-2. `Threads`에서 기존 세션을 열거나 새 thread를 시작합니다.
-3. composer 안에서 `Model`, `Reasoning`, `Plan`을 설정합니다.
-4. 메시지를 보내고 transcript가 WebSocket으로 갱신되는 것을 확인합니다.
-5. diff는 필요할 때만 펼치고, approval은 모달에서 바로 처리합니다.
-
-## 키보드 단축키
-
-- `Enter` 현재 turn 전송
-- `Shift+Enter` 줄바꿈
-- `Esc` overlay 닫기, slash suggestion 숨기기, active turn interrupt
-- `Ctrl/Cmd+T` transcript overlay 열기
-- `?` 단축키 도움말 열기
-
-## 개발 명령어
+## 개발
 
 ```bash
-npm run dev
 npm run typecheck
 npm run build
 npm run check
 ```
 
-## 아키텍처
-
-- Next.js가 클라이언트 UI를 렌더링합니다.
-- 로컬 Node 서버가 브라우저용 HTTP와 WebSocket 엔드포인트를 제공합니다.
-- [`server/codex-bridge.ts`](./server/codex-bridge.ts)가 브라우저 액션을 실제 Codex app-server RPC 호출로 변환합니다.
-- 저장소에 포함된 generated type을 사용해 UI와 Codex 프로토콜을 맞춥니다.
-
 ## 참고
 
-- thread drawer는 로컬 Codex home을 읽기 때문에 다른 저장소의 세션도 함께 보일 수 있습니다.
+- thread drawer는 로컬 Codex 세션을 읽기 때문에 다른 워크스페이스의 thread도 보일 수 있습니다.
 - 기본 주소는 `127.0.0.1:3000` 입니다.
-- 포트를 바꾸려면 `PORT=3001 npm run up`을 사용하면 됩니다.
+- 포트를 바꾸려면 `PORT=3001 node --import tsx server/index.ts` 를 사용하면 됩니다.

@@ -1,0 +1,49 @@
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="760" fill="#FCFCFC"/>
+  <rect x="16" y="16" width="1248" height="728" rx="20" fill="white" stroke="#E4E4E4"/>
+  <rect x="40" y="40" width="1200" height="70" rx="16" fill="white" stroke="#E4E4E4"/>
+  <rect x="60" y="58" width="120" height="34" rx="17" fill="#FAFAFA" stroke="#E4E4E4"/>
+  <text x="82" y="80" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="600">Threads</text>
+  <text x="146" y="80" fill="#8B8B8B" font-family="IBM Plex Mono, monospace" font-size="16">25</text>
+  <text x="212" y="73" fill="#111111" font-family="Iowan Old Style, serif" font-size="24" font-weight="700">codex-ui · active session</text>
+  <text x="212" y="97" fill="#5F5F5F" font-family="Iowan Old Style, serif" font-size="18">.../ProjectForFast/codex-ui · main</text>
+  <rect x="1140" y="58" width="76" height="34" rx="17" fill="white" stroke="#111111"/>
+  <text x="1162" y="80" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">READY</text>
+
+  <rect x="40" y="128" width="1200" height="468" rx="18" fill="white" stroke="#E4E4E4"/>
+  <text x="620" y="164" text-anchor="middle" fill="#8B8B8B" font-family="IBM Plex Mono, monospace" font-size="14">---</text>
+
+  <text x="104" y="206" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">Codex</text>
+  <text x="104" y="232" fill="#111111" font-family="Iowan Old Style, serif" font-size="22">Session now opens direct model and reasoning selects.</text>
+  <text x="104" y="262" fill="#111111" font-family="Iowan Old Style, serif" font-size="22">Plan stays visible, while live state drops under the message box.</text>
+  <text x="104" y="292" fill="#111111" font-family="Iowan Old Style, serif" font-size="22">Diffs remain hidden until opened, and the transcript keeps auto-scrolling.</text>
+
+  <text x="820" y="352" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">You</text>
+  <text x="820" y="378" fill="#111111" font-family="Iowan Old Style, serif" font-size="22">Keep the UI monochrome and light on chrome.</text>
+
+  <line x1="104" y1="430" x2="1176" y2="430" stroke="#E4E4E4"/>
+  <text x="104" y="456" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">Diff</text>
+  <text x="164" y="456" fill="#111111" font-family="Iowan Old Style, serif" font-size="20">Edited content hidden · 2 files</text>
+  <text x="1060" y="456" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14">Show diff</text>
+
+  <line x1="104" y1="504" x2="1176" y2="504" stroke="#E4E4E4"/>
+  <text x="104" y="530" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">Plan</text>
+  <text x="164" y="530" fill="#111111" font-family="Iowan Old Style, serif" font-size="20">Plan hidden</text>
+  <text x="1088" y="530" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="14">Show</text>
+
+  <rect x="40" y="606" width="1200" height="118" rx="18" fill="white" stroke="#E4E4E4"/>
+  <rect x="62" y="624" width="348" height="36" rx="18" fill="#FAFAFA" stroke="#111111"/>
+  <text x="82" y="646" fill="#8B8B8B" font-family="IBM Plex Mono, monospace" font-size="12" letter-spacing="1.2">SESSION</text>
+  <text x="82" y="660" fill="#111111" font-family="Iowan Old Style, serif" font-size="18" font-weight="700">gpt-5.4 · medium</text>
+  <text x="382" y="656" fill="#111111" font-family="IBM Plex Mono, monospace" font-size="18">+</text>
+
+  <rect x="424" y="624" width="112" height="36" rx="18" fill="#111111"/>
+  <text x="446" y="638" fill="white" font-family="IBM Plex Mono, monospace" font-size="12" letter-spacing="1.2">PLAN</text>
+  <text x="488" y="652" fill="white" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="600">On</text>
+
+  <rect x="62" y="670" width="1024" height="20" rx="0" fill="white"/>
+  <text x="62" y="688" fill="#9A9A9A" font-family="Iowan Old Style, serif" font-size="20">Message Codex</text>
+  <text x="62" y="710" fill="#5F5F5F" font-family="IBM Plex Mono, monospace" font-size="12">Session holds model and reasoning. Ready.</text>
+  <rect x="1098" y="678" width="120" height="32" rx="16" fill="#111111"/>
+  <text x="1140" y="698" fill="white" font-family="IBM Plex Mono, monospace" font-size="16" font-weight="600">Send</text>
+</svg>

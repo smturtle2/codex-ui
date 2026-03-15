@@ -104,7 +104,7 @@ export function CodexShell() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
-  const composerModelTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const composerSessionTriggerRef = useRef<HTMLButtonElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const threadDrawerPanelRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
@@ -413,8 +413,8 @@ export function CodexShell() {
     }
 
     textarea.style.height = "0px";
-    const minHeight = window.innerWidth <= 980 ? 72 : 88;
-    const maxHeight = window.innerWidth <= 980 ? 168 : 220;
+    const minHeight = window.innerWidth <= 980 ? 68 : 76;
+    const maxHeight = window.innerWidth <= 980 ? 160 : 208;
     const nextHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight);
     textarea.style.height = `${nextHeight}px`;
   }, [composer]);
@@ -527,7 +527,7 @@ export function CodexShell() {
         break;
       case "model":
         window.setTimeout(() => {
-          composerModelTriggerRef.current?.focus();
+          composerSessionTriggerRef.current?.focus();
         }, 0);
         break;
       case "review":
@@ -680,7 +680,7 @@ export function CodexShell() {
       ? "Use ↑/↓ to choose, Enter to run, Tab to autocomplete, Esc to hide suggestions."
       : snapshot?.activeTurnId
         ? "Streaming stays live over WebSocket. Diffs stay hidden until you open them."
-        : "Enter sends. Shift+Enter adds a newline. / opens commands.";
+        : "Model · Reasoning opens the dropdown. / opens commands. Enter sends. Shift+Enter adds a newline.";
   const composerStatus = connectionState !== "live"
     ? connectionState === "connecting"
       ? "Connecting"
@@ -1092,7 +1092,7 @@ export function CodexShell() {
           visibleCommands={visibleCommands}
           selectedCommandIndex={selectedCommandIndex}
           composerRef={composerRef}
-          modelTriggerRef={composerModelTriggerRef}
+          sessionTriggerRef={composerSessionTriggerRef}
           helperText={composerHelper}
           statusText={composerStatus}
           canSubmit={Boolean(composer.trim())}
@@ -1119,6 +1119,12 @@ export function CodexShell() {
           }}
           onPlanModeToggle={() => {
             void handlePlanModeToggle();
+          }}
+          onSurfaceOpen={(nextSurface) => {
+            openSurface(
+              nextSurface,
+              document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            );
           }}
           onSubmit={() => {
             void handleSubmit();

@@ -25,7 +25,7 @@ type ComposerDockProps = {
   visibleCommands: SlashCommandDefinition[];
   selectedCommandIndex: number;
   composerRef: RefObject<HTMLTextAreaElement | null>;
-  modelTriggerRef: RefObject<HTMLButtonElement | null>;
+  sessionTriggerRef: RefObject<HTMLButtonElement | null>;
   helperText: string;
   statusText: string;
   canSubmit: boolean;
@@ -41,69 +41,53 @@ type ComposerDockProps = {
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
   onPlanModeToggle: () => void;
+  onSurfaceOpen: (surface: "transcript" | "status" | "shortcuts") => void;
   onSubmit: () => void;
   onInterrupt: () => void;
 };
 
-type ComposerMenuFieldProps = {
-  kind: "model" | "effort";
+type SessionSelectFieldProps = {
+  id: string;
   label: string;
   value: string;
-  valueLabel: string;
-  openMenu: "model" | "effort" | null;
-  triggerRef: RefObject<HTMLButtonElement | null>;
   options: Array<{ value: string; label: string }>;
-  onToggle: (kind: "model" | "effort") => void;
-  onPick: (kind: "model" | "effort", value: string) => void;
+  onChange: (value: string) => void;
 };
 
-function ComposerMenuField({
-  kind,
+function SessionSelectField({
+  id,
   label,
   value,
-  valueLabel,
-  openMenu,
-  triggerRef,
   options,
-  onToggle,
-  onPick,
-}: ComposerMenuFieldProps) {
-  return (
-    <div className="composer-menu-shell">
-      <span className="composer-control-label">{label}</span>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={`composer-control ${openMenu === kind ? "open" : ""}`}
-        aria-haspopup="listbox"
-        aria-expanded={openMenu === kind}
-        onClick={() => onToggle(kind)}
-      >
-        <span className="composer-control-value">{valueLabel}</span>
-        <span className="composer-control-caret" aria-hidden="true">
-          {openMenu === kind ? "−" : "+"}
-        </span>
-      </button>
+  onChange,
+}: SessionSelectFieldProps) {
+  const normalizedOptions =
+    options.length > 0
+      ? options
+      : [{ value: value || "__unavailable__", label: value || "Unavailable" }];
 
-      {openMenu === kind ? (
-        <div className="composer-menu" role="listbox" aria-label={`${label} options`}>
-          {options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className={`composer-menu-option ${
-                option.value === value ? "selected" : ""
-              }`}
-              aria-selected={option.value === value}
-              onClick={() => onPick(kind, option.value)}
-            >
-              <span>{option.label}</span>
-              {option.value === value ? <span aria-hidden="true">•</span> : null}
-            </button>
+  return (
+    <label className="composer-select-field" htmlFor={id}>
+      <span className="composer-control-label">{label}</span>
+      <span className="composer-select-shell">
+        <select
+          id={id}
+          className="composer-select"
+          value={value || normalizedOptions[0].value}
+          disabled={options.length === 0}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {normalizedOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
           ))}
-        </div>
-      ) : null}
-    </div>
+        </select>
+        <span className="composer-select-caret" aria-hidden="true">
+          v
+        </span>
+      </span>
+    </label>
   );
 }
 
@@ -112,7 +96,7 @@ export function ComposerDock({
   visibleCommands,
   selectedCommandIndex,
   composerRef,
-  modelTriggerRef,
+  sessionTriggerRef,
   helperText,
   statusText,
   canSubmit,
@@ -128,15 +112,15 @@ export function ComposerDock({
   onModelChange,
   onEffortChange,
   onPlanModeToggle,
+  onSurfaceOpen,
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
-  const [openMenu, setOpenMenu] = useState<"model" | "effort" | null>(null);
-  const effortTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const menuRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!openMenu) {
+    if (!sessionOpen) {
       return;
     }
 
@@ -150,12 +134,12 @@ export function ComposerDock({
         return;
       }
 
-      setOpenMenu(null);
+      setSessionOpen(false);
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setOpenMenu(null);
+        setSessionOpen(false);
       }
     };
 
@@ -168,7 +152,7 @@ export function ComposerDock({
       document.removeEventListener("touchstart", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [openMenu]);
+  }, [sessionOpen]);
 
   const selectedModelLabel =
     modelOptions.find((option) => option.value === selectedModel)?.label ??
@@ -177,19 +161,9 @@ export function ComposerDock({
     effortOptions.find((option) => option.value === selectedEffort)?.label ??
     selectedEffort;
 
-  function handleToggleMenu(kind: "model" | "effort") {
-    setOpenMenu((current) => (current === kind ? null : kind));
-  }
-
-  function handlePick(kind: "model" | "effort", value: string) {
-    setOpenMenu(null);
-
-    if (kind === "model") {
-      onModelChange(value);
-      return;
-    }
-
-    onEffortChange(value);
+  function handleSurfaceOpen(surface: "transcript" | "status" | "shortcuts") {
+    setSessionOpen(false);
+    onSurfaceOpen(surface);
   }
 
   return (
@@ -214,47 +188,90 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div ref={menuRootRef} className="composer-topbar" aria-label="Session settings">
-          <div className="composer-control-group">
-            <ComposerMenuField
-              kind="model"
-              label="Model"
-              value={selectedModel}
-              valueLabel={selectedModelLabel}
-              openMenu={openMenu}
-              triggerRef={modelTriggerRef}
-              options={modelOptions}
-              onToggle={handleToggleMenu}
-              onPick={handlePick}
-            />
-
-            <ComposerMenuField
-              kind="effort"
-              label="Reasoning"
-              value={selectedEffort}
-              valueLabel={selectedEffortLabel}
-              openMenu={openMenu}
-              triggerRef={effortTriggerRef}
-              options={effortOptions}
-              onToggle={handleToggleMenu}
-              onPick={handlePick}
-            />
-
+        <div ref={menuRootRef} className="composer-session-row" aria-label="Session settings">
+          <div className="composer-session-shell">
             <button
-              className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+              ref={sessionTriggerRef}
               type="button"
-              aria-pressed={planMode}
-              onClick={onPlanModeToggle}
+              className={`composer-session-trigger ${sessionOpen ? "open" : ""}`}
+              aria-haspopup="dialog"
+              aria-expanded={sessionOpen}
+              aria-label={`Model and reasoning controls. Current model ${selectedModelLabel}. Current reasoning ${selectedEffortLabel}.`}
+              onClick={() => {
+                setSessionOpen((current) => !current);
+              }}
             >
-              <span className="composer-plan-toggle-label">Plan</span>
-              <span className="composer-plan-toggle-value">{planMode ? "On" : "Off"}</span>
+              <span className="composer-session-copy">
+                <span className="composer-control-label">Model · Reasoning</span>
+                <span className="composer-session-value">
+                  {selectedModelLabel} · {selectedEffortLabel}
+                </span>
+              </span>
+              <span className="composer-control-caret" aria-hidden="true">
+                {sessionOpen ? "−" : "+"}
+              </span>
             </button>
+
+            {sessionOpen ? (
+              <div
+                className="composer-session-panel"
+                role="dialog"
+                aria-label="Model and reasoning controls"
+              >
+                <div className="composer-session-grid">
+                  <SessionSelectField
+                    id="composer-model"
+                    label="Model"
+                    value={selectedModel}
+                    options={modelOptions}
+                    onChange={onModelChange}
+                  />
+
+                  <SessionSelectField
+                    id="composer-effort"
+                    label="Reasoning"
+                    value={selectedEffort}
+                    options={effortOptions}
+                    onChange={onEffortChange}
+                  />
+                </div>
+
+                <div className="composer-session-actions">
+                  <button
+                    className="plain-action"
+                    type="button"
+                    onClick={() => handleSurfaceOpen("transcript")}
+                  >
+                    Transcript
+                  </button>
+                  <button
+                    className="plain-action"
+                    type="button"
+                    onClick={() => handleSurfaceOpen("status")}
+                  >
+                    Status
+                  </button>
+                  <button
+                    className="plain-action"
+                    type="button"
+                    onClick={() => handleSurfaceOpen("shortcuts")}
+                  >
+                    Shortcuts
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          <div className="composer-status" aria-live="polite">
-            <span className="composer-control-label">Status</span>
-            <span>{statusText}</span>
-          </div>
+          <button
+            className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+            type="button"
+            aria-pressed={planMode}
+            onClick={onPlanModeToggle}
+          >
+            <span className="composer-plan-toggle-label">Plan</span>
+            <span className="composer-plan-toggle-value">{planMode ? "On" : "Off"}</span>
+          </button>
         </div>
 
         <textarea
@@ -267,7 +284,10 @@ export function ComposerDock({
         />
 
         <div className="composer-toolbar">
-          <span className="composer-helper">{helperText}</span>
+          <div className="composer-meta" aria-live="polite">
+            <span className="composer-helper">{helperText}</span>
+            <span className="composer-inline-status">{statusText}</span>
+          </div>
           <div className="composer-actions">
             {activeTurn ? (
               <button className="plain-action" type="button" onClick={onInterrupt}>
