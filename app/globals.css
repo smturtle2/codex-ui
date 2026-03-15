@@ -1048,6 +1048,11 @@ pre {
     align-items: stretch;
   }
 
+  .composer-session-shell {
+    width: 100%;
+    flex: none;
+  }
+
   .composer-session-panel {
     width: calc(100vw - 1.8rem);
     max-width: calc(100vw - 1.8rem);
