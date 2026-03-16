@@ -67,7 +67,7 @@
 - Routed `/new`, `/clear`, and launcher-style resume flows back through Home so starting a new thread keeps workspace selection explicit instead of silently using the current default.
 - Fixed live item completion to respect item-level statuses instead of always landing as `completed`.
 - Reinserted live approval requests into the same turn-relative position used by hydrated `thread/read` timelines.
-- Added repo-local `--funnel` startup support so `npm run up -- --funnel` becomes the one-line public launch flow.
+- Added repo-local `--funnel` startup support so `npm run up --funnel` becomes the one-line public launch flow.
 - Kept standalone Funnel helpers for status and teardown.
 - Refreshed README copy and screenshots while keeping detailed notes here instead of bloating the README.
 - Collapsed mobile session controls behind a single-line composer summary so the transcript keeps more height on narrow screens.
@@ -122,7 +122,7 @@
 - API/UI check: workspace directory browsing now surfaces regular source folders ahead of hidden and generated directories.
 - API check: live turn output and subsequent `thread/read` now produce the same normalized timeline entries for a real turn, including stable unchanged-entry timestamps.
 - Bridge check: when a turn completes, the bridge now does one guarded `thread/read` refresh for that thread and skips applying it if a newer live turn has already started.
-- CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
+- CLI check: `npm run dev --funnel` forwards the `--funnel` flag to the app entrypoint.
 - Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.
 - Browser check: desktop and mobile chat both expose a working thread drawer from the left header button without turning transcript rows into cards.
 - Browser check: composer controls now stay visible as direct dropdowns/toggle in both desktop and mobile chat instead of expanding from a separate session summary.

@@ -112,7 +112,7 @@ Tailscale Funnel로 로컬 UI를 한 줄로 외부에 공개할 수 있습니다
 npm run up --funnel
 ```
 
-- `--funnel`은 `npm run dev --funnel`, `npm run start --funnel`에서도 동일하게 사용할 수 있고, 기존처럼 `npm run up -- --funnel` 형태로도 전달할 수 있습니다.
+- `--funnel`은 `npm run dev --funnel`, `npm run start --funnel`에서도 동일하게 사용할 수 있습니다.
 - `npm run up --funnel`은 의존성 설치, 로컬 서버 실행, repo-local Funnel helper 실행까지 한 번에 처리합니다.
 - 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
 - `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.

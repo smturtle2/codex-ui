@@ -1,18 +1,14 @@
 import { spawn } from "node:child_process";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
-const forwardedArgs = process.argv.slice(2);
 
-function hasFlag(name, argv) {
+function hasFlag(name) {
   const normalized = String(name).replace(/^-+/, "");
   const envValue = process.env[`npm_config_${normalized}`];
-  return argv.includes(`--${normalized}`) || (envValue !== undefined && envValue !== "false");
+  return envValue !== undefined && envValue !== "false";
 }
 
-const scriptArgs = [...new Set([
-  ...forwardedArgs,
-  ...(hasFlag("funnel", forwardedArgs) ? ["--funnel"] : []),
-])];
+const scriptArgs = hasFlag("funnel") ? ["--funnel"] : [];
 
 function run(command, args) {
   return new Promise((resolve, reject) => {

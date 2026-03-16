@@ -112,7 +112,7 @@ Use Tailscale Funnel to expose the local UI publicly in one line:
 npm run up --funnel
 ```
 
-- `--funnel` also works with `npm run dev --funnel`, `npm run start --funnel`, and the explicit forwarding form `npm run up -- --funnel`.
+- `--funnel` also works with `npm run dev --funnel` and `npm run start --funnel`.
 - `npm run up --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
 - If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
 - `npm run funnel:status` shows the current Funnel mapping.
