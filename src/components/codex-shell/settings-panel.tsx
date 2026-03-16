@@ -43,12 +43,12 @@ export function SettingsPanel({
           <span className="settings-section-note">{labels.applyHint}</span>
         </div>
 
-        <label className="composer-select-field" htmlFor="settings-language">
-          <span className="composer-control-label">{labels.language}</span>
-          <span className="composer-select-shell">
+        <label className="settings-field" htmlFor="settings-language">
+          <span className="settings-field-label">{labels.language}</span>
+          <span className="settings-select-shell">
             <select
               id="settings-language"
-              className="composer-select"
+              className="settings-select"
               value={selectedLanguage}
               onChange={(event) => onLanguageChange(event.target.value as UiLanguage)}
             >
@@ -58,7 +58,7 @@ export function SettingsPanel({
                 </option>
               ))}
             </select>
-            <span className="composer-select-caret" aria-hidden="true">
+            <span className="settings-select-caret" aria-hidden="true">
               v
             </span>
           </span>

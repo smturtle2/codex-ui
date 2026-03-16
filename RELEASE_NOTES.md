@@ -2,6 +2,13 @@
 
 ## 2026-03-16
 
+### Follow-up visual pass
+
+- Trimmed the mobile chat header into a two-row layout so the transcript gets more of the first viewport.
+- Kept model, reasoning, and plan in the chat input area but changed the narrow-screen controls into a compact summary plus inline plan toggle instead of stacked rows.
+- Split the settings language field off from composer styling so the monochrome system stays consistent without coupling those two surfaces.
+- Rebalanced launcher spacing and copy so the new-thread path reads more clearly without adding extra UI.
+
 ### UX audit summary
 
 - Home still buried new-thread actions on mobile even though desktop layout was already close.
@@ -13,6 +20,10 @@
 
 ### Implemented
 
+- Split the chat header into direct `Home` and `Threads` actions so the launcher stays one tap away without losing the in-chat thread switcher.
+- Restored a compact mobile composer pattern: inline `Plan` toggle stays visible, while `Model` and `Reasoning` expand from a dedicated session summary inside the chat input area.
+- Rewrote the global stylesheet into one monochrome responsive system instead of layered duplicate overrides, which makes desktop/mobile spacing and hierarchy consistent again.
+- Decoupled the settings language field from composer styling and refreshed the launcher summary so current workspace/session state reads cleanly before starting a new thread.
 - Added a mobile quick-start strip so workspace selection and `Start thread` stay visible above the thread list on narrow screens.
 - Kept workspace selection in a dedicated directory picker and left chat itself transcript-first with no card UI.
 - Preserved only `Model`, `Reasoning`, and `Plan` in the composer while leaving language in the dedicated settings panel.
@@ -55,6 +66,9 @@
 
 - `npm run typecheck`
 - `npm run build`
+- Browser check: desktop chat now shows separate `Home`, `Threads`, and `Settings` actions in the header.
+- Browser check: mobile chat keeps the compact session summary collapsed by default, shows a direct `Plan` toggle, and reveals `Model` plus `Reasoning` only after expanding the session controls.
+- Browser check: tapping `Home` from mobile chat returns directly to the launcher without losing the thread drawer entrypoint.
 - Preview generation path: `python scripts/generate_preview_images.py` now targets `/?demo=1`.
 - Browser check: desktop home keeps launcher split between thread list and new-thread panel.
 - Browser check: mobile home shows search, quick-start actions, and thread list without requiring a separate panel.

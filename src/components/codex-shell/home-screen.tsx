@@ -146,10 +146,14 @@ export function HomeScreen({
         <div className="home-launcher-copy">
           <span className="home-section-label">{copy.createTitle}</span>
           <strong>{copy.workspaceSelected}</strong>
+          <p className="home-launcher-intro">{copy.createIntro}</p>
           <div className="home-launcher-path" title={workspaceDraft}>
             {workspaceDraft}
           </div>
-          <span className="home-launcher-session">{launcherSummary}</span>
+          <div className="home-session-summary">
+            <span className="home-section-label">{copy.sessionLabel}</span>
+            <span className="home-launcher-session">{launcherSummary}</span>
+          </div>
         </div>
 
         <div className="home-launcher-actions">

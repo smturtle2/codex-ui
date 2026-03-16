@@ -54,7 +54,7 @@ const UI_COPY = {
         selectedEffortLabel: string,
         selectedLanguageLabel: string,
       ) =>
-        `Model, reasoning, and language controls. Current model ${selectedModelLabel}. Current reasoning ${selectedEffortLabel}. Current language ${selectedLanguageLabel}.`,
+        `Session controls. Current model ${selectedModelLabel}. Current reasoning ${selectedEffortLabel}. Interface language ${selectedLanguageLabel}.`,
     },
     transcript: {
       noTranscriptYet: "No transcript yet",
@@ -323,7 +323,7 @@ const UI_COPY = {
         selectedEffortLabel: string,
         selectedLanguageLabel: string,
       ) =>
-        `모델, 추론, 언어 제어입니다. 현재 모델 ${selectedModelLabel}. 현재 추론 ${selectedEffortLabel}. 현재 언어 ${selectedLanguageLabel}.`,
+        `세션 제어입니다. 현재 모델 ${selectedModelLabel}. 현재 추론 ${selectedEffortLabel}. 인터페이스 언어 ${selectedLanguageLabel}.`,
     },
     transcript: {
       noTranscriptYet: "아직 transcript가 없습니다",

@@ -139,6 +139,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
+  const [sessionControlsOpen, setSessionControlsOpen] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -313,6 +314,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       setThreadDrawerOpen(false);
     }
   }, [threadDrawerOpen, viewMode]);
+
+  useEffect(() => {
+    if (!isPhoneLayout) {
+      setSessionControlsOpen(false);
+      return;
+    }
+
+    if (viewMode !== "chat") {
+      setSessionControlsOpen(false);
+    }
+  }, [isPhoneLayout, viewMode]);
 
   useEffect(() => {
     if (!toast) {
@@ -626,6 +638,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
   }
 
+  function openHome() {
+    setThreadDrawerOpen(false);
+    setSurface(null);
+    setWorkspaceDraft(preferredWorkspacePath);
+    setViewMode("home");
+    setSessionControlsOpen(false);
+    window.setTimeout(() => {
+      homeSearchRef.current?.focus();
+    }, 0);
+  }
+
   async function loadWorkspaceListing(path?: string | null) {
     if (demoMode) {
       setWorkspaceLoading(true);
@@ -693,6 +716,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
       setViewMode("chat");
       setComposer("");
+      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -711,6 +735,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
     setViewMode("chat");
     setComposer("");
+    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -730,6 +755,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       copy.actions.sendingTurn,
     );
     setComposer("");
+    setSessionControlsOpen(false);
   }
 
   async function handleSlashCommand(rawValue: string) {
@@ -744,20 +770,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     switch (command.action) {
       case "new":
       case "clear":
-        setWorkspaceDraft(preferredWorkspacePath);
-        setThreadDrawerOpen(false);
-        setViewMode("home");
-        window.setTimeout(() => {
-          homeSearchRef.current?.focus();
-        }, 0);
+        openHome();
         break;
       case "resume":
-        setWorkspaceDraft(preferredWorkspacePath);
-        setThreadDrawerOpen(false);
-        setViewMode("home");
-        window.setTimeout(() => {
-          homeSearchRef.current?.focus();
-        }, 0);
+        openHome();
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -806,6 +822,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       applyDemoSnapshot((current) => activateDemoThread(current, threadId));
       setThreadDrawerOpen(false);
       setViewMode("chat");
+      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -816,6 +833,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     );
     setThreadDrawerOpen(false);
     setViewMode("chat");
+    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -832,6 +850,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       );
       setThreadDrawerOpen(false);
       setViewMode("chat");
+      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -858,6 +877,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           effort: effort as BridgeSnapshot["sessionSettings"]["effort"],
         }),
       );
+      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -866,6 +886,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       () => callApi("/api/session/settings", { model, effort }),
       copy.actions.updatingSessionSettings,
     );
+    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -909,6 +930,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           planMode: !current.sessionSettings.planMode,
         }),
       );
+      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -920,6 +942,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         }),
       copy.actions.updatingSessionSettings,
     );
+    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -1506,17 +1529,20 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         <section className="tui-shell">
           <ShellHeader
             threadCount={snapshot?.threadList.length ?? 0}
-            showThreadCount
             sessionTitle={sessionTitle}
             sessionMeta={sessionMeta}
             sessionMetaTitle={sessionMetaTitle}
-            homeLabel={copy.header.threads}
+            homeLabel={copy.header.home}
+            threadsLabel={copy.header.threads}
             settingsLabel={copy.header.settings}
             statusLabel={headerStatus.label}
             statusTone={headerStatus.tone}
             showStatusLine={!hidePhoneIdleChrome}
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
+              openHome();
+            }}
+            onThreadsClick={() => {
               openThreadDrawer(
                 document.activeElement instanceof HTMLElement ? document.activeElement : null,
               );
@@ -1554,9 +1580,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             modelSelectRef={composerModelSelectRef}
             helperText={composerHelper}
             statusText={composerStatus}
+            sessionSummary={`${sessionSummary} / ${selectedPlanMode ? copy.home.planOn : copy.home.planOff}`}
+            sessionAriaLabel={`${copy.composer.sessionAria(
+              selectedModelLabel,
+              selectedEffortLabel,
+              selectedLanguageLabel,
+            )} ${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}.`}
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
             showToolbar={!hidePhoneIdleChrome}
+            compactLayout={isPhoneLayout}
+            sessionExpanded={sessionControlsOpen}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
@@ -1580,6 +1614,9 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               setComposer(`/${commandName}`);
               setCommandMenuDismissed(false);
               focusComposerSoon(true);
+            }}
+            onToggleSessionExpanded={() => {
+              setSessionControlsOpen((current) => !current);
             }}
             onModelChange={(value) => {
               void handleComposerModelChange(value);
@@ -1631,11 +1668,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           onClose={() => closeThreadDrawer()}
           onCreateThread={() => {
             setThreadDrawerOpen(false);
-            setWorkspaceDraft(preferredWorkspacePath);
-            setViewMode("home");
-            window.setTimeout(() => {
-              homeSearchRef.current?.focus();
-            }, 0);
+            openHome();
           }}
           onResumeThread={(threadId) => {
             void handleOpenThread(threadId);

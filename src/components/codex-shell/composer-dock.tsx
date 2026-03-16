@@ -17,9 +17,13 @@ type ComposerDockProps = {
   modelSelectRef: RefObject<HTMLSelectElement | null>;
   helperText: string;
   statusText: string;
+  sessionSummary: string;
+  sessionAriaLabel: string;
   canSubmit: boolean;
   activeTurn: boolean;
   showToolbar?: boolean;
+  compactLayout?: boolean;
+  sessionExpanded?: boolean;
   selectedModel: string;
   selectedEffort: string;
   planMode: boolean;
@@ -40,6 +44,7 @@ type ComposerDockProps = {
   onComposerChange: (value: string) => void;
   onComposerKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
   onCommandPick: (commandName: string) => void;
+  onToggleSessionExpanded?: () => void;
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
   onPlanModeToggle: () => void;
@@ -105,9 +110,13 @@ export function ComposerDock({
   modelSelectRef,
   helperText,
   statusText,
+  sessionSummary,
+  sessionAriaLabel,
   canSubmit,
   activeTurn,
   showToolbar = true,
+  compactLayout = false,
+  sessionExpanded = false,
   selectedModel,
   selectedEffort,
   planMode,
@@ -117,12 +126,16 @@ export function ComposerDock({
   onComposerChange,
   onComposerKeyDown,
   onCommandPick,
+  onToggleSessionExpanded,
   onModelChange,
   onEffortChange,
   onPlanModeToggle,
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
+  const showCompactSession = compactLayout;
+  const showSessionControls = !showCompactSession || sessionExpanded;
+
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -145,7 +158,43 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-session-shell">
+        <div
+          className={`composer-session-shell ${showSessionControls ? "expanded" : "collapsed"}`}
+        >
+          {showCompactSession ? (
+            <div className="composer-session-head">
+              <button
+                className="composer-session-toggle"
+                type="button"
+                aria-expanded={showSessionControls}
+                aria-label={sessionAriaLabel}
+                onClick={onToggleSessionExpanded}
+              >
+                <span className="composer-session-toggle-copy">
+                  <span className="composer-control-label">{labels.session}</span>
+                  <span className="composer-session-toggle-summary">{sessionSummary}</span>
+                </span>
+                <span className="composer-session-toggle-caret" aria-hidden="true">
+                  {showSessionControls ? "−" : "+"}
+                </span>
+              </button>
+
+              <button
+                className={`composer-plan-toggle composer-plan-toggle-inline ${
+                  planMode ? "selected" : ""
+                }`}
+                type="button"
+                aria-pressed={planMode}
+                onClick={onPlanModeToggle}
+              >
+                <span className="composer-plan-toggle-label">{labels.plan}</span>
+                <span className="composer-plan-toggle-value">
+                  {planMode ? labels.on : labels.off}
+                </span>
+              </button>
+            </div>
+          ) : null}
+
           <div className="composer-controls" role="group" aria-label={labels.session}>
             <SessionSelectField
               id="composer-model"
@@ -166,17 +215,19 @@ export function ComposerDock({
               onChange={onEffortChange}
             />
 
-            <button
-              className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
-              type="button"
-              aria-pressed={planMode}
-              onClick={onPlanModeToggle}
-            >
-              <span className="composer-plan-toggle-label">{labels.plan}</span>
-              <span className="composer-plan-toggle-value">
-                {planMode ? labels.on : labels.off}
-              </span>
-            </button>
+            {showCompactSession ? null : (
+              <button
+                className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+                type="button"
+                aria-pressed={planMode}
+                onClick={onPlanModeToggle}
+              >
+                <span className="composer-plan-toggle-label">{labels.plan}</span>
+                <span className="composer-plan-toggle-value">
+                  {planMode ? labels.on : labels.off}
+                </span>
+              </button>
+            )}
           </div>
         </div>
 
