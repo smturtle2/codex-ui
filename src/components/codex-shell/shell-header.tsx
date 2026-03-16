@@ -9,6 +9,7 @@ type ShellHeaderProps = {
   sessionTitle: string;
   sessionMeta: string;
   sessionMetaTitle?: string | null;
+  isPhoneLayout?: boolean;
   homeLabel: string;
   threadsLabel: string;
   settingsLabel: string;
@@ -26,6 +27,7 @@ export function ShellHeader({
   sessionTitle,
   sessionMeta,
   sessionMetaTitle = null,
+  isPhoneLayout = false,
   homeLabel,
   threadsLabel,
   settingsLabel,
@@ -51,7 +53,7 @@ export function ShellHeader({
 
         <div className="shell-session" title={sessionMetaTitle ?? sessionMeta}>
           <strong className="shell-session-title">{sessionTitle}</strong>
-          <span className="shell-session-meta">{sessionMeta}</span>
+          {!isPhoneLayout ? <span className="shell-session-meta">{sessionMeta}</span> : null}
         </div>
 
         <div className="shell-header-actions">

@@ -2,6 +2,17 @@
 
 ## 2026-03-16
 
+### Snapshot parity and mobile transcript pass
+
+- Added snapshot revisions so stale `/api/*` responses cannot overwrite newer WebSocket state in the browser.
+- Added guarded live canonical refresh for diff/plan updates so realtime transcript output snaps back to the same normalized shape used by `thread/read`.
+- Removed the extra newline injection from streamed command output chunks.
+- Compressed mobile chat chrome into a single-row header plus one compact session-control toggle so the transcript gets more first-viewport height.
+- Folded the active thread back into the mobile Home thread list, trimmed per-row path density, and shortened mobile launcher framing.
+- Reworked the workspace picker path hierarchy so the current directory reads as a short label first and a full path second.
+- Added support for `npm run up --funnel`, `npm run dev --funnel`, and `npm run start --funnel` without requiring the extra npm `--` forwarding separator.
+- Regenerated README preview screenshots for the updated mobile chat, home, settings, workspace, and desktop workspace views.
+
 ### Mobile home and composer refinement
 
 - Split mobile Home into explicit `Existing threads` / `New thread` tabs instead of stacking both flows into one long screen.

@@ -321,6 +321,7 @@ function applyActiveThread(
 ): BridgeSnapshot {
   return {
     ...snapshot,
+    revision: snapshot.revision + 1,
     activeThreadId,
     activeTurnId: null,
     activeTurnStartedAt: null,
@@ -352,6 +353,7 @@ export function createDemoSnapshot(): BridgeSnapshot {
   const threadList = createThreadList(threads, activeThreadId);
 
   const snapshot: BridgeSnapshot = {
+    revision: 1,
     phase: "ready",
     lastError: null,
     threads,
@@ -415,6 +417,7 @@ export function updateDemoSessionSettings(
 ): BridgeSnapshot {
   return {
     ...snapshot,
+    revision: snapshot.revision + 1,
     sessionSettings: {
       ...snapshot.sessionSettings,
       ...settings,
@@ -453,6 +456,7 @@ export function createDemoThreadSnapshot(
 
   return {
     ...snapshot,
+    revision: snapshot.revision + 1,
     threads,
     threadList: nextThreadList,
     activeThreadId: thread.id,

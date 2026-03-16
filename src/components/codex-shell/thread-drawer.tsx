@@ -10,6 +10,7 @@ import { formatRelativeTime } from "./utils";
 
 type ThreadDrawerProps = {
   locale: UiLocale;
+  isPhoneLayout: boolean;
   copy: {
     title: string;
     sessions: (count: number) => string;
@@ -49,6 +50,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
   function ThreadDrawer(
     {
       locale,
+      isPhoneLayout,
       copy,
       search,
       sort,
@@ -123,7 +125,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
             </div>
 
             <div className="thread-drawer-stack">
-              {activeThread ? (
+              {activeThread && !isPhoneLayout ? (
                 <section className="thread-drawer-section" aria-label={copy.current}>
                   <div className="thread-drawer-section-head">
                     <div className="thread-drawer-section-label">{copy.current}</div>

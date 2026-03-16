@@ -95,6 +95,7 @@ export type WorkspaceListing = {
 };
 
 export type BridgeSnapshot = {
+  revision: number;
   phase: BridgePhase;
   lastError: string | null;
   threads: Thread[];

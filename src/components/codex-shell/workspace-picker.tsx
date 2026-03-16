@@ -29,6 +29,8 @@ export function WorkspacePicker({
   onNavigate,
   onChoose,
 }: WorkspacePickerProps) {
+  const currentPathLabel = listing?.currentPath.split(/[\\/]+/).filter(Boolean).slice(-3).join("/") ?? "";
+
   return (
     <div className="workspace-picker">
       <section className="workspace-picker-current">
@@ -41,7 +43,10 @@ export function WorkspacePicker({
           </div>
 
           <div className="workspace-picker-path" title={listing?.currentPath ?? ""}>
-            {listing?.currentPath ?? ""}
+            <strong className="workspace-picker-path-label">
+              {currentPathLabel || listing?.currentPath || ""}
+            </strong>
+            <span className="workspace-picker-path-full">{listing?.currentPath ?? ""}</span>
           </div>
         </div>
 

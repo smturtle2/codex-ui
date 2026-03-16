@@ -68,15 +68,19 @@ function ThreadRow({
   locale,
   copy,
   thread,
+  isPhoneLayout = false,
   isCurrent = false,
   onOpenThread,
 }: {
   locale: UiLocale;
   copy: HomeCopy;
   thread: ThreadListItem;
+  isPhoneLayout?: boolean;
   isCurrent?: boolean;
   onOpenThread: (threadId: string) => void;
 }) {
+  const workspaceValue = isPhoneLayout ? thread.workspaceLabel : thread.workspacePath;
+
   return (
     <button
       type="button"
@@ -91,7 +95,7 @@ function ThreadRow({
           </span>
         </div>
         <div className="home-thread-path" title={thread.workspacePath}>
-          {thread.workspacePath}
+          {workspaceValue}
         </div>
         {joinMeta(thread) ? <div className="home-thread-meta">{joinMeta(thread)}</div> : null}
       </div>
@@ -123,7 +127,8 @@ export function HomeScreen({
   onCreateThread,
   onOpenThread,
 }: HomeScreenProps) {
-  const recentThreads = filteredThreads.filter((thread) => !thread.isActive);
+  const recentThreads = filteredThreads.filter((thread) => !thread.isActive || isPhoneLayout);
+  const showCurrentThread = Boolean(activeThread) && !isPhoneLayout;
   const showEmpty = recentThreads.length === 0;
   const showThreadsPanel = !isPhoneLayout || activePanel === "threads";
   const showLauncherPanel = !isPhoneLayout || activePanel === "new";
@@ -134,7 +139,7 @@ export function HomeScreen({
         <div className="home-copy">
           <span className="home-eyebrow">{copy.eyebrow}</span>
           <h1>{copy.title}</h1>
-          <p>{copy.intro}</p>
+          {!isPhoneLayout ? <p>{copy.intro}</p> : null}
         </div>
 
         <div className="home-header-tools">
@@ -213,13 +218,14 @@ export function HomeScreen({
 
             <div className="home-thread-list-shell">
               <div className="home-thread-list">
-                {activeThread ? (
+                {showCurrentThread && activeThread ? (
                   <section className="home-thread-group">
                     <div className="home-group-label">{copy.currentThread}</div>
                     <ThreadRow
                       locale={locale}
                       copy={copy}
                       thread={activeThread}
+                      isPhoneLayout={isPhoneLayout}
                       isCurrent
                       onOpenThread={onOpenThread}
                     />
@@ -243,6 +249,7 @@ export function HomeScreen({
                         locale={locale}
                         copy={copy}
                         thread={thread}
+                        isPhoneLayout={isPhoneLayout}
                         onOpenThread={onOpenThread}
                       />
                     ))

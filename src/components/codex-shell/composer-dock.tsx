@@ -162,25 +162,26 @@ export function ComposerDock({
 
       <div className="composer-frame">
         {isPhoneLayout ? (
-          <div className="composer-mobile-session">
-            <div className="composer-mobile-session-copy">
+          <button
+            className={`plain-action composer-mobile-session-toggle ${
+              mobileSessionExpanded ? "expanded" : ""
+            }`}
+            type="button"
+            aria-expanded={mobileSessionExpanded}
+            onClick={() => {
+              setMobileSessionExpanded((current) => !current);
+            }}
+          >
+            <span className="composer-mobile-session-copy">
               <span className="composer-control-label">{labels.session}</span>
               <span className="composer-mobile-session-summary" title={sessionSummary}>
                 {sessionSummary}
               </span>
-            </div>
-
-            <button
-              className="plain-action composer-mobile-session-toggle"
-              type="button"
-              aria-expanded={mobileSessionExpanded}
-              onClick={() => {
-                setMobileSessionExpanded((current) => !current);
-              }}
-            >
+            </span>
+            <span className="composer-mobile-session-toggle-text">
               {mobileSessionExpanded ? labels.hideSettings : labels.showSettings}
-            </button>
-          </div>
+            </span>
+          </button>
         ) : null}
 
         {showSessionControls ? (

@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, switches mobile Home into a clean `Existing threads` / `New thread` choice, leaves `Model`, `Reasoning`, and explicit `Fast on/off` plus `Plan on/off` controls inside the composer, moves language into a separate settings panel, keeps settings/workspace surfaces flat instead of card-heavy, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, switches mobile Home into a clean `Existing threads` / `New thread` choice, leaves `Model`, `Reasoning`, and explicit `Fast on/off` plus `Plan on/off` controls inside the composer, collapses those session controls behind one compact mobile row by default so the transcript stays dominant, moves language into a separate settings panel, keeps settings/workspace surfaces flat instead of card-heavy, and streams updates over WebSocket without letting older HTTP snapshots overwrite newer live state.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
@@ -66,9 +66,9 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 - Workspace picker: choose directories from a dedicated browser, keep the last selected workspace visible even before a thread exists there, and prioritize real project folders over generated directories.
 - Flat overlays: settings and workspace surfaces use list-like rows and internal scrolling instead of dense card grids.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
-- Direct session controls: desktop and mobile both keep `Model`, `Reasoning`, and explicit `Fast on/off` plus `Plan on/off` buttons directly in the composer.
+- Direct session controls: desktop keeps full composer controls visible, while mobile keeps the same `Model`, `Reasoning`, `Fast`, and `Plan` controls in-chat behind one compact session row so the transcript stays taller.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input or session summary.
-- Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure while preserving approval insertion points and stable entry metadata.
+- Realtime consistency: `thread/read`, bootstrap hydration, action responses, and live streaming all feed the same transcript structure, use revisioned snapshots to ignore stale client responses, and rehydrate live diff/plan updates back through canonical thread reads.
 - Safe turn finalization: once a turn completes, the bridge rehydrates that thread through `thread/read` before the next turn can drift visually from the persisted transcript.
 - Mobile-aware layout: Home separates existing-thread and new-thread flows into tabs, chat keeps the transcript dominant, trims idle chrome, and keeps settings/workspace surfaces phone-friendly.
 - Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
@@ -109,11 +109,11 @@ Open `http://127.0.0.1:3000`.
 Use Tailscale Funnel to expose the local UI publicly in one line:
 
 ```bash
-npm run up -- --funnel
+npm run up --funnel
 ```
 
-- `--funnel` also works with `npm run dev -- --funnel` and `npm run start -- --funnel`.
-- `npm run up -- --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
+- `--funnel` also works with `npm run dev --funnel`, `npm run start --funnel`, and the explicit forwarding form `npm run up -- --funnel`.
+- `npm run up --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
 - If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
 - `npm run funnel:status` shows the current Funnel mapping.
 - `npm run funnel:off` resets the Funnel config for this node.

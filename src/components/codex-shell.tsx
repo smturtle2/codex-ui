@@ -179,7 +179,9 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
   const applySnapshot = useEffectEvent((nextSnapshot: BridgeSnapshot) => {
     startTransition(() => {
-      setSnapshot(nextSnapshot);
+      setSnapshot((current) =>
+        !current || nextSnapshot.revision >= current.revision ? nextSnapshot : current,
+      );
     });
   });
 
@@ -705,9 +707,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     try {
       setBusyAction(busyLabel);
       const payload = await runner();
-      startTransition(() => {
-        setSnapshot(payload.snapshot);
-      });
+      applySnapshot(payload.snapshot);
     } catch (error) {
       setToast(error instanceof Error ? error.message : `${busyLabel} failed.`);
     } finally {
@@ -1570,6 +1570,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             sessionTitle={sessionTitle}
             sessionMeta={sessionMeta}
             sessionMetaTitle={sessionMetaTitle}
+            isPhoneLayout={isPhoneLayout}
             homeLabel={copy.header.home}
             threadsLabel={copy.header.threads}
             settingsLabel={copy.header.settings}
@@ -1674,6 +1675,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         <ThreadDrawer
           ref={threadDrawerRef}
           locale={locale}
+          isPhoneLayout={isPhoneLayout}
           copy={{
             title: copy.header.threads,
             sessions: copy.threadDrawer.sessions,

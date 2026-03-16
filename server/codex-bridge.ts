@@ -76,6 +76,7 @@ type StreamingItemState = {
 };
 
 type InternalState = {
+  snapshotRevision: number;
   phase: BridgeSnapshot["phase"];
   lastError: string | null;
   threads: Map<string, Thread>;
@@ -720,7 +721,10 @@ export class CodexBridge extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
   private requestSeq = 1;
   private readonly pendingClientRequests = new Map<string, PendingClientRequest>();
+  private readonly canonicalRefreshTimers = new Map<string, NodeJS.Timeout>();
+  private readonly canonicalRefreshInFlight = new Set<string>();
   private readonly state: InternalState = {
+    snapshotRevision: 0,
     phase: "starting",
     lastError: null,
     threads: new Map(),
@@ -750,6 +754,12 @@ export class CodexBridge extends EventEmitter {
   }
 
   async stop(): Promise<void> {
+    for (const timer of this.canonicalRefreshTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.canonicalRefreshTimers.clear();
+    this.canonicalRefreshInFlight.clear();
+
     if (!this.child) {
       return;
     }
@@ -785,6 +795,7 @@ export class CodexBridge extends EventEmitter {
     );
 
     return {
+      revision: this.state.snapshotRevision,
       phase: this.state.phase,
       lastError: this.state.lastError,
       threads,
@@ -1045,7 +1056,45 @@ export class CodexBridge extends EventEmitter {
   }
 
   private publish(): void {
+    this.state.snapshotRevision += 1;
     this.emit("snapshot", this.getSnapshot());
+  }
+
+  private scheduleCanonicalRefresh(threadId: string, delayMs = 180): void {
+    const existing = this.canonicalRefreshTimers.get(threadId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timer = setTimeout(() => {
+      this.canonicalRefreshTimers.delete(threadId);
+      void this.refreshThreadFromHistory(threadId);
+    }, delayMs);
+
+    this.canonicalRefreshTimers.set(threadId, timer);
+  }
+
+  private async refreshThreadFromHistory(threadId: string): Promise<void> {
+    if (this.canonicalRefreshInFlight.has(threadId)) {
+      this.scheduleCanonicalRefresh(threadId);
+      return;
+    }
+
+    this.canonicalRefreshInFlight.add(threadId);
+    try {
+      const thread = await this.readThreadWithTurns(threadId);
+      this.state.threads.set(thread.id, thread);
+      this.hydrateThreadTimeline(thread);
+      this.publish();
+    } catch (error) {
+      this.logLine(
+        `Failed to refresh live thread ${threadId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      this.canonicalRefreshInFlight.delete(threadId);
+    }
   }
 
   private logLine(line: string): void {
@@ -1681,8 +1730,11 @@ export class CodexBridge extends EventEmitter {
         break;
       }
       case "item/plan/delta": {
-        // Plan deltas are not guaranteed to concatenate into the final plan text.
-        // Keep the running entry stable and let the completed item replace it.
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        if (threadId) {
+          this.scheduleCanonicalRefresh(threadId);
+        }
         break;
       }
       case "item/commandExecution/outputDelta": {
@@ -1699,7 +1751,7 @@ export class CodexBridge extends EventEmitter {
             itemId,
             (item) => ({
               ...item,
-              aggregatedOutput: appendText(item.aggregatedOutput, delta, true),
+              aggregatedOutput: appendText(item.aggregatedOutput, delta),
             }),
           );
         }
@@ -1734,12 +1786,24 @@ export class CodexBridge extends EventEmitter {
               changes: nextChanges,
             };
           });
+          this.scheduleCanonicalRefresh(threadId);
+        }
+        break;
+      }
+      case "turn/plan/updated": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        if (threadId) {
+          this.scheduleCanonicalRefresh(threadId);
         }
         break;
       }
       case "turn/diff/updated": {
-        // Ignore raw turn diff notifications so thread hydration and live updates
-        // both rely on the same fileChange item normalization path.
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        if (threadId) {
+          this.scheduleCanonicalRefresh(threadId);
+        }
         break;
       }
       case "serverRequest/resolved": {

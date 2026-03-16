@@ -55,9 +55,15 @@ type CliOptions = {
   funnel: boolean;
 };
 
+function hasFlag(name: string, argv: string[]): boolean {
+  const normalized = name.replace(/^-+/, "");
+  const envValue = process.env[`npm_config_${normalized}`];
+  return argv.includes(`--${normalized}`) || (envValue !== undefined && envValue !== "false");
+}
+
 function parseCliOptions(argv: string[]): CliOptions {
   return {
-    funnel: argv.includes("--funnel"),
+    funnel: hasFlag("funnel", argv),
   };
 }
 

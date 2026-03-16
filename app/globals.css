@@ -791,24 +791,38 @@ pre {
   display: grid;
 }
 
-.composer-mobile-session {
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.55rem 0.8rem;
-  align-items: start;
-}
-
 .composer-mobile-session-copy {
   gap: 0.18rem;
+  min-width: 0;
 }
 
 .composer-mobile-session-summary {
   color: var(--muted);
   font-size: 0.8rem;
   line-height: 1.55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-mobile-session-toggle {
-  align-self: center;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  padding-inline: 0.75rem;
+}
+
+.composer-mobile-session-toggle.expanded {
+  background: var(--surface-soft);
+}
+
+.composer-mobile-session-toggle-text {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
+  white-space: nowrap;
 }
 
 .composer-controls {
@@ -1162,8 +1176,27 @@ pre {
 }
 
 .workspace-picker-path {
+  display: grid;
+  gap: 0.2rem;
   color: var(--text);
-  word-break: break-all;
+}
+
+.workspace-picker-path-label {
+  font-size: 0.96rem;
+  line-height: 1.4;
+}
+
+.workspace-picker-path-full {
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.workspace-picker-row-main span {
+  overflow-wrap: anywhere;
+  word-break: normal;
 }
 
 .workspace-picker-list {
@@ -1463,28 +1496,53 @@ pre {
 @media (max-width: 640px) {
   .home-shell {
     grid-template-rows: auto auto minmax(0, 1fr);
-    gap: 1rem;
+    gap: 0.7rem;
     padding:
-      max(0.9rem, env(safe-area-inset-top))
+      max(0.82rem, env(safe-area-inset-top))
       0.95rem
       max(1rem, env(safe-area-inset-bottom));
   }
 
   .tui-shell {
-    gap: 0.65rem;
+    gap: 0.5rem;
     padding:
-      max(0.85rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-top))
       0.95rem
       max(0.95rem, env(safe-area-inset-bottom));
   }
 
   .home-header {
     grid-template-columns: 1fr;
+    gap: 0.65rem;
+    padding-bottom: 0.65rem;
+  }
+
+  .home-copy {
+    gap: 0.22rem;
+  }
+
+  .home-eyebrow {
+    display: none;
+  }
+
+  .home-copy h1 {
+    font-size: clamp(1.38rem, 7vw, 1.78rem);
+    line-height: 1.05;
+  }
+
+  .home-header-tools {
+    justify-content: flex-start;
+    gap: 0.45rem;
+  }
+
+  .shell-status-badge {
+    min-height: 1.85rem;
+    padding-inline: 0.55rem;
   }
 
   .home-mobile-nav {
     display: flex;
-    padding-bottom: 0.15rem;
+    padding-bottom: 0;
   }
 
   .home-mobile-nav .picker-chip {
@@ -1493,8 +1551,8 @@ pre {
   }
 
   .home-launcher {
-    gap: 0.9rem;
-    padding-top: 0.95rem;
+    gap: 0.75rem;
+    padding-top: 0.72rem;
   }
 
   .home-launcher-actions {
@@ -1511,6 +1569,10 @@ pre {
     border-left: 0;
   }
 
+  .home-list-toolbar {
+    gap: 0.5rem;
+  }
+
   .home-thread-row,
   .home-thread-head {
     grid-template-columns: 1fr;
@@ -1520,41 +1582,58 @@ pre {
     display: none;
   }
 
+  .home-thread-row {
+    gap: 0.18rem 0.45rem;
+    padding: 0.72rem 0;
+  }
+
+  .home-thread-path,
+  .home-thread-meta {
+    font-size: 0.76rem;
+    line-height: 1.5;
+  }
+
   .shell-header {
-    padding-bottom: 0.55rem;
+    padding-bottom: 0.38rem;
   }
 
   .shell-header-rail {
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.7rem;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    align-items: center;
   }
 
   .shell-session {
-    grid-column: 1 / -1;
-    order: 3;
+    grid-column: auto;
+    order: 0;
+    min-width: 0;
   }
 
   .shell-session-title {
-    font-size: 0.92rem;
-  }
-
-  .shell-session-meta {
-    font-size: 0.76rem;
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
+    font-size: 0.88rem;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .shell-header-actions {
     justify-content: flex-end;
-    gap: 0.45rem;
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+    grid-column: auto;
+  }
+
+  .shell-status-line {
+    display: none;
   }
 
   .threads-trigger,
   .plain-action,
   .sidebar-trigger {
-    min-height: 2rem;
-    padding-inline: 0.72rem;
+    min-height: 1.9rem;
+    padding-inline: 0.62rem;
+    font-size: 0.82rem;
   }
 
   .history-list {
@@ -1582,23 +1661,18 @@ pre {
   }
 
   .composer-frame {
-    gap: 0.55rem;
-    padding-top: 0.55rem;
-  }
-
-  .composer-mobile-session {
-    gap: 0.45rem 0.65rem;
+    gap: 0.45rem;
+    padding-top: 0.45rem;
   }
 
   .composer-mobile-session-summary {
-    font-size: 0.74rem;
-    line-height: 1.5;
+    font-size: 0.72rem;
   }
 
   .composer-mobile-session-toggle {
-    min-height: 1.9rem;
-    padding-inline: 0.7rem;
-    white-space: nowrap;
+    min-height: 2.15rem;
+    padding: 0.45rem 0.65rem;
+    gap: 0.65rem;
   }
 
   .composer-controls {
@@ -1631,12 +1705,17 @@ pre {
   }
 
   .composer-input-row {
-    gap: 0.55rem;
+    gap: 0.4rem;
   }
 
   .composer-input {
-    font-size: 1rem;
-    line-height: 1.66;
+    font-size: 0.98rem;
+    line-height: 1.58;
+  }
+
+  .surface-input,
+  .raw-json-editor {
+    padding: 0.72rem 0.8rem;
   }
 
   .composer-actions {
@@ -1652,7 +1731,7 @@ pre {
 
   .composer-toolbar {
     display: grid;
-    gap: 0.2rem;
+    gap: 0.12rem;
   }
 
   .composer-inline-status {
@@ -1685,11 +1764,19 @@ pre {
   }
 
   .settings-panel {
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
 
   .settings-section-interface {
+    padding-right: 0;
     padding-bottom: 0.9rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .settings-section-session {
+    grid-column: auto;
   }
 
   .settings-fact-row {
@@ -1698,10 +1785,12 @@ pre {
   }
 
   .workspace-picker {
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
 
   .workspace-picker-current {
+    grid-template-columns: 1fr;
     gap: 0.75rem;
   }
 

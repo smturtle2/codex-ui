@@ -3,6 +3,17 @@ import { spawn } from "node:child_process";
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const forwardedArgs = process.argv.slice(2);
 
+function hasFlag(name, argv) {
+  const normalized = String(name).replace(/^-+/, "");
+  const envValue = process.env[`npm_config_${normalized}`];
+  return argv.includes(`--${normalized}`) || (envValue !== undefined && envValue !== "false");
+}
+
+const scriptArgs = [...new Set([
+  ...forwardedArgs,
+  ...(hasFlag("funnel", forwardedArgs) ? ["--funnel"] : []),
+])];
+
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -24,7 +35,7 @@ function run(command, args) {
 async function main() {
   await run(npmCommand, ["install", "--include=dev"]);
 
-  const child = spawn(npmCommand, ["run", "dev", "--", ...forwardedArgs], {
+  const child = spawn(npmCommand, ["run", "dev", "--", ...scriptArgs], {
     stdio: "inherit",
   });
 
