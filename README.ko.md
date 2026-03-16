@@ -15,15 +15,29 @@
 
 ## Preview
 
-| Home | Settings |
-| --- | --- |
-| ![Home preview](./docs/preview-home.png) | ![Settings preview](./docs/preview-settings.png) |
+<table>
+  <tr>
+    <td align="center"><strong>Home</strong></td>
+    <td align="center"><strong>Settings</strong></td>
+  </tr>
+  <tr>
+    <td><img src="./docs/preview-home.png" alt="Home preview" width="100%" /></td>
+    <td><img src="./docs/preview-settings.png" alt="Settings preview" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Workspace Picker</strong></td>
+    <td align="center"><strong>Desktop Chat</strong></td>
+  </tr>
+  <tr>
+    <td><img src="./docs/preview-workspace.png" alt="Workspace picker preview" width="100%" /></td>
+    <td><img src="./docs/preview-desktop.png" alt="Desktop chat preview" width="100%" /></td>
+  </tr>
+</table>
 
-| Workspace Picker | Desktop Chat |
-| --- | --- |
-| ![Workspace picker preview](./docs/preview-workspace.png) | ![Desktop chat preview](./docs/preview-desktop.png) |
-
-![Mobile chat preview](./docs/preview-mobile.png)
+<p align="center">
+  <strong>Mobile Chat</strong><br />
+  <img src="./docs/preview-mobile.png" alt="Mobile chat preview" width="320" />
+</p>
 
 ## 핵심 특징
 
