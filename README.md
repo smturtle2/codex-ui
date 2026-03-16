@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a slim launcher, lets you choose a workspace before starting a thread, keeps `Model`, `Reasoning`, and `Plan` inside the composer, separates `Home` and `Threads` inside chat, moves language into a separate settings panel, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, keeps launcher-first quick start on mobile, leaves `Model`, `Reasoning`, and `Plan` inside the composer, moves language into a separate settings panel, keeps settings/workspace surfaces flat instead of card-heavy, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
@@ -59,11 +59,12 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
 ## Highlights
 
-- Launcher-first flow: open an existing thread or start a new one from a dedicated home screen.
+- Split launcher flow: desktop keeps thread selection and new-thread workspace setup side by side, while mobile keeps the launcher controls first.
 - Consistent new-thread flow: slash commands return to the launcher so workspace selection stays part of starting a new thread.
 - Direct in-chat navigation: return to `Home` from the header while keeping a separate `Threads` drawer for fast switching.
 - Mobile quick start: keep `Start thread` and workspace selection visible above the thread list on narrow screens.
 - Workspace picker: choose directories from a dedicated browser, keep the last selected workspace, and prioritize real project folders over generated directories.
+- Flat overlays: settings and workspace surfaces use list-like rows and internal scrolling instead of dense card grids.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
 - Responsive session controls: desktop keeps direct `Model`, `Reasoning`, and `Plan` controls in the composer, while mobile collapses model/reasoning behind a compact summary and keeps `Plan` as a direct toggle.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.

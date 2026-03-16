@@ -9,7 +9,7 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 얇은 런처 화면에서 시작하고, 새 thread를 만들기 전에 workspace를 고를 수 있으며, `Model`, `Reasoning`, `Plan`은 채팅 입력부에 두고, 채팅 안에서는 `Home`과 `Threads`를 분리해 이동 동선을 단순하게 유지하고, 언어는 별도 설정 패널로 분리하며, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 데스크톱에서는 기존 thread와 새 thread workspace 설정을 나란히 두는 split launcher로 시작하고, 모바일에서는 launcher-first quick start를 유지하며, `Model`, `Reasoning`, `Plan`은 채팅 입력부에 두고, 언어는 별도 설정 패널로 분리하고, settings/workspace surface는 카드 대신 flat list 방식으로 유지하며, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
 
 상세 변경 내역은 [RELEASE_NOTES.md](./RELEASE_NOTES.md)에 정리했습니다.
 
@@ -59,11 +59,12 @@
 
 ## 핵심 특징
 
-- 런처 우선 흐름: 전용 홈 화면에서 기존 thread를 열거나 새 thread를 시작합니다.
+- split launcher 흐름: 데스크톱에서는 thread 선택과 새 thread workspace 설정을 나란히 보여주고, 모바일에서는 launcher controls를 먼저 노출합니다.
 - 일관된 새 thread 흐름: 슬래시 명령으로 새 thread를 시작할 때도 홈 런처로 돌아가 workspace 선택 단계를 유지합니다.
 - 채팅 내 직접 이동: 헤더에서 바로 `Home`으로 돌아가고, 별도의 `Threads` drawer로 빠르게 다른 thread를 전환합니다.
 - 모바일 quick start: 좁은 화면에서도 `Start thread`와 workspace 선택이 thread 목록 위에 바로 보입니다.
 - 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택하며, 마지막 선택을 유지하고 생성 폴더보다 실제 작업 폴더를 먼저 보여줍니다.
+- flat overlay: settings와 workspace surface를 카드 더미 대신 list row와 내부 스크롤 중심으로 정리했습니다.
 - transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 문자 대신 얇은 시각적 구분선으로 나뉩니다.
 - 반응형 세션 제어: 데스크톱에서는 composer에서 `Model`, `Reasoning`, `Plan`을 바로 바꾸고, 모바일에서는 compact summary 아래에 모델/추론을 접고 `Plan`은 바로 토글할 수 있게 유지합니다.
 - 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.

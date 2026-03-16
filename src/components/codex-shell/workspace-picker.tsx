@@ -73,7 +73,7 @@ export function WorkspacePicker({
         </div>
       </section>
 
-      <section className="workspace-picker-section">
+      <section className="workspace-picker-section workspace-picker-section-recent">
         <div className="workspace-picker-head">
           <span className="home-section-label">{labels.recent}</span>
         </div>

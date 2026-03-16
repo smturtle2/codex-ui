@@ -2,6 +2,14 @@
 
 ## 2026-03-16
 
+### Launcher and surface cleanup
+
+- Audited the real desktop/mobile UI instead of relying on the README shots and found that the home launcher still felt vertically stacked on desktop while mobile settings/workspace surfaces still let footer copy collide with scrollable content.
+- Split Home into a desktop two-column launcher so existing threads stay dominant while new-thread workspace setup remains visible without turning into a separate dashboard panel.
+- Flattened settings and workspace overlays into list-first surfaces, removed shortcut duplication from Settings, and kept language as the only actual setting in that panel.
+- Moved overlay scrolling into the surface body so mobile sheets keep a stable footer and no longer render the last rows underneath it.
+- Regenerated all README screenshots after the layout cleanup so the docs reflect the new split launcher and flat overlay system.
+
 ### Follow-up visual pass
 
 - Trimmed the mobile chat header into a two-row layout so the transcript gets more of the first viewport.

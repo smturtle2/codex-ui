@@ -16,12 +16,10 @@ type SettingsPanelProps = {
   selectedLanguage: UiLanguage;
   languageOptions: SettingsOption[];
   facts: SettingsFact[];
-  shortcuts: readonly string[];
   labels: {
     interfaceTitle: string;
     language: string;
     sessionTitle: string;
-    shortcutsTitle: string;
     applyHint: string;
   };
   onLanguageChange: (language: UiLanguage) => void;
@@ -31,13 +29,12 @@ export function SettingsPanel({
   selectedLanguage,
   languageOptions,
   facts,
-  shortcuts,
   labels,
   onLanguageChange,
 }: SettingsPanelProps) {
   return (
     <div className="settings-panel">
-      <section className="settings-section">
+      <section className="settings-section settings-section-interface">
         <div className="settings-section-head">
           <span className="home-section-label">{labels.interfaceTitle}</span>
           <span className="settings-section-note">{labels.applyHint}</span>
@@ -65,30 +62,16 @@ export function SettingsPanel({
         </label>
       </section>
 
-      <section className="settings-section">
+      <section className="settings-section settings-section-session">
         <div className="settings-section-head">
           <span className="home-section-label">{labels.sessionTitle}</span>
         </div>
 
-        <div className="settings-fact-grid">
+        <div className="settings-fact-list">
           {facts.map((fact) => (
-            <div key={fact.label} className="settings-fact">
+            <div key={fact.label} className="settings-fact-row">
               <span className="settings-fact-label">{fact.label}</span>
               <strong className="settings-fact-value">{fact.value}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="settings-section">
-        <div className="settings-section-head">
-          <span className="home-section-label">{labels.shortcutsTitle}</span>
-        </div>
-
-        <div className="settings-shortcut-list">
-          {shortcuts.map((shortcut) => (
-            <div key={shortcut} className="settings-shortcut-row">
-              {shortcut}
             </div>
           ))}
         </div>

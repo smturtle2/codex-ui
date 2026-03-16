@@ -1062,14 +1062,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       label: copy.statusPanel.uiLanguage,
       value: selectedLanguageLabel,
     },
-    {
-      label: copy.statusPanel.runtime,
-      value: runtime,
-    },
-    {
-      label: copy.statusPanel.pendingRequests,
-      value: String(snapshot?.pendingRequests.length ?? 0),
-    },
   ];
   const composerHelper = connectionState !== "live"
     ? copy.composer.helperReconnect
@@ -1724,12 +1716,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             selectedLanguage={selectedLanguageValue}
             languageOptions={languageOptions}
             facts={settingsFacts}
-            shortcuts={copy.shortcutsPanel.lines}
             labels={{
               interfaceTitle: copy.settingsPanel.interfaceTitle,
               language: copy.settingsPanel.language,
               sessionTitle: copy.settingsPanel.sessionTitle,
-              shortcutsTitle: copy.settingsPanel.shortcutsTitle,
               applyHint: copy.settingsPanel.applyHint,
             }}
             onLanguageChange={handleLanguageChange}
