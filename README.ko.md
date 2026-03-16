@@ -32,12 +32,15 @@
     <td><img src="./docs/preview-workspace.png" alt="Workspace picker preview" width="100%" /></td>
     <td><img src="./docs/preview-desktop.png" alt="Desktop chat preview" width="100%" /></td>
   </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>Mobile Chat</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="./docs/preview-mobile.png" alt="Mobile chat preview" width="320" />
+    </td>
+  </tr>
 </table>
-
-<p align="center">
-  <strong>Mobile Chat</strong><br />
-  <img src="./docs/preview-mobile.png" alt="Mobile chat preview" width="320" />
-</p>
 
 ## 핵심 특징
 
