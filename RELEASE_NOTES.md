@@ -45,6 +45,7 @@
 - Removed the heavy focused textarea ring from the composer so the chat input stays visually flat instead of reading like a boxed card.
 - Stopped auto-focusing the composer on phone layouts when opening chat or changing lightweight session controls, which avoids the mobile keyboard stealing space immediately.
 - Reduced mobile composer summary chrome and hid redundant ready-state badges so the transcript and launcher keep more usable height.
+- Restored a small horizontal inset to the mobile transcript so message rows no longer sit flush against the viewport edges.
 
 ### Verification
 
@@ -61,6 +62,7 @@
 - Browser check: mobile ready state no longer spends an extra line on idle status text, leaving more height for the transcript.
 - Browser check: the focused composer no longer draws a thick rectangular ring around the input area on desktop or mobile.
 - Browser check: opening a thread on mobile no longer immediately forces focus into the composer, so the keyboard does not pop over the transcript.
+- Browser check: mobile chat now keeps a visible left/right gutter instead of running transcript rows directly against the edges.
 - Browser check: after choosing a custom workspace, reload and `/new` continue to target that workspace instead of jumping back to the launch directory.
 - API/UI check: workspace directory browsing now surfaces regular source folders ahead of hidden and generated directories.
 - API check: live turn output and subsequent `thread/read` now produce the same normalized timeline entries for a real turn, including stable unchanged-entry timestamps.

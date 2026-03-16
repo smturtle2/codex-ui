@@ -2331,7 +2331,7 @@ pre {
 
   .transcript-scroll,
   .overlay-scroll {
-    padding: 0.08rem 0 0.42rem;
+    padding: 0.08rem 0.36rem 0.42rem;
     scroll-padding-block-end: 5rem;
   }
 
@@ -2340,7 +2340,7 @@ pre {
   }
 
   .history-list::before {
-    left: 0.22rem;
+    left: 0.58rem;
   }
 
   .history-turn-divider {
