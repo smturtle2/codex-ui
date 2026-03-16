@@ -58,6 +58,18 @@ type TrackedPendingRequest = PendingServerRequest & {
   wireId: JsonRpcId;
 };
 
+type ApprovalTimelineRecord = {
+  id: string;
+  threadId: string;
+  turnId: string | null;
+  summary: string;
+  detail: string;
+  method: string;
+  status: TimelineEntry["status"];
+  createdAt: number;
+  afterEntryId: string | null;
+};
+
 type StreamingItemState = {
   turnId: string | null;
   item: Record<string, unknown>;
@@ -73,6 +85,7 @@ type InternalState = {
   timelineByThread: Map<string, TimelineEntry[]>;
   streamingItemsByThread: Map<string, Map<string, StreamingItemState>>;
   pendingRequests: Map<string, TrackedPendingRequest>;
+  approvalHistory: Map<string, ApprovalTimelineRecord>;
   models: Model[];
   sessionSettings: SessionSettings;
 };
@@ -628,13 +641,12 @@ function isThreadNotMaterializedError(error: unknown): boolean {
   );
 }
 
-function createPendingApprovalTimelineEntry(
-  request: TrackedPendingRequest,
+function createApprovalTimelineEntry(
+  request: Pick<
+    ApprovalTimelineRecord,
+    "id" | "threadId" | "turnId" | "summary" | "detail" | "method" | "status" | "createdAt"
+  >,
 ): TimelineEntry | null {
-  if (!request.threadId) {
-    return null;
-  }
-
   return {
     id: `request:${request.id}`,
     threadId: request.threadId,
@@ -643,7 +655,7 @@ function createPendingApprovalTimelineEntry(
     title: request.summary,
     body: request.detail,
     tone: "warning",
-    status: "pending",
+    status: request.status,
     rawMethod: request.method,
     updatedAt: request.createdAt,
   };
@@ -652,7 +664,16 @@ function createPendingApprovalTimelineEntry(
 function insertApprovalTimelineEntry(
   entries: TimelineEntry[],
   approvalEntry: TimelineEntry,
+  afterEntryId?: string | null,
 ): void {
+  if (afterEntryId) {
+    const anchorIndex = entries.findIndex((entry) => entry.id === afterEntryId);
+    if (anchorIndex !== -1) {
+      entries.splice(anchorIndex + 1, 0, approvalEntry);
+      return;
+    }
+  }
+
   if (!approvalEntry.turnId) {
     entries.push(approvalEntry);
     return;
@@ -685,6 +706,7 @@ export class CodexBridge extends EventEmitter {
     timelineByThread: new Map(),
     streamingItemsByThread: new Map(),
     pendingRequests: new Map(),
+    approvalHistory: new Map(),
     models: [],
     sessionSettings: {
       model: null,
@@ -1132,10 +1154,38 @@ export class CodexBridge extends EventEmitter {
       }
     }
 
+    for (const approval of [...this.state.approvalHistory.values()].sort(
+      (left, right) => left.createdAt - right.createdAt,
+    )) {
+      if (approval.threadId !== thread.id) {
+        continue;
+      }
+
+      const approvalEntry = createApprovalTimelineEntry(approval);
+      if (!approvalEntry) {
+        continue;
+      }
+
+      insertApprovalTimelineEntry(entries, approvalEntry, approval.afterEntryId);
+    }
+
     for (const request of [...this.state.pendingRequests.values()].sort(
       (left, right) => left.createdAt - right.createdAt,
     )) {
-      const approvalEntry = createPendingApprovalTimelineEntry(request);
+      if (!request.threadId || this.state.approvalHistory.has(request.id)) {
+        continue;
+      }
+
+      const approvalEntry = createApprovalTimelineEntry({
+        id: request.id,
+        threadId: request.threadId,
+        turnId: request.turnId,
+        summary: request.summary,
+        detail: request.detail,
+        method: request.method,
+        status: "pending",
+        createdAt: request.createdAt,
+      });
       if (!approvalEntry || approvalEntry.threadId !== thread.id) {
         continue;
       }
@@ -1267,11 +1317,40 @@ export class CodexBridge extends EventEmitter {
       createdAt: Date.now(),
     });
 
-    const approvalEntry = createPendingApprovalTimelineEntry(
-      this.state.pendingRequests.get(requestId)!,
-    );
+    const pendingRequest = this.state.pendingRequests.get(requestId)!;
+    const afterEntryId =
+      threadId && turnId
+        ? [...(this.state.timelineByThread.get(threadId) ?? [])]
+            .filter((entry) => entry.turnId === turnId)
+            .at(-1)?.id ?? null
+        : threadId
+          ? (this.state.timelineByThread.get(threadId) ?? []).at(-1)?.id ?? null
+          : null;
+
+    if (threadId) {
+      this.state.approvalHistory.set(requestId, {
+        id: requestId,
+        threadId,
+        turnId,
+        summary,
+        detail,
+        method: request.method,
+        status: "pending",
+        createdAt: pendingRequest.createdAt,
+        afterEntryId,
+      });
+    }
+
+    const approvalEntry =
+      threadId && this.state.approvalHistory.has(requestId)
+        ? createApprovalTimelineEntry(this.state.approvalHistory.get(requestId)!)
+        : null;
     if (approvalEntry) {
-      this.insertApprovalEntryIntoTimeline(approvalEntry.threadId, approvalEntry);
+      this.insertApprovalEntryIntoTimeline(
+        approvalEntry.threadId,
+        approvalEntry,
+        afterEntryId,
+      );
     }
 
     this.publish();
@@ -1591,6 +1670,10 @@ export class CodexBridge extends EventEmitter {
         const requestId = String(params.requestId ?? "");
         const pending = this.state.pendingRequests.get(requestId);
         this.state.pendingRequests.delete(requestId);
+        const historyEntry = this.state.approvalHistory.get(requestId);
+        if (historyEntry) {
+          historyEntry.status = "completed";
+        }
         if (pending?.threadId) {
           const approvalEntry = this.findTimelineEntry(
             pending.threadId,
@@ -1726,9 +1809,13 @@ export class CodexBridge extends EventEmitter {
     this.state.timelineByThread.set(threadId, timeline);
   }
 
-  private insertApprovalEntryIntoTimeline(threadId: string, entry: TimelineEntry): void {
+  private insertApprovalEntryIntoTimeline(
+    threadId: string,
+    entry: TimelineEntry,
+    afterEntryId?: string | null,
+  ): void {
     const timeline = this.state.timelineByThread.get(threadId) ?? [];
-    insertApprovalTimelineEntry(timeline, entry);
+    insertApprovalTimelineEntry(timeline, entry, afterEntryId);
     this.state.timelineByThread.set(threadId, timeline);
   }
 

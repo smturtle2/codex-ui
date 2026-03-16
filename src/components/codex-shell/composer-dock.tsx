@@ -154,31 +154,47 @@ export function ComposerDock({
         <div
           className={`composer-session-shell ${sessionControlsExpanded ? "expanded" : ""}`}
         >
-          <button
-            className="composer-session-toggle"
-            type="button"
-            aria-expanded={sessionControlsExpanded}
-            onClick={() => {
-              setSessionControlsExpanded((current) => {
-                const next = !current;
-                if (next) {
-                  window.setTimeout(() => {
-                    modelSelectRef.current?.focus();
-                  }, 0);
-                }
+          <div className="composer-session-head">
+            <button
+              className="composer-session-toggle"
+              type="button"
+              aria-expanded={sessionControlsExpanded}
+              onClick={() => {
+                setSessionControlsExpanded((current) => {
+                  const next = !current;
+                  if (next) {
+                    window.setTimeout(() => {
+                      modelSelectRef.current?.focus();
+                    }, 0);
+                  }
 
-                return next;
-              });
-            }}
-          >
-            <span className="composer-session-toggle-copy">
-              <span className="composer-control-label">{labels.session}</span>
-              <span className="composer-session-toggle-summary">{sessionSummary}</span>
-            </span>
-            <span className="composer-session-toggle-caret" aria-hidden="true">
-              v
-            </span>
-          </button>
+                  return next;
+                });
+              }}
+            >
+              <span className="composer-session-toggle-copy">
+                <span className="composer-control-label">{labels.session}</span>
+                <span className="composer-session-toggle-summary">{sessionSummary}</span>
+              </span>
+              <span className="composer-session-toggle-caret" aria-hidden="true">
+                v
+              </span>
+            </button>
+
+            <button
+              className={`composer-plan-toggle composer-plan-toggle-inline ${
+                planMode ? "selected" : ""
+              }`}
+              type="button"
+              aria-pressed={planMode}
+              onClick={onPlanModeToggle}
+            >
+              <span className="composer-plan-toggle-label">{labels.plan}</span>
+              <span className="composer-plan-toggle-value">
+                {planMode ? labels.on : labels.off}
+              </span>
+            </button>
+          </div>
 
           <div className="composer-controls" role="group" aria-label={labels.session}>
             <SessionSelectField
@@ -201,7 +217,9 @@ export function ComposerDock({
             />
 
             <button
-              className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+              className={`composer-plan-toggle composer-plan-toggle-panel ${
+                planMode ? "selected" : ""
+              }`}
               type="button"
               aria-pressed={planMode}
               onClick={onPlanModeToggle}

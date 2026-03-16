@@ -1,164 +1,204 @@
+#!/usr/bin/env python3
+
 from __future__ import annotations
 
+import argparse
 import os
+import signal
+import subprocess
+import sys
 import time
+import urllib.error
+import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
-from urllib.error import URLError
-from urllib.request import urlopen
+from typing import Iterator
 
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Page, sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DOCS = ROOT / "docs"
-BASE_URL = os.environ.get("UI_BASE_URL", "http://127.0.0.1:3000")
-PROMPT = os.environ.get("UI_PREVIEW_PROMPT", "Reply with exactly OK.")
-CHROME_CANDIDATES = [
-    os.environ.get("UI_PREVIEW_CHROME"),
-    "/usr/bin/google-chrome",
-    "/usr/bin/chromium-browser",
-    "/usr/bin/chromium",
-]
+DOCS_DIR = ROOT / "docs"
+DEFAULT_URL = "http://127.0.0.1:3000"
+LANGUAGE_STORAGE_KEY = "codex-ui-language"
 
 
-def wait_for_server(timeout_seconds: int = 30) -> None:
-    deadline = time.time() + timeout_seconds
-    last_error: Exception | None = None
-
-    while time.time() < deadline:
-        try:
-            with urlopen(BASE_URL, timeout=2):
-                return
-        except URLError as exc:
-            last_error = exc
-            time.sleep(0.5)
-
-    raise RuntimeError(f"UI server did not respond at {BASE_URL}") from last_error
-
-
-def wait_for_reply(page) -> None:
-    try:
-        page.wait_for_function(
-            """
-            () => {
-              const assistantReady = Array.from(
-                document.querySelectorAll('.history-message-group.role-assistant .history-message-line')
-              ).some((node) => node.textContent?.trim() === 'OK');
-              const interruptVisible = Array.from(document.querySelectorAll('button')).some(
-                (node) => node.textContent?.trim() === 'Interrupt'
-              );
-              return assistantReady && !interruptVisible;
-            }
-            """,
-            timeout=60000,
-        )
-    except PlaywrightTimeoutError:
-        page.wait_for_timeout(3000)
-
-
-def goto_app(page) -> None:
-    page.goto(BASE_URL, wait_until="load")
-    page.wait_for_timeout(1200)
-
-
-def launch_browser(playwright):
-    for candidate in CHROME_CANDIDATES:
-        if not candidate:
-            continue
-
-        path = Path(candidate)
-        if not path.exists():
-            continue
-
-        try:
-            return playwright.chromium.launch(
-                headless=True,
-                executable_path=str(path),
-            )
-        except Exception:
-            continue
-
-    return playwright.chromium.launch(headless=True)
-
-
-def open_chat_preview(page) -> None:
-    thread_rows = page.locator(".home-thread-row")
-    thread_count = thread_rows.count()
-
-    if thread_count > 0:
-        target_index = 1 if thread_count > 1 else 0
-        thread_rows.nth(target_index).click()
-        page.wait_for_timeout(1100)
-        return
-
-    page.get_by_role("button", name="Start thread").click()
-    page.wait_for_timeout(900)
-
-    composer = page.locator("textarea")
-    composer.fill(PROMPT)
-    page.get_by_role("button", name="Send").click()
-    wait_for_reply(page)
-    page.wait_for_timeout(800)
-
-
-def capture_desktop(browser) -> None:
-    page = browser.new_page(viewport={"width": 1440, "height": 960})
-    goto_app(page)
-
-    page.screenshot(path=str(DOCS / "preview-home.png"), full_page=True)
-
-    page.get_by_role("button", name="Settings").click()
-    page.wait_for_timeout(400)
-    page.screenshot(path=str(DOCS / "preview-settings.png"), full_page=True)
-    page.get_by_role("button", name="Close").click()
-
-    page.get_by_role("button", name="Choose directory").click()
-    page.wait_for_timeout(700)
-    page.screenshot(path=str(DOCS / "preview-workspace.png"), full_page=True)
-    page.get_by_role("button", name="Close").click()
-
-    open_chat_preview(page)
-    page.screenshot(path=str(DOCS / "preview-desktop.png"), full_page=True)
-    page.close()
-
-
-def capture_mobile(browser) -> None:
-    page = browser.new_page(
-        viewport={"width": 393, "height": 852},
-        is_mobile=True,
-        has_touch=True,
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Capture README preview screenshots for Codex UI.",
     )
-    goto_app(page)
-    page.screenshot(path=str(DOCS / "preview-mobile-home.png"), full_page=True)
+    parser.add_argument(
+        "--url",
+        default=DEFAULT_URL,
+        help=f"Base URL for the running app (default: {DEFAULT_URL}).",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=str(DOCS_DIR),
+        help="Directory to write screenshots into.",
+    )
+    parser.add_argument(
+        "--no-server",
+        action="store_true",
+        help="Do not start `npm run dev` automatically when the app is not running.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=90.0,
+        help="Seconds to wait for the app to become reachable.",
+    )
+    return parser.parse_args()
 
-    page.get_by_role("button", name="Settings").click()
-    page.wait_for_timeout(400)
-    page.screenshot(path=str(DOCS / "preview-mobile-settings.png"), full_page=True)
-    page.get_by_role("button", name="Close").click()
 
-    page.get_by_role("button", name="Choose directory").click()
-    page.wait_for_timeout(700)
-    page.screenshot(path=str(DOCS / "preview-mobile-workspace.png"), full_page=True)
-    page.get_by_role("button", name="Close").click()
-
-    open_chat_preview(page)
-    page.screenshot(path=str(DOCS / "preview-mobile-chat.png"), full_page=True)
-    page.close()
+def server_is_live(url: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=2) as response:
+            return 200 <= response.status < 500
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        return False
 
 
-def main() -> None:
-    DOCS.mkdir(parents=True, exist_ok=True)
-    wait_for_server()
+def wait_for_server(url: str, timeout: float, process: subprocess.Popen[str] | None) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if server_is_live(url):
+            return
 
-    with sync_playwright() as playwright:
-        browser = launch_browser(playwright)
+        if process is not None and process.poll() is not None:
+            raise RuntimeError("`npm run dev` exited before the app became reachable.")
+
+        time.sleep(1)
+
+    raise RuntimeError(f"Timed out waiting for {url}.")
+
+
+@contextmanager
+def ensure_server(url: str, timeout: float, no_server: bool) -> Iterator[None]:
+    process: subprocess.Popen[str] | None = None
+
+    if not server_is_live(url):
+        if no_server:
+            raise RuntimeError(f"{url} is not reachable. Start the app or omit --no-server.")
+
+        process = subprocess.Popen(
+            ["npm", "run", "dev"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        wait_for_server(url, timeout, process)
+
+    try:
+        yield
+    finally:
+        if process is None or process.poll() is not None:
+            return
+
+        if os.name == "nt":
+            process.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
+        else:
+            process.terminate()
+
         try:
-            capture_desktop(browser)
-            capture_mobile(browser)
-        finally:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+
+
+def prepare_page(page: Page, url: str) -> None:
+    page.add_init_script(
+        f"window.localStorage.setItem('{LANGUAGE_STORAGE_KEY}', 'system');"
+    )
+    page.goto(url, wait_until="networkidle")
+
+
+def close_surface(page: Page) -> None:
+    close_button = page.locator(".surface-dialog .plain-action").first
+    if close_button.count():
+        close_button.click()
+        page.wait_for_timeout(200)
+
+
+def open_chat_from_home(page: Page) -> None:
+    thread_rows = page.locator(".home-thread-row")
+    if thread_rows.count() > 0:
+        thread_rows.first.click()
+    else:
+        page.locator(".action-button").first.click()
+
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(700)
+
+
+def capture_desktop(page: Page, output_dir: Path) -> None:
+    page.screenshot(path=str(output_dir / "preview-home.png"), full_page=True)
+
+    page.locator(".home-header-tools .plain-action").first.click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(output_dir / "preview-settings.png"), full_page=True)
+    close_surface(page)
+
+    page.locator(".home-sidebar .home-create-actions .plain-action").first.click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(output_dir / "preview-workspace.png"), full_page=True)
+    close_surface(page)
+
+    open_chat_from_home(page)
+    page.screenshot(path=str(output_dir / "preview-desktop.png"), full_page=True)
+
+
+def capture_mobile(page: Page, output_dir: Path) -> None:
+    page.screenshot(path=str(output_dir / "preview-mobile-home.png"), full_page=True)
+
+    page.locator(".home-header-tools .plain-action").first.click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(output_dir / "preview-mobile-settings.png"), full_page=True)
+    close_surface(page)
+
+    page.locator(".home-mobile-launcher-actions .plain-action").first.click()
+    page.wait_for_timeout(300)
+    page.screenshot(path=str(output_dir / "preview-mobile-workspace.png"), full_page=True)
+    close_surface(page)
+
+    open_chat_from_home(page)
+    page.screenshot(path=str(output_dir / "preview-mobile-chat.png"), full_page=True)
+
+
+def main() -> int:
+    args = parse_args()
+    output_dir = Path(args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with ensure_server(args.url, args.timeout, args.no_server):
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+
+            desktop = browser.new_page(
+                viewport={"width": 1440, "height": 1024},
+                color_scheme="light",
+            )
+            prepare_page(desktop, args.url)
+            capture_desktop(desktop, output_dir)
+
+            mobile = browser.new_page(
+                viewport={"width": 393, "height": 852},
+                is_mobile=True,
+                has_touch=True,
+                color_scheme="light",
+            )
+            prepare_page(mobile, args.url)
+            capture_mobile(mobile, output_dir)
+
             browser.close()
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        raise SystemExit(main())
+    except Exception as error:
+        print(str(error), file=sys.stderr)
+        raise SystemExit(1)

@@ -453,6 +453,26 @@ export function CodexShell() {
   ]);
 
   useEffect(() => {
+    if (viewMode !== "chat") {
+      return;
+    }
+
+    const container = transcriptScrollRef.current;
+    if (!container) {
+      return;
+    }
+
+    const raf = window.requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight;
+      transcriptPinnedRef.current = true;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [viewMode, snapshot?.activeThreadId]);
+
+  useEffect(() => {
     const textarea = composerRef.current;
     if (!textarea) {
       return;
