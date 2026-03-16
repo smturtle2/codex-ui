@@ -495,7 +495,31 @@ function mergeHydratedTimelineEntry(
     return next;
   }
 
+  if (areTimelineEntriesEquivalent(existing, next)) {
+    return {
+      ...next,
+      updatedAt: existing.updatedAt,
+    };
+  }
+
   return next;
+}
+
+function areTimelineEntriesEquivalent(
+  existing: TimelineEntry,
+  next: TimelineEntry,
+): boolean {
+  return (
+    existing.id === next.id &&
+    existing.threadId === next.threadId &&
+    existing.turnId === next.turnId &&
+    existing.kind === next.kind &&
+    existing.title === next.title &&
+    existing.body === next.body &&
+    existing.tone === next.tone &&
+    existing.status === next.status &&
+    existing.rawMethod === next.rawMethod
+  );
 }
 
 function timelineEntryFromTurnItem(
@@ -1116,18 +1140,34 @@ export class CodexBridge extends EventEmitter {
   private hydrateThreadTimeline(thread: Thread): void {
     const entries: TimelineEntry[] = [];
     const streamingItems = new Map<string, StreamingItemState>();
+    const existingEntries = new Map(
+      (this.state.timelineByThread.get(thread.id) ?? []).map((entry) => [entry.id, entry]),
+    );
 
     for (const turn of thread.turns) {
-      entries.push(createTurnTimelineEntry(thread.id, turn, Date.now()));
+      const nextTurnEntry = mergeHydratedTimelineEntry(
+        existingEntries.get(`turn:${turn.id}`),
+        createTurnTimelineEntry(thread.id, turn, Date.now()),
+      );
+      entries.push(nextTurnEntry);
       const turnEntries = new Map<string, TimelineEntry>();
       const turnEntryOrder: string[] = [];
 
       for (const item of turn.items as Array<Record<string, unknown>>) {
-        const nextEntry = timelineEntryFromTurnItem(
-          thread.id,
-          turn.id,
-          item,
-          getHydratedTimelineStatus(turn, item),
+        const nextEntry = mergeHydratedTimelineEntry(
+          existingEntries.get(
+            resolveTimelineEntryId(
+              typeof item.type === "string" ? item.type : "unknown",
+              typeof item.id === "string" ? item.id : `item-${Date.now()}`,
+              turn.id,
+            ),
+          ),
+          timelineEntryFromTurnItem(
+            thread.id,
+            turn.id,
+            item,
+            getHydratedTimelineStatus(turn, item),
+          ),
         );
         const currentEntry = turnEntries.get(nextEntry.id);
         if (!currentEntry) {
@@ -1166,7 +1206,11 @@ export class CodexBridge extends EventEmitter {
         continue;
       }
 
-      insertApprovalTimelineEntry(entries, approvalEntry, approval.afterEntryId);
+      insertApprovalTimelineEntry(
+        entries,
+        mergeHydratedTimelineEntry(existingEntries.get(approvalEntry.id), approvalEntry),
+        approval.afterEntryId,
+      );
     }
 
     for (const request of [...this.state.pendingRequests.values()].sort(
@@ -1190,7 +1234,10 @@ export class CodexBridge extends EventEmitter {
         continue;
       }
 
-      insertApprovalTimelineEntry(entries, approvalEntry);
+      insertApprovalTimelineEntry(
+        entries,
+        mergeHydratedTimelineEntry(existingEntries.get(approvalEntry.id), approvalEntry),
+      );
     }
 
     this.state.timelineByThread.set(thread.id, entries);

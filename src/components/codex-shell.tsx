@@ -122,6 +122,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [composer, setComposer] = useState("");
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
   const [browserLanguage, setBrowserLanguage] = useState("en");
+  const [isPhoneLayout, setIsPhoneLayout] = useState(false);
   const [threadSearch, setThreadSearch] = useState("");
   const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
   const [workspaceDraft, setWorkspaceDraft] = useState("");
@@ -272,6 +273,19 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         : window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "",
     );
   }, [demoMode]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 640px)");
+    const syncLayout = () => {
+      setIsPhoneLayout(mediaQuery.matches);
+    };
+
+    syncLayout();
+    mediaQuery.addEventListener("change", syncLayout);
+    return () => {
+      mediaQuery.removeEventListener("change", syncLayout);
+    };
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, uiLanguage);
@@ -1029,6 +1043,13 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         : selectedPlanMode
           ? copy.composer.readyPlan
           : copy.composer.ready;
+  const hidePhoneIdleChrome =
+    isPhoneLayout &&
+    connectionState === "live" &&
+    headerStatus.tone === "ready" &&
+    !snapshot?.activeTurnId &&
+    !pendingRequest &&
+    !busyAction;
 
   const approvalChoices = useMemo<ApprovalChoice[]>(() => {
     if (!pendingRequest) {
@@ -1443,6 +1464,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         <section className="tui-shell">
           <ShellHeader
             threadCount={snapshot?.threadList.length ?? 0}
+            showThreadCount={!isPhoneLayout}
             sessionTitle={sessionTitle}
             sessionMeta={sessionMeta}
             sessionMetaTitle={sessionMetaTitle}
@@ -1450,6 +1472,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             settingsLabel={copy.header.settings}
             statusLabel={headerStatus.label}
             statusTone={headerStatus.tone}
+            showStatusLine={!hidePhoneIdleChrome}
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
               setViewMode("home");
@@ -1489,6 +1512,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             statusText={composerStatus}
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
+            showToolbar={!hidePhoneIdleChrome}
             sessionSummary={[
               selectedModelLabel,
               selectedEffortLabel,

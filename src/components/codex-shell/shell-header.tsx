@@ -6,6 +6,7 @@ type HeaderStatusTone = "ready" | "working" | "pending" | "error" | "starting";
 
 type ShellHeaderProps = {
   threadCount: number;
+  showThreadCount?: boolean;
   sessionTitle: string;
   sessionMeta: string;
   sessionMetaTitle?: string | null;
@@ -13,6 +14,7 @@ type ShellHeaderProps = {
   settingsLabel: string;
   statusLabel: string;
   statusTone: HeaderStatusTone;
+  showStatusLine?: boolean;
   homeButtonRef: RefObject<HTMLButtonElement | null>;
   onHomeClick: () => void;
   onSettingsClick: () => void;
@@ -20,6 +22,7 @@ type ShellHeaderProps = {
 
 export function ShellHeader({
   threadCount,
+  showThreadCount = true,
   sessionTitle,
   sessionMeta,
   sessionMetaTitle = null,
@@ -27,6 +30,7 @@ export function ShellHeader({
   settingsLabel,
   statusLabel,
   statusTone,
+  showStatusLine = true,
   homeButtonRef,
   onHomeClick,
   onSettingsClick,
@@ -41,7 +45,9 @@ export function ShellHeader({
           onClick={onHomeClick}
         >
           <span className="sidebar-trigger-label">{homeLabel}</span>
-          <span className="sidebar-trigger-count">{threadCount}</span>
+          {showThreadCount ? (
+            <span className="sidebar-trigger-count">{threadCount}</span>
+          ) : null}
         </button>
 
         <div className="shell-session" title={sessionMetaTitle ?? sessionMeta}>
@@ -50,7 +56,9 @@ export function ShellHeader({
         </div>
 
         <div className="shell-header-actions">
-          <span className={`shell-status-line tone-${statusTone}`}>{statusLabel}</span>
+          {showStatusLine ? (
+            <span className={`shell-status-line tone-${statusTone}`}>{statusLabel}</span>
+          ) : null}
           <button className="plain-action" type="button" onClick={onSettingsClick}>
             {settingsLabel}
           </button>

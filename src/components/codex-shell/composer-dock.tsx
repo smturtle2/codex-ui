@@ -23,6 +23,7 @@ type ComposerDockProps = {
   statusText: string;
   canSubmit: boolean;
   activeTurn: boolean;
+  showToolbar?: boolean;
   sessionSummary: string;
   selectedModel: string;
   selectedEffort: string;
@@ -111,6 +112,7 @@ export function ComposerDock({
   statusText,
   canSubmit,
   activeTurn,
+  showToolbar = true,
   sessionSummary,
   selectedModel,
   selectedEffort,
@@ -260,12 +262,14 @@ export function ComposerDock({
           </div>
         </div>
 
-        <div className="composer-toolbar">
-          <span className="composer-inline-status" aria-live="polite">
-            {statusText}
-          </span>
-          <span className="composer-helper">{helperText}</span>
-        </div>
+        {showToolbar ? (
+          <div className="composer-toolbar">
+            <span className="composer-inline-status" aria-live="polite">
+              {statusText}
+            </span>
+            <span className="composer-helper">{helperText}</span>
+          </div>
+        ) : null}
       </div>
     </section>
   );
