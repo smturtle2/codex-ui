@@ -807,6 +807,48 @@ pre {
   border-top: 1px solid var(--line-strong);
 }
 
+.composer-session-shell {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.composer-session-toggle {
+  display: none;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 0.45rem;
+  background: var(--surface-muted);
+  text-align: left;
+}
+
+.composer-session-toggle-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.composer-session-toggle-summary {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.composer-session-toggle-caret {
+  color: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: transform 140ms ease;
+}
+
+.composer-session-toggle[aria-expanded="true"] .composer-session-toggle-caret {
+  transform: rotate(180deg);
+}
+
 .composer-controls {
   display: flex;
   gap: 0.6rem;
@@ -1429,18 +1471,27 @@ pre {
     padding-top: 0.5rem;
   }
 
+  .composer-session-toggle {
+    display: flex;
+  }
+
   .composer-controls {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: none;
     overflow: visible;
     padding-bottom: 0;
+  }
+
+  .composer-session-shell.expanded .composer-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
   }
 
   .composer-select-field {
     min-width: 0;
   }
 
-  .composer-plan-toggle {
+  .composer-session-shell.expanded .composer-plan-toggle {
     min-width: 0;
     grid-column: 1 / -1;
   }

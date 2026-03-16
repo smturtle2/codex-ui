@@ -89,6 +89,7 @@ Local bridge
 - Node.js 20+
 - `PATH`에 있는 `codex`
 - 로그인된 로컬 Codex 세션
+- `--funnel` 사용 시: `tailscale`, `bash`, `python`, `curl`
 
 ## 빠른 시작
 
@@ -122,4 +123,7 @@ npm run up -- --funnel
 npm run typecheck
 npm run build
 npm run check
+python scripts/generate_preview_images.py
 ```
+
+`python scripts/generate_preview_images.py`를 실행하면 README에 쓰는 데스크톱/모바일 스크린샷 세트를 다시 생성합니다.

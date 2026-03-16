@@ -456,12 +456,6 @@ function getHydratedTimelineStatus(
   turn: Pick<Turn, "status">,
   item: Record<string, unknown>,
 ): TimelineEntry["status"] {
-  const fallbackStatus =
-    turn.status === "failed"
-      ? "error"
-      : turn.status === "inProgress"
-        ? "running"
-        : "completed";
   const itemType = typeof item.type === "string" ? item.type : "unknown";
 
   if (itemType === "userMessage") {
@@ -469,10 +463,15 @@ function getHydratedTimelineStatus(
   }
 
   if (typeof item.status === "string") {
+    const fallbackStatus = turn.status === "inProgress" ? "running" : "completed";
     return timelineStatusFromItemStatus(item.status, fallbackStatus);
   }
 
-  return fallbackStatus;
+  if (turn.status === "inProgress") {
+    return "running";
+  }
+
+  return "completed";
 }
 
 function mergeHydratedTimelineEntry(
@@ -1351,21 +1350,6 @@ export class CodexBridge extends EventEmitter {
         if (!this.state.activeThreadId) {
           this.state.activeThreadId = thread.id;
         }
-        this.appendTimelineEntry(thread.id, {
-          id: `thread:${thread.id}:started`,
-          threadId: thread.id,
-          turnId: null,
-          kind: "thread",
-          title: thread.name ?? "Thread started",
-          body: bodyFromLines([
-            `cwd: ${thread.cwd}`,
-            `status: ${extractThreadStatusLabel(thread.status)}`,
-          ]),
-          tone: "accent",
-          status: "completed",
-          rawMethod: method,
-          updatedAt: now,
-        });
         break;
       }
       case "thread/status/changed": {
@@ -1459,10 +1443,16 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
+          const itemType = typeof item.type === "string" ? item.type : "unknown";
+          const itemId = typeof item.id === "string" ? item.id : `item-${Date.now()}`;
+          const existingEntry = this.findTimelineEntry(
+            threadId,
+            resolveTimelineEntryId(itemType, itemId, turnId),
+          );
           const completionStatus =
             typeof item.status === "string"
               ? timelineStatusFromItemStatus(item.status, "completed")
-              : "completed";
+              : existingEntry?.status ?? "completed";
           this.upsertStreamingTimelineEntry(threadId, turnId, item, completionStatus);
           const entry = timelineEntryFromTurnItem(
             threadId,
@@ -1536,17 +1526,8 @@ export class CodexBridge extends EventEmitter {
         break;
       }
       case "item/plan/delta": {
-        const threadId =
-          typeof params.threadId === "string" ? params.threadId : undefined;
-        const turnId = typeof params.turnId === "string" ? params.turnId : null;
-        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
-        const delta = typeof params.delta === "string" ? params.delta : "";
-        if (threadId && itemId) {
-          this.mutateStreamingItem(threadId, turnId, "plan", itemId, (item) => ({
-            ...item,
-            text: appendText(item.text, delta),
-          }));
-        }
+        // Plan deltas are not guaranteed to concatenate into the final plan text.
+        // Keep the running entry stable and let the completed item replace it.
         break;
       }
       case "item/commandExecution/outputDelta": {

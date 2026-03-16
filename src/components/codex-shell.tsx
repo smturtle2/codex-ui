@@ -309,10 +309,15 @@ export function CodexShell() {
     });
   }, [deferredThreadSearch, snapshot, threadSort]);
 
-  const filteredActiveThread = useMemo(
-    () => filteredThreads.find((thread) => thread.isActive) ?? null,
-    [filteredThreads],
-  );
+  const visibleHomeThreads = useMemo(() => {
+    if (!activeThreadSummary) {
+      return filteredThreads;
+    }
+
+    return filteredThreads.some((thread) => thread.id === activeThreadSummary.id)
+      ? filteredThreads
+      : [activeThreadSummary, ...filteredThreads];
+  }, [activeThreadSummary, filteredThreads]);
 
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
@@ -1227,6 +1232,7 @@ export function CodexShell() {
             searchPlaceholder: copy.home.searchPlaceholder,
             sortThreads: copy.home.sortThreads,
             noThreads: copy.home.noThreads,
+            noOtherThreads: copy.home.noOtherThreads,
             noMatchingThreads: copy.home.noMatchingThreads,
             sessionLabel: copy.home.sessionLabel,
             openThread: copy.home.openThread,
@@ -1239,8 +1245,8 @@ export function CodexShell() {
           sessionSummary={sessionSummary}
           search={threadSearch}
           sort={threadSort}
-          activeThread={filteredActiveThread}
-          filteredThreads={filteredThreads}
+          activeThread={activeThreadSummary}
+          filteredThreads={visibleHomeThreads}
           workspaceDraft={workspaceDraft}
           defaultWorkspacePath={snapshot?.defaultWorkspacePath ?? ""}
           statusLabel={headerStatus.label}
@@ -1323,6 +1329,13 @@ export function CodexShell() {
             statusText={composerStatus}
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
+            sessionSummary={[
+              selectedModelLabel,
+              selectedEffortLabel,
+              `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
+            ]
+              .filter(Boolean)
+              .join(" / ")}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}

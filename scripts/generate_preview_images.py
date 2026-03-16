@@ -31,6 +31,48 @@ def wait_for_server(timeout_seconds: int = 30) -> None:
     raise RuntimeError(f"UI server did not respond at {BASE_URL}") from last_error
 
 
+def wait_for_reply(page) -> None:
+    try:
+        page.wait_for_function(
+            """
+            () => {
+              const assistantReady = Array.from(
+                document.querySelectorAll('.history-message-group.role-assistant .history-message-line')
+              ).some((node) => node.textContent?.trim() === 'OK');
+              const interruptVisible = Array.from(document.querySelectorAll('button')).some(
+                (node) => node.textContent?.trim() === 'Interrupt'
+              );
+              return assistantReady && !interruptVisible;
+            }
+            """,
+            timeout=60000,
+        )
+    except PlaywrightTimeoutError:
+        page.wait_for_timeout(3000)
+
+
+def open_chat_preview(page) -> None:
+    thread_rows = page.locator(".home-thread-row")
+    thread_count = thread_rows.count()
+
+    if thread_count > 0:
+        target_index = 1 if thread_count > 1 else 0
+        thread_rows.nth(target_index).click()
+        page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(800)
+        return
+
+    page.get_by_role("button", name="Start thread").click()
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(900)
+
+    composer = page.locator("textarea")
+    composer.fill(PROMPT)
+    page.get_by_role("button", name="Send").click()
+    wait_for_reply(page)
+    page.wait_for_timeout(800)
+
+
 def capture_desktop(browser) -> None:
     page = browser.new_page(viewport={"width": 1440, "height": 960})
     page.goto(BASE_URL, wait_until="networkidle")
@@ -47,23 +89,7 @@ def capture_desktop(browser) -> None:
     page.screenshot(path=str(DOCS / "preview-workspace.png"), full_page=True)
     page.get_by_role("button", name="Close").click()
 
-    page.get_by_role("button", name="Start thread").click()
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(900)
-
-    composer = page.locator("textarea")
-    composer.fill(PROMPT)
-    page.get_by_role("button", name="Send").click()
-
-    try:
-        page.wait_for_function(
-            "() => document.body.innerText.includes('OK')",
-            timeout=60000,
-        )
-    except PlaywrightTimeoutError:
-        page.wait_for_timeout(3000)
-
-    page.wait_for_timeout(800)
+    open_chat_preview(page)
     page.screenshot(path=str(DOCS / "preview-desktop.png"), full_page=True)
     page.close()
 
@@ -75,12 +101,20 @@ def capture_mobile(browser) -> None:
         has_touch=True,
     )
     page.goto(BASE_URL, wait_until="networkidle")
+    page.screenshot(path=str(DOCS / "preview-mobile-home.png"), full_page=True)
 
-    first_thread = page.locator(".home-thread-row").first
-    first_thread.click()
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(800)
-    page.screenshot(path=str(DOCS / "preview-mobile.png"), full_page=True)
+    page.get_by_role("button", name="Settings").click()
+    page.wait_for_timeout(400)
+    page.screenshot(path=str(DOCS / "preview-mobile-settings.png"), full_page=True)
+    page.get_by_role("button", name="Close").click()
+
+    page.get_by_role("button", name="Choose directory").click()
+    page.wait_for_timeout(700)
+    page.screenshot(path=str(DOCS / "preview-mobile-workspace.png"), full_page=True)
+    page.get_by_role("button", name="Close").click()
+
+    open_chat_preview(page)
+    page.screenshot(path=str(DOCS / "preview-mobile-chat.png"), full_page=True)
     page.close()
 
 

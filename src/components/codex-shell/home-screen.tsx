@@ -26,6 +26,7 @@ type HomeCopy = {
   searchPlaceholder: string;
   sortThreads: string;
   noThreads: string;
+  noOtherThreads: string;
   noMatchingThreads: string;
   sessionLabel: string;
   openThread: string;
@@ -121,7 +122,7 @@ export function HomeScreen({
   onOpenThread,
 }: HomeScreenProps) {
   const recentThreads = filteredThreads.filter((thread) => !thread.isActive);
-  const showEmpty = !activeThread && recentThreads.length === 0;
+  const showEmpty = recentThreads.length === 0;
   const mobileSessionSummary = [sessionSummary, selectedPlanMode ? copy.planOn : copy.planOff]
     .filter(Boolean)
     .join(" / ");
@@ -227,7 +228,11 @@ export function HomeScreen({
                 <div className="home-group-label">{copy.threadList(recentThreads.length)}</div>
                 {showEmpty ? (
                   <div className="home-empty">
-                    {search.trim().length > 0 ? copy.noMatchingThreads : copy.noThreads}
+                    {search.trim().length > 0
+                      ? copy.noMatchingThreads
+                      : activeThread
+                        ? copy.noOtherThreads
+                        : copy.noThreads}
                   </div>
                 ) : recentThreads.length > 0 ? (
                   recentThreads.map((thread) => (

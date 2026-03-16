@@ -1,8 +1,9 @@
 "use client";
 
-import type {
-  KeyboardEventHandler,
-  RefObject,
+import {
+  useState,
+  type KeyboardEventHandler,
+  type RefObject,
 } from "react";
 
 import type { SlashCommandDefinition } from "@/lib/shared";
@@ -22,6 +23,7 @@ type ComposerDockProps = {
   statusText: string;
   canSubmit: boolean;
   activeTurn: boolean;
+  sessionSummary: string;
   selectedModel: string;
   selectedEffort: string;
   planMode: boolean;
@@ -109,6 +111,7 @@ export function ComposerDock({
   statusText,
   canSubmit,
   activeTurn,
+  sessionSummary,
   selectedModel,
   selectedEffort,
   planMode,
@@ -124,6 +127,8 @@ export function ComposerDock({
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
+  const [sessionControlsExpanded, setSessionControlsExpanded] = useState(false);
+
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -146,37 +151,67 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-controls" role="group" aria-label={labels.session}>
-          <SessionSelectField
-            id="composer-model"
-            label={labels.model}
-            value={selectedModel}
-            options={modelOptions}
-            unavailableLabel={labels.unavailable}
-            selectRef={modelSelectRef}
-            onChange={onModelChange}
-          />
-
-          <SessionSelectField
-            id="composer-effort"
-            label={labels.reasoning}
-            value={selectedEffort}
-            options={effortOptions}
-            unavailableLabel={labels.unavailable}
-            onChange={onEffortChange}
-          />
-
+        <div
+          className={`composer-session-shell ${sessionControlsExpanded ? "expanded" : ""}`}
+        >
           <button
-            className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+            className="composer-session-toggle"
             type="button"
-            aria-pressed={planMode}
-            onClick={onPlanModeToggle}
+            aria-expanded={sessionControlsExpanded}
+            onClick={() => {
+              setSessionControlsExpanded((current) => {
+                const next = !current;
+                if (next) {
+                  window.setTimeout(() => {
+                    modelSelectRef.current?.focus();
+                  }, 0);
+                }
+
+                return next;
+              });
+            }}
           >
-            <span className="composer-plan-toggle-label">{labels.plan}</span>
-            <span className="composer-plan-toggle-value">
-              {planMode ? labels.on : labels.off}
+            <span className="composer-session-toggle-copy">
+              <span className="composer-control-label">{labels.session}</span>
+              <span className="composer-session-toggle-summary">{sessionSummary}</span>
+            </span>
+            <span className="composer-session-toggle-caret" aria-hidden="true">
+              v
             </span>
           </button>
+
+          <div className="composer-controls" role="group" aria-label={labels.session}>
+            <SessionSelectField
+              id="composer-model"
+              label={labels.model}
+              value={selectedModel}
+              options={modelOptions}
+              unavailableLabel={labels.unavailable}
+              selectRef={modelSelectRef}
+              onChange={onModelChange}
+            />
+
+            <SessionSelectField
+              id="composer-effort"
+              label={labels.reasoning}
+              value={selectedEffort}
+              options={effortOptions}
+              unavailableLabel={labels.unavailable}
+              onChange={onEffortChange}
+            />
+
+            <button
+              className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+              type="button"
+              aria-pressed={planMode}
+              onClick={onPlanModeToggle}
+            >
+              <span className="composer-plan-toggle-label">{labels.plan}</span>
+              <span className="composer-plan-toggle-value">
+                {planMode ? labels.on : labels.off}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="composer-input-row">

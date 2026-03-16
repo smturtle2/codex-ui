@@ -89,6 +89,7 @@ Local bridge
 - Node.js 20+
 - `codex` on `PATH`
 - an authenticated local Codex session
+- for `--funnel`: `tailscale`, `bash`, `python`, and `curl`
 
 ## Quick Start
 
@@ -122,4 +123,7 @@ Reference:
 npm run typecheck
 npm run build
 npm run check
+python scripts/generate_preview_images.py
 ```
+
+`python scripts/generate_preview_images.py` refreshes the desktop and mobile screenshots used in this README.

@@ -19,12 +19,21 @@
 - Added repo-local `--funnel` startup support so `npm run up -- --funnel` becomes the one-line public launch flow.
 - Kept standalone Funnel helpers for status and teardown.
 - Refreshed README copy and screenshots while keeping detailed notes here instead of bloating the README.
+- Collapsed mobile session controls behind a single-line composer summary so the transcript keeps more height on narrow screens.
+- Kept the active thread visible on Home even when search filters out every recent thread, and surfaced the correct empty-state copy for the remaining list.
+- Removed the live-only `thread/started` transcript noise and aligned hydrated/live item fallback statuses so failed turns no longer rehydrate into a different visible state.
+- Stopped concatenating plan deltas during streaming and now let the completed plan item replace the running placeholder, matching `thread/read` more closely.
+- Updated the preview generator to export the same desktop/mobile screenshot set referenced by both READMEs.
+- Documented the extra `--funnel` prerequisites and the screenshot refresh command in the English and Korean READMEs.
 
 ### Verification
 
 - `npm run typecheck`
+- `npm run build`
 - Browser check: desktop home keeps launcher split between thread list and new-thread panel.
 - Browser check: mobile home shows search, quick-start actions, and thread list without requiring a separate panel.
-- Browser check: mobile chat still keeps transcript dominant while composer exposes model, reasoning, and plan.
+- Browser check: mobile chat keeps transcript dominant while composer exposes model, reasoning, and plan behind a compact session toggle.
+- Browser check: once a thread is open, Home search still preserves the current thread while showing `No matching threads.` for the filtered recent list.
 - API check: live turn output and subsequent `thread/read` produced the same normalized timeline for a real turn.
 - CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
+- Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.
