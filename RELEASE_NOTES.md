@@ -2,6 +2,16 @@
 
 ## 2026-03-16
 
+### Fast and mobile pass
+
+- Replaced the ambiguous `Plan on/off` composer control with explicit `Fast` and `Plan` mode buttons in the chat input UI.
+- Kept `Model` and `Reasoning` as direct dropdowns in the composer on both desktop and mobile instead of hiding them behind a separate mobile summary toggle.
+- Removed UI language from launcher/composer session summaries so language only lives in the dedicated Settings panel.
+- Kept the last selected workspace visible in the workspace picker even before any thread has been created in that directory.
+- Fixed the thread drawer session count so the header no longer claims there are zero sessions while the current thread is still visible.
+- Cleaned out duplicated top-level CSS overrides and tightened the mobile launcher/composer layout so the transcript keeps more height.
+- Corrected the screenshot generator failure message to match its real `npm run start` fallback behavior.
+
 ### Launcher and surface cleanup
 
 - Audited the real desktop/mobile UI instead of relying on the README shots and found that the home launcher still felt vertically stacked on desktop while mobile settings/workspace surfaces still let footer copy collide with scrollable content.

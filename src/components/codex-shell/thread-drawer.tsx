@@ -29,7 +29,7 @@ type ThreadDrawerProps = {
   };
   search: string;
   sort: ThreadDrawerSort;
-  filteredCount: number;
+  visibleCount: number;
   activeThread: ThreadListItem | null;
   recentThreads: ThreadListItem[];
   onSearchChange: (value: string) => void;
@@ -52,7 +52,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
       copy,
       search,
       sort,
-      filteredCount,
+      visibleCount,
       activeThread,
       recentThreads,
       onSearchChange,
@@ -77,7 +77,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
             <div className="thread-drawer-header">
               <div className="thread-drawer-header-copy">
                 <strong id="thread-drawer-title">{copy.title}</strong>
-                <span>{copy.sessions(filteredCount)}</span>
+                <span>{copy.sessions(visibleCount)}</span>
               </div>
 
               <button className="plain-action" type="button" onClick={onClose}>
@@ -157,7 +157,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                 <div className="thread-drawer-list" role="list" aria-label={copy.recent}>
                   {recentThreads.length === 0 ? (
                     <div className="thread-drawer-empty">
-                      {filteredCount === 0
+                      {visibleCount === 0
                         ? copy.noMatchingThreads
                         : copy.noOtherThreads}
                     </div>

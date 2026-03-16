@@ -33,474 +33,6 @@
     "Menlo",
     monospace;
 }
-/* Final refinement overrides: keep the shell flat, consistent, and transcript-first. */
-.home-header {
-  align-items: end;
-  gap: 0.85rem 1.4rem;
-  padding-bottom: 1rem;
-}
-
-.home-copy {
-  gap: 0.42rem;
-}
-
-.home-copy h1 {
-  max-width: 11ch;
-  font-size: clamp(1.7rem, 3.8vw, 2.8rem);
-}
-
-.home-copy p {
-  max-width: 40rem;
-  font-size: 0.93rem;
-  line-height: 1.72;
-}
-
-.home-launcher {
-  gap: 1rem 1.35rem;
-  padding: 0.96rem 0 1.06rem;
-}
-
-.home-launcher-copy {
-  gap: 0.38rem;
-}
-
-.home-launcher-intro {
-  margin: 0;
-  max-width: 36rem;
-  color: var(--muted);
-  font-size: 0.88rem;
-  line-height: 1.64;
-}
-
-.home-session-summary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.38rem 0.9rem;
-  align-items: baseline;
-}
-
-.home-launcher-session {
-  font-family: var(--font-mono), monospace;
-  font-size: 0.76rem;
-}
-
-.home-launcher-actions {
-  gap: 0.55rem;
-}
-
-.home-main {
-  gap: 0.9rem;
-}
-
-.home-list-toolbar {
-  gap: 0.78rem;
-}
-
-.home-thread-row {
-  gap: 1rem;
-  padding: 0.92rem 0;
-  align-items: start;
-}
-
-.home-thread-title {
-  font-size: 1rem;
-  line-height: 1.42;
-}
-
-.home-thread-path,
-.home-thread-meta {
-  line-height: 1.6;
-}
-
-.home-thread-open {
-  align-self: start;
-  padding-top: 0.08rem;
-}
-
-.shell-header {
-  padding-bottom: 0.65rem;
-}
-
-.shell-header-rail {
-  gap: 0.75rem 1rem;
-  align-items: start;
-}
-
-.shell-session {
-  gap: 0.28rem;
-  padding-top: 0.05rem;
-}
-
-.shell-session-meta {
-  line-height: 1.55;
-}
-
-.shell-header-actions {
-  gap: 0.45rem;
-}
-
-.transcript-scroll {
-  padding: 0.95rem 1.15rem 1.12rem;
-  scroll-padding-block-end: 9rem;
-}
-
-.history-list {
-  gap: 0.95rem;
-}
-
-.history-event {
-  padding-top: 0.72rem;
-}
-
-.history-event-detail {
-  padding-left: 0.82rem;
-}
-
-.composer-dock {
-  gap: 0.45rem;
-}
-
-.composer-frame {
-  gap: 0.4rem;
-  padding-top: 0.35rem;
-}
-
-.composer-controls {
-  grid-template-columns: repeat(2, minmax(8.5rem, 11rem)) auto;
-  gap: 0.55rem;
-}
-
-.composer-select-shell {
-  min-height: 2.35rem;
-  background: var(--surface);
-}
-
-.composer-plan-toggle {
-  min-width: 5.8rem;
-}
-
-.composer-input-row {
-  gap: 0.7rem;
-  align-items: end;
-}
-
-.composer-input {
-  min-height: 2.6rem;
-  font-size: 1rem;
-  line-height: 1.72;
-}
-
-.composer-toolbar {
-  gap: 0.65rem 1rem;
-  padding-top: 0.12rem;
-}
-
-.surface-dialog,
-.surface-dialog.wide,
-.approval-modal {
-  border-radius: 1rem;
-  box-shadow: none;
-}
-
-.surface-dialog,
-.approval-modal {
-  width: min(48rem, 100%);
-}
-
-.surface-dialog.wide {
-  width: min(72rem, 100%);
-}
-
-.settings-fact-grid {
-  display: grid;
-}
-
-.settings-fact {
-  display: grid;
-  grid-template-columns: minmax(10rem, 12rem) minmax(0, 1fr);
-  gap: 0.34rem 1rem;
-  padding: 0.82rem 0;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: transparent;
-}
-
-.settings-fact-label {
-  font-size: 0.67rem;
-}
-
-.settings-fact-value {
-  font-size: 0.98rem;
-}
-
-.thread-drawer-backdrop {
-  background: rgba(255, 255, 255, 0.92);
-}
-
-@media (max-width: 820px) {
-  .shell-header-rail {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .shell-header-actions {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    padding-top: 0.1rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .tui-shell {
-    gap: 0.4rem;
-    padding:
-      max(0.55rem, env(safe-area-inset-top))
-      0.72rem
-      max(0.78rem, env(safe-area-inset-bottom));
-  }
-
-  .home-shell {
-    gap: 0.72rem;
-    padding:
-      max(0.75rem, env(safe-area-inset-top))
-      0.76rem
-      max(0.92rem, env(safe-area-inset-bottom));
-  }
-
-  .home-header {
-    align-items: stretch;
-    gap: 0.7rem;
-    padding-bottom: 0.72rem;
-  }
-
-  .home-header-tools {
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .home-copy h1 {
-    max-width: 9ch;
-    font-size: clamp(1.82rem, 10vw, 3rem);
-  }
-
-  .home-copy p {
-    font-size: 0.94rem;
-    line-height: 1.66;
-  }
-
-  .home-launcher {
-    gap: 0.75rem;
-    padding: 0.82rem 0 0.9rem;
-  }
-
-  .home-launcher-copy {
-    gap: 0.34rem;
-  }
-
-  .home-launcher-intro {
-    font-size: 0.84rem;
-    line-height: 1.58;
-  }
-
-  .home-session-summary {
-    grid-template-columns: 1fr;
-    gap: 0.22rem;
-  }
-
-  .home-launcher-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.42rem;
-  }
-
-  .home-toolbar-controls {
-    grid-template-columns: 1fr;
-    gap: 0.55rem;
-  }
-
-  .home-sort-group {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .home-thread-row {
-    grid-template-columns: 1fr;
-    gap: 0.4rem;
-  }
-
-  .shell-header {
-    padding-bottom: 0.45rem;
-  }
-
-  .shell-header-rail {
-    grid-template-columns: auto auto;
-    grid-template-areas:
-      "home actions"
-      "session session";
-    gap: 0.5rem 0.6rem;
-    align-items: center;
-  }
-
-  .sidebar-trigger {
-    grid-area: home;
-  }
-
-  .shell-header-actions {
-    grid-area: actions;
-    grid-column: auto;
-    justify-content: flex-end;
-    padding-top: 0;
-  }
-
-  .shell-session {
-    grid-area: session;
-    gap: 0.18rem;
-    padding-top: 0;
-  }
-
-  .shell-session-title {
-    font-size: 0.94rem;
-  }
-
-  .shell-session-meta {
-    white-space: normal;
-    line-height: 1.45;
-  }
-
-  .transcript-scroll {
-    padding: 0.55rem 0.72rem 0.86rem;
-    scroll-padding-block-end: 7.5rem;
-  }
-
-  .history-list {
-    gap: 0.82rem;
-  }
-
-  .history-list::before {
-    display: none;
-  }
-
-  .history-message-group,
-  .history-event {
-    grid-template-columns: 1fr;
-    gap: 0.22rem;
-  }
-
-  .history-message-group-head,
-  .history-event-head {
-    grid-auto-flow: column;
-    justify-content: space-between;
-    gap: 0.55rem;
-  }
-
-  .history-message-line {
-    font-size: 1rem;
-    line-height: 1.72;
-  }
-
-  .history-event {
-    padding-top: 0.62rem;
-  }
-
-  .history-event-detail {
-    padding-left: 0;
-    padding-top: 0.25rem;
-    border-left: 0;
-  }
-
-  .history-turn-divider {
-    width: 100%;
-    margin: 0.18rem 0;
-    padding: 0;
-  }
-
-  .composer-dock {
-    gap: 0.28rem;
-  }
-
-  .composer-frame {
-    gap: 0.28rem;
-    padding-top: 0.18rem;
-  }
-
-  .composer-controls {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0.45rem;
-    overflow-x: auto;
-    margin-inline: -0.04rem;
-    padding-inline: 0.04rem;
-    padding-bottom: 0.1rem;
-    scrollbar-width: none;
-  }
-
-  .composer-controls::-webkit-scrollbar {
-    display: none;
-  }
-
-  .composer-select-field {
-    flex: 0 0 8.75rem;
-  }
-
-  .composer-plan-toggle {
-    flex: 0 0 auto;
-    min-width: 4.9rem;
-  }
-
-  .composer-control-label,
-  .composer-plan-toggle-label {
-    font-size: 0.6rem;
-    letter-spacing: 0.09em;
-  }
-
-  .composer-select-shell {
-    min-height: 2.2rem;
-    padding-inline: 0.62rem;
-  }
-
-  .composer-select {
-    font-size: 0.82rem;
-  }
-
-  .composer-input-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.55rem;
-  }
-
-  .composer-input {
-    min-height: 2.25rem;
-    font-size: 0.98rem;
-    line-height: 1.62;
-  }
-
-  .composer-inline-status,
-  .composer-helper {
-    font-size: 0.68rem;
-    line-height: 1.45;
-  }
-
-  .screen-overlay {
-    align-items: end;
-    padding: 0;
-  }
-
-  .surface-dialog,
-  .surface-dialog.wide,
-  .approval-modal {
-    width: 100%;
-    max-height: 100dvh;
-    border-radius: 1rem 1rem 0 0;
-  }
-
-  .surface-dialog-header {
-    align-items: flex-start;
-  }
-
-  .settings-fact {
-    grid-template-columns: 1fr;
-    gap: 0.18rem;
-    padding: 0.7rem 0;
-  }
-}
 
 * {
   box-sizing: border-box;
@@ -582,7 +114,6 @@ pre {
 .history-event-kind,
 .history-event-state,
 .composer-control-label,
-.composer-plan-toggle-label,
 .surface-dialog-kicker,
 .settings-field-label,
 .settings-fact-label,
@@ -600,7 +131,6 @@ pre {
 .home-section-label,
 .home-group-label,
 .composer-control-label,
-.composer-plan-toggle-label,
 .surface-dialog-kicker,
 .settings-field-label,
 .settings-fact-label {
@@ -972,7 +502,6 @@ pre {
 .plain-action,
 .picker-chip,
 .action-button,
-.composer-plan-toggle,
 .approval-option,
 .command-menu-row {
   display: inline-flex;
@@ -998,7 +527,6 @@ pre {
 .sidebar-trigger:hover,
 .plain-action:hover,
 .picker-chip:hover,
-.composer-plan-toggle:hover,
 .approval-option:hover,
 .command-menu-row:hover {
   border-color: var(--line-strong);
@@ -1013,14 +541,12 @@ pre {
   background: var(--surface-soft);
 }
 
-.action-button,
-.composer-plan-toggle.selected {
+.action-button {
   background: var(--surface-strong);
   color: var(--inverse);
 }
 
-.action-button:hover,
-.composer-plan-toggle.selected:hover {
+.action-button:hover {
   background: #000000;
 }
 
@@ -1247,46 +773,6 @@ pre {
   box-shadow: inset 0 1px 0 var(--line-strong);
 }
 
-.composer-session-shell {
-  display: grid;
-  gap: 0.55rem;
-}
-
-.composer-session-head {
-  display: none;
-}
-
-.composer-session-toggle {
-  display: none;
-  width: 100%;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.62rem 0.72rem;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface-muted);
-  text-align: left;
-}
-
-.composer-session-toggle-copy {
-  display: grid;
-  gap: 0.18rem;
-}
-
-.composer-session-toggle-summary {
-  font-size: 0.82rem;
-  color: var(--muted);
-  line-height: 1.5;
-}
-
-.composer-session-toggle-caret {
-  font-family: var(--font-mono), monospace;
-  font-size: 1rem;
-  color: var(--muted);
-  line-height: 1;
-}
-
 .composer-controls {
   display: flex;
   flex-wrap: wrap;
@@ -1297,6 +783,22 @@ pre {
   display: grid;
   gap: 0.26rem;
   min-width: 10rem;
+}
+
+.composer-mode-field {
+  display: grid;
+  gap: 0.26rem;
+  min-width: 10.5rem;
+}
+
+.composer-mode-group {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.composer-mode-group .picker-chip {
+  flex: 1 1 0;
+  min-width: 4.9rem;
 }
 
 .composer-select-shell,
@@ -1343,21 +845,6 @@ pre {
   right: 0.8rem;
   color: var(--muted);
   pointer-events: none;
-}
-
-.composer-plan-toggle {
-  justify-content: space-between;
-  min-width: 8.3rem;
-}
-
-.composer-plan-toggle-inline {
-  display: none;
-  flex: none;
-}
-
-.composer-plan-toggle-value {
-  font-size: 0.86rem;
-  font-weight: 600;
 }
 
 .composer-input-row {
@@ -1950,6 +1437,15 @@ pre {
     padding-top: 0.95rem;
   }
 
+  .home-launcher-actions {
+    min-width: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .home-launcher-actions .action-button {
+    grid-column: auto;
+  }
+
   .home-launcher-panel {
     order: -1;
     padding-left: 0;
@@ -2030,28 +1526,27 @@ pre {
     padding-top: 0.6rem;
   }
 
-  .composer-session-head {
+  .composer-controls {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.55rem;
-  }
-
-  .composer-session-toggle,
-  .composer-plan-toggle-inline {
-    display: inline-flex;
-  }
-
-  .composer-session-shell.collapsed .composer-controls {
-    display: none;
-  }
-
-  .composer-session-shell.expanded .composer-controls {
-    display: grid;
-    grid-template-columns: 1fr;
   }
 
   .composer-select-field {
     min-width: 0;
+  }
+
+  .composer-mode-field {
+    grid-column: 1 / -1;
+  }
+
+  .composer-mode-group .picker-chip {
+    min-width: 0;
+    padding-inline: 0.74rem;
+  }
+
+  .composer-control-label {
+    font-size: 0.64rem;
   }
 
   .composer-input-row {

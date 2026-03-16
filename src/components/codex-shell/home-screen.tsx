@@ -32,14 +32,11 @@ type HomeCopy = {
   openThread: string;
   updatedSort: string;
   createdSort: string;
-  planOn: string;
-  planOff: string;
 };
 
 type HomeScreenProps = {
   locale: UiLocale;
   copy: HomeCopy;
-  selectedPlanMode: boolean;
   sessionSummary: string;
   search: string;
   sort: ThreadDrawerSort;
@@ -101,7 +98,6 @@ function ThreadRow({
 export function HomeScreen({
   locale,
   copy,
-  selectedPlanMode,
   sessionSummary,
   search,
   sort,
@@ -121,9 +117,6 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const recentThreads = filteredThreads.filter((thread) => !thread.isActive);
   const showEmpty = recentThreads.length === 0;
-  const launcherSummary = [sessionSummary, selectedPlanMode ? copy.planOn : copy.planOff]
-    .filter(Boolean)
-    .join(" / ");
 
   return (
     <section className="home-shell">
@@ -235,7 +228,7 @@ export function HomeScreen({
             </div>
             <div className="home-session-summary">
               <span className="home-section-label">{copy.sessionLabel}</span>
-              <span className="home-launcher-session">{launcherSummary}</span>
+              <span className="home-launcher-session">{sessionSummary}</span>
             </div>
           </div>
 

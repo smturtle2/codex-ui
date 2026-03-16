@@ -111,6 +111,20 @@ function resolveSlashCommand(
   return rawValue;
 }
 
+function formatWorkspacePathLabel(path: string): string {
+  const normalized = path.replace(/[\\/]+$/, "");
+  if (!normalized) {
+    return ".";
+  }
+
+  const parts = normalized.split(/[\\/]+/).filter(Boolean);
+  if (parts.length <= 3) {
+    return normalized;
+  }
+
+  return `.../${parts.slice(-3).join("/")}`;
+}
+
 export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(() =>
     demoMode ? createDemoSnapshot() : null,
@@ -139,7 +153,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
-  const [sessionControlsOpen, setSessionControlsOpen] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -314,17 +327,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       setThreadDrawerOpen(false);
     }
   }, [threadDrawerOpen, viewMode]);
-
-  useEffect(() => {
-    if (!isPhoneLayout) {
-      setSessionControlsOpen(false);
-      return;
-    }
-
-    if (viewMode !== "chat") {
-      setSessionControlsOpen(false);
-    }
-  }, [isPhoneLayout, viewMode]);
 
   useEffect(() => {
     if (!toast) {
@@ -643,7 +645,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     setSurface(null);
     setWorkspaceDraft(preferredWorkspacePath);
     setViewMode("home");
-    setSessionControlsOpen(false);
     window.setTimeout(() => {
       homeSearchRef.current?.focus();
     }, 0);
@@ -716,7 +717,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
       setViewMode("chat");
       setComposer("");
-      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -735,7 +735,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
     setViewMode("chat");
     setComposer("");
-    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -755,7 +754,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       copy.actions.sendingTurn,
     );
     setComposer("");
-    setSessionControlsOpen(false);
   }
 
   async function handleSlashCommand(rawValue: string) {
@@ -822,7 +820,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       applyDemoSnapshot((current) => activateDemoThread(current, threadId));
       setThreadDrawerOpen(false);
       setViewMode("chat");
-      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -833,7 +830,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     );
     setThreadDrawerOpen(false);
     setViewMode("chat");
-    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -850,7 +846,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       );
       setThreadDrawerOpen(false);
       setViewMode("chat");
-      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -877,7 +872,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           effort: effort as BridgeSnapshot["sessionSettings"]["effort"],
         }),
       );
-      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -886,7 +880,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       () => callApi("/api/session/settings", { model, effort }),
       copy.actions.updatingSessionSettings,
     );
-    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -923,14 +916,21 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     focusComposerSoon();
   }
 
-  async function handlePlanModeToggle() {
+  async function handleSessionModeChange(planMode: boolean) {
+    if ((snapshot?.sessionSettings.planMode ?? false) === planMode && !demoMode) {
+      return;
+    }
+
     if (demoMode) {
+      if ((snapshot?.sessionSettings.planMode ?? false) === planMode) {
+        return;
+      }
+
       applyDemoSnapshot((current) =>
         updateDemoSessionSettings(current, {
-          planMode: !current.sessionSettings.planMode,
+          planMode,
         }),
       );
-      setSessionControlsOpen(false);
       focusComposerSoon();
       return;
     }
@@ -938,11 +938,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     await syncSnapshotFromResult(
       () =>
         callApi("/api/session/settings", {
-          planMode: !(snapshot?.sessionSettings.planMode ?? false),
+          planMode,
         }),
       copy.actions.updatingSessionSettings,
     );
-    setSessionControlsOpen(false);
     focusComposerSoon();
   }
 
@@ -1030,13 +1029,35 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const selectedLanguageLabel =
     languageOptions.find((option) => option.value === selectedLanguageValue)?.label ??
     selectedLanguageValue;
+  const selectedModeLabel = selectedPlanMode ? copy.composer.plan : copy.composer.fast;
   const sessionSummary = [
     selectedModelLabel,
     selectedEffortLabel,
-    selectedLanguageLabel,
+    selectedModeLabel,
   ]
     .filter(Boolean)
     .join(" / ");
+  const workspacePickerOptions = useMemo(() => {
+    const draftPath = workspaceDraft.trim();
+    const options = [...(snapshot?.workspaceOptions ?? [])];
+    const hasDraftPath = draftPath.length > 0 && options.some((option) => option.path === draftPath);
+
+    if (draftPath.length > 0 && !hasDraftPath) {
+      options.unshift({
+        path: draftPath,
+        label: formatWorkspacePathLabel(draftPath),
+        threadCount: 0,
+        lastUsedAt: null,
+        isCurrent: true,
+      });
+    }
+
+    return options.map((option) => ({
+      ...option,
+      isCurrent:
+        option.path === (draftPath || preferredWorkspacePath || snapshot?.defaultWorkspacePath),
+    }));
+  }, [preferredWorkspacePath, snapshot?.defaultWorkspacePath, snapshot?.workspaceOptions, workspaceDraft]);
   const settingsFacts = [
     {
       label: copy.statusPanel.connection,
@@ -1055,8 +1076,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       value: currentEffort ?? "default",
     },
     {
-      label: copy.statusPanel.planMode,
-      value: selectedPlanMode ? copy.common.on : copy.common.off,
+      label: copy.statusPanel.mode,
+      value: selectedModeLabel,
     },
     {
       label: copy.statusPanel.uiLanguage,
@@ -1477,10 +1498,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             openThread: copy.home.openThread,
             updatedSort: copy.home.updatedSort,
             createdSort: copy.home.createdSort,
-            planOn: copy.home.planOn,
-            planOff: copy.home.planOff,
           }}
-          selectedPlanMode={selectedPlanMode}
           sessionSummary={sessionSummary}
           search={threadSearch}
           sort={threadSort}
@@ -1572,29 +1590,20 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             modelSelectRef={composerModelSelectRef}
             helperText={composerHelper}
             statusText={composerStatus}
-            sessionSummary={`${sessionSummary} / ${selectedPlanMode ? copy.home.planOn : copy.home.planOff}`}
-            sessionAriaLabel={`${copy.composer.sessionAria(
-              selectedModelLabel,
-              selectedEffortLabel,
-              selectedLanguageLabel,
-            )} ${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}.`}
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
             showToolbar={!hidePhoneIdleChrome}
-            compactLayout={isPhoneLayout}
-            sessionExpanded={sessionControlsOpen}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
             modelOptions={sessionModelOptions}
             effortOptions={sessionEffortOptions}
             labels={{
-              session: copy.composer.session,
               model: copy.composer.model,
               reasoning: copy.composer.reasoning,
+              mode: copy.composer.mode,
+              fast: copy.composer.fast,
               plan: copy.composer.plan,
-              on: copy.composer.on,
-              off: copy.composer.off,
               placeholder: copy.composer.placeholder,
               interrupt: copy.composer.interrupt,
               send: copy.composer.send,
@@ -1607,17 +1616,14 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               setCommandMenuDismissed(false);
               focusComposerSoon(true);
             }}
-            onToggleSessionExpanded={() => {
-              setSessionControlsOpen((current) => !current);
-            }}
             onModelChange={(value) => {
               void handleComposerModelChange(value);
             }}
             onEffortChange={(value) => {
               void handleComposerEffortChange(value);
             }}
-            onPlanModeToggle={() => {
-              void handlePlanModeToggle();
+            onModeChange={(planMode) => {
+              void handleSessionModeChange(planMode);
             }}
             onSubmit={() => {
               void handleSubmit();
@@ -1652,7 +1658,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           }}
           search={threadSearch}
           sort={threadSort}
-          filteredCount={filteredThreads.length}
+          visibleCount={filteredThreads.filter((thread) => !thread.isActive).length + (activeThreadSummary ? 1 : 0)}
           activeThread={activeThreadSummary}
           recentThreads={filteredThreads.filter((thread) => !thread.isActive)}
           onSearchChange={setThreadSearch}
@@ -1682,7 +1688,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           <WorkspacePicker
             listing={workspaceListing}
             loading={workspaceLoading}
-            recentWorkspaces={snapshot?.workspaceOptions ?? []}
+            recentWorkspaces={workspacePickerOptions}
             labels={{
               currentPath: copy.workspacePicker.currentPath,
               recent: copy.workspacePicker.recent,
@@ -1744,7 +1750,7 @@ ${copy.statusPanel.connection}: ${connectionState === "live" ? copy.statusPanel.
 ${copy.statusPanel.activeThread}: ${activeThreadSummary?.title ?? copy.common.none}
 ${copy.statusPanel.model}: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
 ${copy.statusPanel.reasoning}: ${currentEffort ?? "default"}
-${copy.statusPanel.planMode}: ${selectedPlanMode ? copy.common.on : copy.common.off}
+${copy.statusPanel.mode}: ${selectedModeLabel}
 ${copy.statusPanel.uiLanguage}: ${languageOptions.find((option) => option.value === selectedLanguageValue)?.label ?? selectedLanguageValue}
 ${copy.statusPanel.pendingRequests}: ${snapshot.pendingRequests.length}
 ${copy.statusPanel.runtime}: ${runtime}

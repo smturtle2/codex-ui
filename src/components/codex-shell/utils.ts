@@ -104,7 +104,9 @@ export function buildStatusLine(
   return [
     currentModel?.displayName ?? currentModel?.model ?? "default",
     effort,
-    snapshot.sessionSettings.planMode ? copy.statusPanel.plan : null,
+    snapshot.sessionSettings.planMode
+      ? copy.statusPanel.modePlan
+      : copy.statusPanel.modeFast,
     copy.statusPanel.phase[snapshot.phase],
     copy.statusPanel.sessions(snapshot.threadList.length),
   ]

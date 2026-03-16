@@ -66,7 +66,7 @@ def wait_for_server(url: str, timeout: float, process: subprocess.Popen[str] | N
             return
 
         if process is not None and process.poll() is not None:
-            raise RuntimeError("`npm run dev` exited before the app became reachable.")
+            raise RuntimeError("`npm run start` exited before the app became reachable.")
 
         time.sleep(1)
 
@@ -131,6 +131,10 @@ def open_chat_from_home(page: Page) -> None:
         page.locator(".action-button").first.click()
 
     page.wait_for_timeout(900)
+    transcript = page.locator(".transcript-scroll").first
+    if transcript.count():
+        transcript.evaluate("(node) => { node.scrollTop = 0; }")
+        page.wait_for_timeout(120)
 
 
 def capture_desktop(page: Page, output_dir: Path) -> None:

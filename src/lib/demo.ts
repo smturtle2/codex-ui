@@ -184,7 +184,7 @@ function createTimeline(threadId: string): TimelineEntry[] {
       kind: "message",
       title: "User input",
       body:
-        "모바일에서 transcript가 제일 크게 보이게 유지하고, 새 thread는 workspace를 고르고 시작할 수 있어야 해.",
+        "모바일에서는 transcript가 가장 크게 보이고, 새 thread는 workspace를 고른 뒤 시작해야 해.",
       tone: "neutral",
       status: "completed",
       updatedAt,
@@ -196,7 +196,7 @@ function createTimeline(threadId: string): TimelineEntry[] {
       kind: "message",
       title: "Agent message",
       body:
-        "홈에서 기존 thread를 고르거나 새 thread를 시작할 수 있게 두고, Model/Reasoning/Plan은 composer에 남기고 Language는 Settings로 분리했습니다.",
+        "홈에서 기존 thread를 고르거나 새 thread를 시작하게 두고, Model/Reasoning/Plan은 composer에 남겼습니다.",
       tone: "accent",
       status: "completed",
       updatedAt,
@@ -223,7 +223,7 @@ function createTimeline(threadId: string): TimelineEntry[] {
       kind: "message",
       title: "Agent message",
       body:
-        "실시간 출력과 thread load가 같은 transcript 형태를 쓰도록 bridge 정규화도 같이 유지했습니다.",
+        "실시간 출력과 thread load는 같은 transcript 구조를 유지합니다.",
       tone: "accent",
       status: "completed",
       updatedAt,

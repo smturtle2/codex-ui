@@ -17,25 +17,20 @@ type ComposerDockProps = {
   modelSelectRef: RefObject<HTMLSelectElement | null>;
   helperText: string;
   statusText: string;
-  sessionSummary: string;
-  sessionAriaLabel: string;
   canSubmit: boolean;
   activeTurn: boolean;
   showToolbar?: boolean;
-  compactLayout?: boolean;
-  sessionExpanded?: boolean;
   selectedModel: string;
   selectedEffort: string;
   planMode: boolean;
   modelOptions: SessionOption[];
   effortOptions: SessionOption[];
   labels: {
-    session: string;
     model: string;
     reasoning: string;
+    mode: string;
+    fast: string;
     plan: string;
-    on: string;
-    off: string;
     placeholder: string;
     interrupt: string;
     send: string;
@@ -44,10 +39,9 @@ type ComposerDockProps = {
   onComposerChange: (value: string) => void;
   onComposerKeyDown: KeyboardEventHandler<HTMLTextAreaElement>;
   onCommandPick: (commandName: string) => void;
-  onToggleSessionExpanded?: () => void;
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
-  onPlanModeToggle: () => void;
+  onModeChange: (planMode: boolean) => void;
   onSubmit: () => void;
   onInterrupt: () => void;
 };
@@ -110,13 +104,9 @@ export function ComposerDock({
   modelSelectRef,
   helperText,
   statusText,
-  sessionSummary,
-  sessionAriaLabel,
   canSubmit,
   activeTurn,
   showToolbar = true,
-  compactLayout = false,
-  sessionExpanded = false,
   selectedModel,
   selectedEffort,
   planMode,
@@ -126,16 +116,12 @@ export function ComposerDock({
   onComposerChange,
   onComposerKeyDown,
   onCommandPick,
-  onToggleSessionExpanded,
   onModelChange,
   onEffortChange,
-  onPlanModeToggle,
+  onModeChange,
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
-  const showCompactSession = compactLayout;
-  const showSessionControls = !showCompactSession || sessionExpanded;
-
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -158,76 +144,46 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div
-          className={`composer-session-shell ${showSessionControls ? "expanded" : "collapsed"}`}
-        >
-          {showCompactSession ? (
-            <div className="composer-session-head">
-              <button
-                className="composer-session-toggle"
-                type="button"
-                aria-expanded={showSessionControls}
-                aria-label={sessionAriaLabel}
-                onClick={onToggleSessionExpanded}
-              >
-                <span className="composer-session-toggle-copy">
-                  <span className="composer-control-label">{labels.session}</span>
-                  <span className="composer-session-toggle-summary">{sessionSummary}</span>
-                </span>
-                <span className="composer-session-toggle-caret" aria-hidden="true">
-                  {showSessionControls ? "−" : "+"}
-                </span>
-              </button>
+        <div className="composer-controls" role="group" aria-label={labels.mode}>
+          <SessionSelectField
+            id="composer-model"
+            label={labels.model}
+            value={selectedModel}
+            options={modelOptions}
+            unavailableLabel={labels.unavailable}
+            selectRef={modelSelectRef}
+            onChange={onModelChange}
+          />
 
+          <SessionSelectField
+            id="composer-effort"
+            label={labels.reasoning}
+            value={selectedEffort}
+            options={effortOptions}
+            unavailableLabel={labels.unavailable}
+            onChange={onEffortChange}
+          />
+
+          <div className="composer-mode-field" role="group" aria-label={labels.mode}>
+            <span className="composer-control-label">{labels.mode}</span>
+            <div className="composer-mode-group">
               <button
-                className={`composer-plan-toggle composer-plan-toggle-inline ${
-                  planMode ? "selected" : ""
-                }`}
+                className={`picker-chip ${planMode ? "" : "selected"}`}
+                type="button"
+                aria-pressed={!planMode}
+                onClick={() => onModeChange(false)}
+              >
+                {labels.fast}
+              </button>
+              <button
+                className={`picker-chip ${planMode ? "selected" : ""}`}
                 type="button"
                 aria-pressed={planMode}
-                onClick={onPlanModeToggle}
+                onClick={() => onModeChange(true)}
               >
-                <span className="composer-plan-toggle-label">{labels.plan}</span>
-                <span className="composer-plan-toggle-value">
-                  {planMode ? labels.on : labels.off}
-                </span>
+                {labels.plan}
               </button>
             </div>
-          ) : null}
-
-          <div className="composer-controls" role="group" aria-label={labels.session}>
-            <SessionSelectField
-              id="composer-model"
-              label={labels.model}
-              value={selectedModel}
-              options={modelOptions}
-              unavailableLabel={labels.unavailable}
-              selectRef={modelSelectRef}
-              onChange={onModelChange}
-            />
-
-            <SessionSelectField
-              id="composer-effort"
-              label={labels.reasoning}
-              value={selectedEffort}
-              options={effortOptions}
-              unavailableLabel={labels.unavailable}
-              onChange={onEffortChange}
-            />
-
-            {showCompactSession ? null : (
-              <button
-                className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
-                type="button"
-                aria-pressed={planMode}
-                onClick={onPlanModeToggle}
-              >
-                <span className="composer-plan-toggle-label">{labels.plan}</span>
-                <span className="composer-plan-toggle-value">
-                  {planMode ? labels.on : labels.off}
-                </span>
-              </button>
-            )}
           </div>
         </div>
 
