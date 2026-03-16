@@ -11,11 +11,11 @@
   --muted: #5b5b5b;
   --soft: #878787;
   --inverse: #ffffff;
-  --shadow: 0 18px 40px rgba(17, 17, 17, 0.06);
+  --shadow: none;
   --content-width: 1440px;
   --measure: 72rem;
   --label-column: 4.1rem;
-  --radius: 0.7rem;
+  --radius: 0.45rem;
   --font-sans:
     "IBM Plex Sans KR",
     "Pretendard Variable",
@@ -316,6 +316,17 @@ pre {
   align-items: start;
 }
 
+.home-mobile-nav {
+  display: none;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: start;
+  min-height: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
 .home-thread-column {
   min-height: 0;
   grid-template-rows: auto minmax(0, 1fr);
@@ -495,7 +506,8 @@ pre {
   min-height: 2rem;
   padding: 0.18rem 0.65rem;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius);
+  background: var(--surface-muted);
 }
 
 .sidebar-trigger,
@@ -744,6 +756,7 @@ pre {
   padding: 0.2rem;
   border: 1px solid var(--line);
   background: var(--surface);
+  border-radius: var(--radius);
 }
 
 .command-menu-row {
@@ -799,6 +812,14 @@ pre {
 .composer-mode-group .picker-chip {
   flex: 1 1 0;
   min-width: 4.9rem;
+}
+
+.composer-mode-state {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--soft);
 }
 
 .composer-select-shell,
@@ -918,8 +939,8 @@ pre {
   inset: 0;
   z-index: 30;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
 }
 
 .screen-overlay {
@@ -942,6 +963,7 @@ pre {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   box-shadow: var(--shadow);
+  border-radius: 0;
 }
 
 .surface-dialog.wide {
@@ -1249,6 +1271,7 @@ pre {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   box-shadow: var(--shadow);
+  border-radius: 0;
 }
 
 .thread-drawer-header-copy {
@@ -1341,6 +1364,7 @@ pre {
   border: 1px solid var(--line-strong);
   background: var(--surface);
   box-shadow: var(--shadow);
+  border-radius: 0;
   font-size: 0.84rem;
   line-height: 1.55;
 }
@@ -1413,6 +1437,7 @@ pre {
 
 @media (max-width: 640px) {
   .home-shell {
+    grid-template-rows: auto auto minmax(0, 1fr);
     gap: 1rem;
     padding:
       max(0.9rem, env(safe-area-inset-top))
@@ -1432,6 +1457,16 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .home-mobile-nav {
+    display: flex;
+    padding-bottom: 0.15rem;
+  }
+
+  .home-mobile-nav .picker-chip {
+    min-height: 2rem;
+    padding-inline: 0.9rem;
+  }
+
   .home-launcher {
     gap: 0.9rem;
     padding-top: 0.95rem;
@@ -1447,7 +1482,6 @@ pre {
   }
 
   .home-launcher-panel {
-    order: -1;
     padding-left: 0;
     border-left: 0;
   }
@@ -1476,10 +1510,11 @@ pre {
   }
 
   .shell-session-title {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
   }
 
   .shell-session-meta {
+    font-size: 0.76rem;
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
@@ -1522,14 +1557,14 @@ pre {
   }
 
   .composer-frame {
-    gap: 0.65rem;
-    padding-top: 0.6rem;
+    gap: 0.55rem;
+    padding-top: 0.55rem;
   }
 
   .composer-controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.55rem;
+    gap: 0.42rem;
   }
 
   .composer-select-field {
@@ -1538,11 +1573,17 @@ pre {
 
   .composer-mode-field {
     grid-column: 1 / -1;
+    min-width: 13rem;
+  }
+
+  .composer-mode-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .composer-mode-group .picker-chip {
     min-width: 0;
-    padding-inline: 0.74rem;
+    padding-inline: 0.72rem;
   }
 
   .composer-control-label {
@@ -1550,12 +1591,12 @@ pre {
   }
 
   .composer-input-row {
-    gap: 0.65rem;
+    gap: 0.55rem;
   }
 
   .composer-input {
     font-size: 1rem;
-    line-height: 1.72;
+    line-height: 1.66;
   }
 
   .composer-actions {
@@ -1572,6 +1613,15 @@ pre {
   .composer-toolbar {
     display: grid;
     gap: 0.2rem;
+  }
+
+  .composer-inline-status {
+    font-size: 0.72rem;
+  }
+
+  .composer-helper {
+    font-size: 0.7rem;
+    line-height: 1.55;
   }
 
   .screen-overlay,

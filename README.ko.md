@@ -9,7 +9,7 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 데스크톱에서는 기존 thread와 새 thread workspace 설정을 나란히 두는 split launcher로 시작하고, 모바일에서는 launcher-first quick start를 유지하며, `Model`, `Reasoning`, 그리고 명시적인 `Fast` / `Plan` 모드 제어는 채팅 입력부에 두고, 언어는 별도 설정 패널로 분리하고, settings/workspace surface는 카드 대신 flat list 방식으로 유지하며, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 데스크톱에서는 기존 thread와 새 thread workspace 설정을 나란히 두는 split launcher로 시작하고, 모바일 Home은 `기존 thread` / `새 thread` 선택 구조로 정리하며, `Model`, `Reasoning`, 그리고 명시적인 `Fast 켜짐/꺼짐`, `Plan 켜짐/꺼짐` 제어는 채팅 입력부에 두고, 언어는 별도 설정 패널로 분리하고, settings/workspace surface는 카드 대신 flat list 방식으로 유지하며, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
 
 상세 변경 내역은 [RELEASE_NOTES.md](./RELEASE_NOTES.md)에 정리했습니다.
 
@@ -59,18 +59,18 @@
 
 ## 핵심 특징
 
-- split launcher 흐름: 데스크톱에서는 thread 선택과 새 thread workspace 설정을 나란히 보여주고, 모바일에서는 launcher controls를 먼저 노출합니다.
+- split launcher 흐름: 데스크톱에서는 thread 선택과 새 thread workspace 설정을 나란히 보여주고, 모바일에서는 `기존 thread` / `새 thread` 중 하나를 바로 고르게 합니다.
 - 일관된 새 thread 흐름: 슬래시 명령으로 새 thread를 시작할 때도 홈 런처로 돌아가 workspace 선택 단계를 유지합니다.
 - 채팅 내 직접 이동: 헤더에서 바로 `Home`으로 돌아가고, 별도의 `Threads` drawer로 빠르게 다른 thread를 전환합니다.
-- 모바일 quick start: 좁은 화면에서도 `Start thread`와 workspace 선택이 thread 목록 위에 바로 보입니다.
+- 모바일 Home 탭: 좁은 화면에서는 thread 목록과 새 thread 설정을 길게 쌓지 않고 분리된 탭으로 전환합니다.
 - 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택하며, 마지막 선택한 workspace는 아직 thread가 없어도 현재 선택으로 계속 보이고, 생성 폴더보다 실제 작업 폴더를 먼저 보여줍니다.
 - flat overlay: settings와 workspace surface를 카드 더미 대신 list row와 내부 스크롤 중심으로 정리했습니다.
 - transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 문자 대신 얇은 시각적 구분선으로 나뉩니다.
-- 직접 세션 제어: 데스크톱과 모바일 모두 composer 안에서 `Model`, `Reasoning`, `Fast` / `Plan`을 바로 조정할 수 있습니다.
+- 직접 세션 제어: 데스크톱과 모바일 모두 composer 안에서 `Model`, `Reasoning`, `Fast 켜짐/꺼짐`, `Plan 켜짐/꺼짐`을 바로 조정할 수 있습니다.
 - 전용 설정 패널: 언어 설정은 채팅 입력부나 세션 요약이 아니라 별도 settings surface에서 관리합니다.
 - 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조를 유지하고 approval 삽입 지점과 안정적인 entry 메타데이터도 맞춥니다.
 - 안전한 turn 마감: turn이 끝나면 다음 turn이 시작되기 전에 `thread/read`로 해당 thread를 다시 수화해, 실시간 출력과 저장된 transcript가 시각적으로 어긋나지 않게 맞춥니다.
-- 모바일 재구성: 홈에서는 thread 선택과 새 thread 시작을 동시에 바로 보여주고, 채팅은 최신 출력까지 자동 스크롤되며, 헤더를 더 촘촘하게 줄이고, 유휴 상태의 중복 크롬을 줄여 transcript 공간을 더 확보하고, settings/workspace surface는 모바일 시트처럼 동작합니다.
+- 모바일 재구성: Home은 `기존 thread` / `새 thread` 흐름을 탭으로 나누고, 채팅은 최신 출력까지 자동 스크롤되며, 헤더와 유휴 크롬을 줄여 transcript 공간을 더 확보하고, settings/workspace surface는 모바일 시트처럼 동작합니다.
 - Tailscale Funnel 플래그: `--funnel`만 붙이면 한 줄 실행으로 외부 공개까지 연결됩니다.
 - 고정된 preview 스크린샷: README 이미지는 실제 로컬 transcript 대신 내장 demo 상태로 생성됩니다.
 

@@ -124,6 +124,8 @@ const UI_COPY = {
       intro:
         "Start from the launcher. Open a recent thread or pick a workspace for a new one, then move straight into the transcript.",
       currentThread: "Current thread",
+      threadsTab: "Existing threads",
+      createTab: "New thread",
       threadList: (count: number) => `${count} threads`,
       createTitle: "New thread",
       createIntro:
@@ -396,6 +398,8 @@ const UI_COPY = {
       intro:
         "런처에서 시작합니다. 최근 thread를 열거나 새 thread용 워크스페이스를 고른 뒤 곧바로 transcript로 들어갑니다.",
       currentThread: "현재 thread",
+      threadsTab: "기존 thread",
+      createTab: "새 thread",
       threadList: (count: number) => `${count}개 thread`,
       createTitle: "새 thread",
       createIntro:

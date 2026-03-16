@@ -123,6 +123,20 @@ def close_surface(page: Page) -> None:
         page.wait_for_timeout(200)
 
 
+def select_home_panel(page: Page, panel: str) -> None:
+    panel_buttons = page.locator(".home-mobile-nav button")
+    if panel_buttons.count() < 2:
+        return
+
+    target_index = 0 if panel == "threads" else 1
+    target_button = panel_buttons.nth(target_index)
+    if target_button.get_attribute("aria-selected") == "true":
+        return
+
+    target_button.click()
+    page.wait_for_timeout(300)
+
+
 def open_chat_from_home(page: Page) -> None:
     thread_rows = page.locator(".home-thread-row")
     if thread_rows.count() > 0:
@@ -155,6 +169,7 @@ def capture_desktop(page: Page, output_dir: Path) -> None:
 
 
 def capture_mobile(page: Page, output_dir: Path) -> None:
+    select_home_panel(page, "threads")
     page.screenshot(path=str(output_dir / "preview-mobile-home.png"), full_page=True)
 
     page.locator(".home-header-tools .plain-action").first.click()
@@ -162,11 +177,13 @@ def capture_mobile(page: Page, output_dir: Path) -> None:
     page.screenshot(path=str(output_dir / "preview-mobile-settings.png"), full_page=True)
     close_surface(page)
 
+    select_home_panel(page, "new")
     page.locator(".home-launcher-actions .plain-action").first.click()
     page.wait_for_timeout(300)
     page.screenshot(path=str(output_dir / "preview-mobile-workspace.png"), full_page=True)
     close_surface(page)
 
+    select_home_panel(page, "threads")
     open_chat_from_home(page)
     page.screenshot(path=str(output_dir / "preview-mobile-chat.png"), full_page=True)
 

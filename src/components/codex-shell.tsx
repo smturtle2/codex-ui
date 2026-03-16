@@ -62,6 +62,7 @@ type ApprovalChoice = {
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type ViewMode = "home" | "chat";
+type HomePanel = "threads" | "new";
 
 const WORKSPACE_STORAGE_KEY = "codex-ui-workspace";
 
@@ -138,6 +139,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
   const [browserLanguage, setBrowserLanguage] = useState("en");
   const [isPhoneLayout, setIsPhoneLayout] = useState(false);
+  const [homePanel, setHomePanel] = useState<HomePanel>("threads");
   const [threadSearch, setThreadSearch] = useState("");
   const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
   const [workspaceDraft, setWorkspaceDraft] = useState("");
@@ -239,7 +241,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
         reconnectAttempts = 0;
         setConnectionState("live");
-        void refreshBootstrap(false);
       };
 
       websocket.onmessage = (event) => {
@@ -407,6 +408,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? filteredThreads
       : [activeThreadSummary, ...filteredThreads];
   }, [activeThreadSummary, filteredThreads]);
+
+  useEffect(() => {
+    if (
+      viewMode === "home" &&
+      isPhoneLayout &&
+      homePanel === "threads" &&
+      (snapshot?.threadList.length ?? 0) === 0
+    ) {
+      setHomePanel("new");
+    }
+  }, [homePanel, isPhoneLayout, snapshot?.threadList.length, viewMode]);
 
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
@@ -640,14 +652,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
   }
 
-  function openHome() {
+  function openHome(nextPanel: HomePanel = "threads") {
     setThreadDrawerOpen(false);
     setSurface(null);
     setWorkspaceDraft(preferredWorkspacePath);
+    setHomePanel(nextPanel);
     setViewMode("home");
-    window.setTimeout(() => {
-      homeSearchRef.current?.focus();
-    }, 0);
+    if (nextPanel === "threads") {
+      window.setTimeout(() => {
+        homeSearchRef.current?.focus();
+      }, 0);
+    }
   }
 
   async function loadWorkspaceListing(path?: string | null) {
@@ -768,10 +783,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     switch (command.action) {
       case "new":
       case "clear":
-        openHome();
+        openHome("new");
         break;
       case "resume":
-        openHome();
+        openHome("threads");
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -1479,6 +1494,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             title: copy.home.title,
             intro: copy.home.intro,
             settings: copy.home.settings,
+            threadsTab: copy.home.threadsTab,
+            createTab: copy.home.createTab,
             currentThread: copy.home.currentThread,
             threadList: copy.home.threadList,
             createTitle: copy.home.createTitle,
@@ -1505,6 +1522,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           activeThread={activeThreadSummary}
           filteredThreads={visibleHomeThreads}
           workspaceDraft={workspaceDraft}
+          isPhoneLayout={isPhoneLayout}
+          activePanel={homePanel}
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
@@ -1514,6 +1533,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               document.activeElement instanceof HTMLElement ? document.activeElement : null,
             );
           }}
+          onPanelChange={setHomePanel}
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
           onUseDefaultWorkspace={() => {
@@ -1604,6 +1624,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               mode: copy.composer.mode,
               fast: copy.composer.fast,
               plan: copy.composer.plan,
+              on: copy.composer.on,
+              off: copy.composer.off,
               placeholder: copy.composer.placeholder,
               interrupt: copy.composer.interrupt,
               send: copy.composer.send,
@@ -1666,7 +1688,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           onClose={() => closeThreadDrawer()}
           onCreateThread={() => {
             setThreadDrawerOpen(false);
-            openHome();
+            openHome("new");
           }}
           onResumeThread={(threadId) => {
             void handleOpenThread(threadId);

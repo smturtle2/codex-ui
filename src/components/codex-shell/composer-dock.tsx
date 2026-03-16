@@ -31,6 +31,8 @@ type ComposerDockProps = {
     mode: string;
     fast: string;
     plan: string;
+    on: string;
+    off: string;
     placeholder: string;
     interrupt: string;
     send: string;
@@ -173,7 +175,10 @@ export function ComposerDock({
                 aria-pressed={!planMode}
                 onClick={() => onModeChange(false)}
               >
-                {labels.fast}
+                <span>{labels.fast}</span>
+                <span className="composer-mode-state">
+                  {planMode ? labels.off : labels.on}
+                </span>
               </button>
               <button
                 className={`picker-chip ${planMode ? "selected" : ""}`}
@@ -181,7 +186,10 @@ export function ComposerDock({
                 aria-pressed={planMode}
                 onClick={() => onModeChange(true)}
               >
-                {labels.plan}
+                <span>{labels.plan}</span>
+                <span className="composer-mode-state">
+                  {planMode ? labels.on : labels.off}
+                </span>
               </button>
             </div>
           </div>

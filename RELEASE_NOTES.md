@@ -2,6 +2,14 @@
 
 ## 2026-03-16
 
+### Mobile home and composer refinement
+
+- Split mobile Home into explicit `Existing threads` / `New thread` tabs instead of stacking both flows into one long screen.
+- Changed composer mode controls to read as explicit `Fast on/off` and `Plan on/off` buttons while keeping model and reasoning as direct dropdowns.
+- Removed the redundant client bootstrap refresh on WebSocket open so the browser relies on the socket's immediate snapshot after connect.
+- Flattened the monochrome chrome further by dropping remaining shadow-heavy surface treatment and fixing the mobile tab overlap that blocked taps.
+- Updated the screenshot generator for the new mobile Home tabs so README assets include workspace and chat captures again.
+
 ### Fast and mobile pass
 
 - Replaced the ambiguous `Plan on/off` composer control with explicit `Fast` and `Plan` mode buttons in the chat input UI.
