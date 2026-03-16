@@ -443,12 +443,16 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           return;
         }
 
+        if (isPhoneLayout) {
+          return;
+        }
+
         composerRef.current?.focus();
       }, 0);
     }
 
     previousPendingRequestIdRef.current = currentPendingRequestId;
-  }, [pendingRequest?.id, surface, viewMode]);
+  }, [isPhoneLayout, pendingRequest?.id, surface, viewMode]);
 
   const visibleCommands = !commandMenuDismissed && composer.trimStart().startsWith("/")
     ? filterCommands(composer.trimStart(), locale)
@@ -562,6 +566,16 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     setSurface(nextSurface);
   }
 
+  function focusComposerSoon(forceMobile = false) {
+    window.setTimeout(() => {
+      if (isPhoneLayout && !forceMobile) {
+        return;
+      }
+
+      composerRef.current?.focus();
+    }, 0);
+  }
+
   function restoreFocusToOrigin() {
     window.setTimeout(() => {
       const origin = surfaceOriginRef.current;
@@ -572,6 +586,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
       if (viewMode === "home") {
         homeSearchRef.current?.focus();
+        return;
+      }
+
+      if (isPhoneLayout) {
         return;
       }
 
@@ -653,9 +671,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
       setViewMode("chat");
       setComposer("");
-      window.setTimeout(() => {
-        composerRef.current?.focus();
-      }, 0);
+      focusComposerSoon();
       return;
     }
 
@@ -673,9 +689,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
     setViewMode("chat");
     setComposer("");
-    window.setTimeout(() => {
-      composerRef.current?.focus();
-    }, 0);
+    focusComposerSoon();
   }
 
   async function handleSubmit() {
@@ -767,9 +781,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     if (demoMode) {
       applyDemoSnapshot((current) => activateDemoThread(current, threadId));
       setViewMode("chat");
-      window.setTimeout(() => {
-        composerRef.current?.focus();
-      }, 0);
+      focusComposerSoon();
       return;
     }
 
@@ -778,9 +790,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       copy.actions.resumingThread,
     );
     setViewMode("chat");
-    window.setTimeout(() => {
-      composerRef.current?.focus();
-    }, 0);
+    focusComposerSoon();
   }
 
   async function handleOpenThread(threadId: string) {
@@ -795,9 +805,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         copy.actions.loadingThread,
       );
       setViewMode("chat");
-      window.setTimeout(() => {
-        composerRef.current?.focus();
-      }, 0);
+      focusComposerSoon();
       return;
     }
 
@@ -823,9 +831,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           effort: effort as BridgeSnapshot["sessionSettings"]["effort"],
         }),
       );
-      window.setTimeout(() => {
-        composerRef.current?.focus();
-      }, 0);
+      focusComposerSoon();
       return;
     }
 
@@ -833,9 +839,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       () => callApi("/api/session/settings", { model, effort }),
       copy.actions.updatingSessionSettings,
     );
-    window.setTimeout(() => {
-      composerRef.current?.focus();
-    }, 0);
+    focusComposerSoon();
   }
 
   async function handleComposerModelChange(model: string) {
@@ -868,9 +872,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       return;
     }
 
-    window.setTimeout(() => {
-      composerRef.current?.focus();
-    }, 0);
+    focusComposerSoon();
   }
 
   async function handlePlanModeToggle() {
@@ -880,9 +882,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           planMode: !current.sessionSettings.planMode,
         }),
       );
-      window.setTimeout(() => {
-        composerRef.current?.focus();
-      }, 0);
+      focusComposerSoon();
       return;
     }
 
@@ -893,9 +893,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         }),
       copy.actions.updatingSessionSettings,
     );
-    window.setTimeout(() => {
-      composerRef.current?.focus();
-    }, 0);
+    focusComposerSoon();
   }
 
   async function handleServerRequestResponse(requestId: string, result: unknown) {
@@ -1050,6 +1048,15 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     !snapshot?.activeTurnId &&
     !pendingRequest &&
     !busyAction;
+  const composerSessionSummary = [
+    selectedModelLabel,
+    selectedEffortLabel,
+    ...(isPhoneLayout
+      ? []
+      : [`${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`]),
+  ]
+    .filter(Boolean)
+    .join(" / ");
 
   const approvalChoices = useMemo<ApprovalChoice[]>(() => {
     if (!pendingRequest) {
@@ -1271,12 +1278,16 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     if (viewMode === "chat") {
+      if (isPhoneLayout) {
+        return;
+      }
+
       composerRef.current?.focus();
       return;
     }
 
     homeSearchRef.current?.focus();
-  }, [pendingRequest, surface, viewMode]);
+  }, [isPhoneLayout, pendingRequest, surface, viewMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1513,13 +1524,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
             showToolbar={!hidePhoneIdleChrome}
-            sessionSummary={[
-              selectedModelLabel,
-              selectedEffortLabel,
-              `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
-            ]
-              .filter(Boolean)
-              .join(" / ")}
+            sessionSummary={composerSessionSummary}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
@@ -1542,9 +1547,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             onCommandPick={(commandName) => {
               setComposer(`/${commandName}`);
               setCommandMenuDismissed(false);
-              window.setTimeout(() => {
-                composerRef.current?.focus();
-              }, 0);
+              focusComposerSoon(true);
             }}
             onModelChange={(value) => {
               void handleComposerModelChange(value);
