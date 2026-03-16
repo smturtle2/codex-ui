@@ -25,6 +25,7 @@ import { HomeScreen } from "@/components/codex-shell/home-screen";
 import { SettingsPanel } from "@/components/codex-shell/settings-panel";
 import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
+import { ThreadDrawer } from "@/components/codex-shell/thread-drawer";
 import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
 import { WorkspacePicker } from "@/components/codex-shell/workspace-picker";
 import type { SurfaceKind, ThreadDrawerSort } from "@/components/codex-shell/types";
@@ -137,12 +138,14 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
   const homeSearchRef = useRef<HTMLInputElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
+  const threadDrawerRef = useRef<HTMLDivElement | null>(null);
   const approvalDialogRef = useRef<HTMLDivElement | null>(null);
   const homeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousActiveThreadIdRef = useRef<string | null>(null);
@@ -304,6 +307,12 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    if (viewMode !== "chat" && threadDrawerOpen) {
+      setThreadDrawerOpen(false);
+    }
+  }, [threadDrawerOpen, viewMode]);
 
   useEffect(() => {
     if (!toast) {
@@ -563,6 +572,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
   function openSurface(nextSurface: SurfaceKind, origin?: HTMLElement | null) {
     rememberSurfaceOrigin(origin);
+    setThreadDrawerOpen(false);
     setSurface(nextSurface);
   }
 
@@ -599,6 +609,18 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
   function closeSurface(restoreFocus = true) {
     setSurface(null);
+    if (restoreFocus) {
+      restoreFocusToOrigin();
+    }
+  }
+
+  function openThreadDrawer(origin?: HTMLElement | null) {
+    rememberSurfaceOrigin(origin);
+    setThreadDrawerOpen(true);
+  }
+
+  function closeThreadDrawer(restoreFocus = true) {
+    setThreadDrawerOpen(false);
     if (restoreFocus) {
       restoreFocusToOrigin();
     }
@@ -723,6 +745,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       case "new":
       case "clear":
         setWorkspaceDraft(preferredWorkspacePath);
+        setThreadDrawerOpen(false);
         setViewMode("home");
         window.setTimeout(() => {
           homeSearchRef.current?.focus();
@@ -730,6 +753,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         break;
       case "resume":
         setWorkspaceDraft(preferredWorkspacePath);
+        setThreadDrawerOpen(false);
         setViewMode("home");
         window.setTimeout(() => {
           homeSearchRef.current?.focus();
@@ -780,6 +804,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   async function handleResumeThread(threadId: string) {
     if (demoMode) {
       applyDemoSnapshot((current) => activateDemoThread(current, threadId));
+      setThreadDrawerOpen(false);
       setViewMode("chat");
       focusComposerSoon();
       return;
@@ -789,6 +814,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       () => callApi("/api/thread/resume", { threadId }),
       copy.actions.resumingThread,
     );
+    setThreadDrawerOpen(false);
     setViewMode("chat");
     focusComposerSoon();
   }
@@ -804,6 +830,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         () => callApi("/api/thread/read", { threadId }),
         copy.actions.loadingThread,
       );
+      setThreadDrawerOpen(false);
       setViewMode("chat");
       focusComposerSoon();
       return;
@@ -1048,15 +1075,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     !snapshot?.activeTurnId &&
     !pendingRequest &&
     !busyAction;
-  const composerSessionSummary = [
-    selectedModelLabel,
-    selectedEffortLabel,
-    ...(isPhoneLayout
-      ? []
-      : [`${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`]),
-  ]
-    .filter(Boolean)
-    .join(" / ");
 
   const approvalChoices = useMemo<ApprovalChoice[]>(() => {
     if (!pendingRequest) {
@@ -1212,6 +1230,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? approvalDialogRef.current
       : surface
         ? overlayPanelRef.current
+        : threadDrawerOpen
+          ? threadDrawerRef.current
         : null;
 
     if (!panel) {
@@ -1262,7 +1282,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       window.cancelAnimationFrame(raf);
       document.removeEventListener("keydown", handleTrapFocus);
     };
-  }, [pendingRequest?.id, surface]);
+  }, [pendingRequest?.id, surface, threadDrawerOpen]);
 
   useEffect(() => {
     if (pendingRequest) {
@@ -1270,6 +1290,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     if (surface) {
+      return;
+    }
+
+    if (threadDrawerOpen) {
       return;
     }
 
@@ -1287,7 +1311,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     homeSearchRef.current?.focus();
-  }, [isPhoneLayout, pendingRequest, surface, viewMode]);
+  }, [isPhoneLayout, pendingRequest, surface, threadDrawerOpen, viewMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1331,6 +1355,12 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         return;
       }
 
+      if (threadDrawerOpen && event.key === "Escape") {
+        event.preventDefault();
+        closeThreadDrawer();
+        return;
+      }
+
       if (event.key === "?" && document.activeElement !== composerRef.current) {
         event.preventDefault();
         openSurface("shortcuts", document.activeElement as HTMLElement | null);
@@ -1347,6 +1377,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     pendingRequest,
     selectedApprovalIndex,
     surface,
+    threadDrawerOpen,
   ]);
 
   const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
@@ -1475,18 +1506,20 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         <section className="tui-shell">
           <ShellHeader
             threadCount={snapshot?.threadList.length ?? 0}
-            showThreadCount={!isPhoneLayout}
+            showThreadCount
             sessionTitle={sessionTitle}
             sessionMeta={sessionMeta}
             sessionMetaTitle={sessionMetaTitle}
-            homeLabel={copy.header.home}
+            homeLabel={copy.header.threads}
             settingsLabel={copy.header.settings}
             statusLabel={headerStatus.label}
             statusTone={headerStatus.tone}
             showStatusLine={!hidePhoneIdleChrome}
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
-              setViewMode("home");
+              openThreadDrawer(
+                document.activeElement instanceof HTMLElement ? document.activeElement : null,
+              );
             }}
             onSettingsClick={() => {
               openSurface(
@@ -1524,7 +1557,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
             showToolbar={!hidePhoneIdleChrome}
-            sessionSummary={composerSessionSummary}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
@@ -1566,6 +1598,49 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             }}
           />
         </section>
+      ) : null}
+
+      {threadDrawerOpen && viewMode === "chat" ? (
+        <ThreadDrawer
+          ref={threadDrawerRef}
+          locale={locale}
+          copy={{
+            title: copy.header.threads,
+            sessions: copy.threadDrawer.sessions,
+            close: copy.common.close,
+            search: copy.threadDrawer.search,
+            searchPlaceholder: copy.threadDrawer.searchPlaceholder,
+            newThread: copy.threadDrawer.newThread,
+            threadControls: copy.threadDrawer.threadControls,
+            sortThreads: copy.threadDrawer.sortThreads,
+            current: copy.common.current,
+            recent: copy.common.recent,
+            recentAvailable: copy.threadDrawer.recentAvailable,
+            noMatchingThreads: copy.threadDrawer.noMatchingThreads,
+            noOtherThreads: copy.threadDrawer.noOtherThreads,
+            recentSort: copy.threadDrawer.recentSort,
+            createdSort: copy.threadDrawer.createdSort,
+          }}
+          search={threadSearch}
+          sort={threadSort}
+          filteredCount={filteredThreads.length}
+          activeThread={activeThreadSummary}
+          recentThreads={filteredThreads.filter((thread) => !thread.isActive)}
+          onSearchChange={setThreadSearch}
+          onSortChange={setThreadSort}
+          onClose={() => closeThreadDrawer()}
+          onCreateThread={() => {
+            setThreadDrawerOpen(false);
+            setWorkspaceDraft(preferredWorkspacePath);
+            setViewMode("home");
+            window.setTimeout(() => {
+              homeSearchRef.current?.focus();
+            }, 0);
+          }}
+          onResumeThread={(threadId) => {
+            void handleOpenThread(threadId);
+          }}
+        />
       ) : null}
 
       {activeOverlay === "workspace" ? (

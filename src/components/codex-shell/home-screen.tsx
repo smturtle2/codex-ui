@@ -121,7 +121,7 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const recentThreads = filteredThreads.filter((thread) => !thread.isActive);
   const showEmpty = recentThreads.length === 0;
-  const mobileSessionSummary = [sessionSummary, selectedPlanMode ? copy.planOn : copy.planOff]
+  const launcherSummary = [sessionSummary, selectedPlanMode ? copy.planOn : copy.planOff]
     .filter(Boolean)
     .join(" / ");
 
@@ -142,148 +142,110 @@ export function HomeScreen({
         </div>
       </header>
 
-      <div className="home-grid">
-        <section className="home-main">
-          <div className="home-list-toolbar">
-            <div className="home-list-heading">
-              <span className="home-section-label">{copy.threadList(filteredThreads.length)}</span>
-              <strong>{copy.currentThread}</strong>
-            </div>
+      <section className="home-launcher" aria-label={copy.createTitle}>
+        <div className="home-launcher-copy">
+          <span className="home-section-label">{copy.createTitle}</span>
+          <strong>{copy.workspaceSelected}</strong>
+          <div className="home-launcher-path" title={workspaceDraft}>
+            {workspaceDraft}
+          </div>
+          <span className="home-launcher-session">{launcherSummary}</span>
+        </div>
 
-            <div className="home-toolbar-controls">
-              <label className="sr-only" htmlFor="home-search">
-                {copy.search}
-              </label>
-              <input
-                id="home-search"
-                ref={searchInputRef}
-                className="surface-input"
-                value={search}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={copy.searchPlaceholder}
-              />
+        <div className="home-launcher-actions">
+          <button className="plain-action" type="button" onClick={onOpenWorkspacePicker}>
+            {copy.browseWorkspace}
+          </button>
+          <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
+            {copy.currentWorkspace}
+          </button>
+          <button className="action-button" type="button" onClick={onCreateThread}>
+            {copy.startThread}
+          </button>
+        </div>
+      </section>
 
-              <div className="home-sort-group" role="group" aria-label={copy.sortThreads}>
-                <button
-                  className={`picker-chip ${sort === "updated" ? "selected" : ""}`}
-                  type="button"
-                  aria-pressed={sort === "updated"}
-                  onClick={() => onSortChange("updated")}
-                >
-                  {copy.updatedSort}
-                </button>
-                <button
-                  className={`picker-chip ${sort === "created" ? "selected" : ""}`}
-                  type="button"
-                  aria-pressed={sort === "created"}
-                  onClick={() => onSortChange("created")}
-                >
-                  {copy.createdSort}
-                </button>
-              </div>
-            </div>
+      <section className="home-main">
+        <div className="home-list-toolbar">
+          <div className="home-list-heading">
+            <span className="home-section-label">{copy.threadList(filteredThreads.length)}</span>
+            <strong>{copy.currentThread}</strong>
           </div>
 
-          <section className="home-mobile-launcher" aria-label={copy.createTitle}>
-            <div className="home-mobile-launcher-copy">
-              <span className="home-section-label">{copy.createTitle}</span>
-              <strong>{copy.workspaceSelected}</strong>
-              <div className="home-mobile-workspace-path" title={workspaceDraft}>
-                {workspaceDraft}
-              </div>
-              <span className="home-mobile-session">{mobileSessionSummary}</span>
-            </div>
+          <div className="home-toolbar-controls">
+            <label className="sr-only" htmlFor="home-search">
+              {copy.search}
+            </label>
+            <input
+              id="home-search"
+              ref={searchInputRef}
+              className="surface-input"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={copy.searchPlaceholder}
+            />
 
-            <div className="home-mobile-launcher-actions">
-              <button className="plain-action" type="button" onClick={onOpenWorkspacePicker}>
-                {copy.browseWorkspace}
+            <div className="home-sort-group" role="group" aria-label={copy.sortThreads}>
+              <button
+                className={`picker-chip ${sort === "updated" ? "selected" : ""}`}
+                type="button"
+                aria-pressed={sort === "updated"}
+                onClick={() => onSortChange("updated")}
+              >
+                {copy.updatedSort}
               </button>
-              <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
-                {copy.currentWorkspace}
-              </button>
-              <button className="action-button" type="button" onClick={onCreateThread}>
-                {copy.startThread}
+              <button
+                className={`picker-chip ${sort === "created" ? "selected" : ""}`}
+                type="button"
+                aria-pressed={sort === "created"}
+                onClick={() => onSortChange("created")}
+              >
+                {copy.createdSort}
               </button>
             </div>
-          </section>
+          </div>
+        </div>
 
-          <div className="home-thread-list-shell">
-            <div className="home-thread-list">
-              {activeThread ? (
-                <section className="home-thread-group">
-                  <div className="home-group-label">{copy.currentThread}</div>
+        <div className="home-thread-list-shell">
+          <div className="home-thread-list">
+            {activeThread ? (
+              <section className="home-thread-group">
+                <div className="home-group-label">{copy.currentThread}</div>
+                <ThreadRow
+                  locale={locale}
+                  copy={copy}
+                  thread={activeThread}
+                  isCurrent
+                  onOpenThread={onOpenThread}
+                />
+              </section>
+            ) : null}
+
+            <section className="home-thread-group">
+              <div className="home-group-label">{copy.threadList(recentThreads.length)}</div>
+              {showEmpty ? (
+                <div className="home-empty">
+                  {search.trim().length > 0
+                    ? copy.noMatchingThreads
+                    : activeThread
+                      ? copy.noOtherThreads
+                      : copy.noThreads}
+                </div>
+              ) : recentThreads.length > 0 ? (
+                recentThreads.map((thread) => (
                   <ThreadRow
+                    key={thread.id}
                     locale={locale}
                     copy={copy}
-                    thread={activeThread}
-                    isCurrent
+                    thread={thread}
                     onOpenThread={onOpenThread}
                   />
-                </section>
+                ))
               ) : null}
-
-              <section className="home-thread-group">
-                <div className="home-group-label">{copy.threadList(recentThreads.length)}</div>
-                {showEmpty ? (
-                  <div className="home-empty">
-                    {search.trim().length > 0
-                      ? copy.noMatchingThreads
-                      : activeThread
-                        ? copy.noOtherThreads
-                        : copy.noThreads}
-                  </div>
-                ) : recentThreads.length > 0 ? (
-                  recentThreads.map((thread) => (
-                    <ThreadRow
-                      key={thread.id}
-                      locale={locale}
-                      copy={copy}
-                      thread={thread}
-                      onOpenThread={onOpenThread}
-                    />
-                  ))
-                ) : null}
-              </section>
-            </div>
+            </section>
           </div>
-        </section>
-
-        <aside className="home-sidebar">
-          <div className="home-panel-head">
-            <span className="home-section-label">{copy.createTitle}</span>
-            <strong>{copy.createTitle}</strong>
-          </div>
-
-          <p className="home-panel-copy">{copy.createIntro}</p>
-
-          <div className="home-workspace-card">
-            <span className="home-field-label">{copy.workspace}</span>
-            <strong>{copy.workspaceSelected}</strong>
-            <div className="home-workspace-path" title={workspaceDraft}>
-              {workspaceDraft}
-            </div>
-          </div>
-
-          <div className="home-create-actions">
-            <button className="plain-action" type="button" onClick={onOpenWorkspacePicker}>
-              {copy.browseWorkspace}
-            </button>
-            <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
-              {copy.currentWorkspace}
-            </button>
-            <button className="action-button" type="button" onClick={onCreateThread}>
-              {copy.startThread}
-            </button>
-          </div>
-
-          <div className="home-session-summary">
-            <span className="home-section-label">{copy.sessionLabel}</span>
-            <strong>{sessionSummary}</strong>
-            <span>{selectedPlanMode ? copy.planOn : copy.planOff}</span>
-            <span title={workspaceDraft}>{workspaceDraft}</span>
-          </div>
-        </aside>
-      </div>
+        </div>
+      </section>
     </section>
   );
 }

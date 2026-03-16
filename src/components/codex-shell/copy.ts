@@ -61,7 +61,7 @@ const UI_COPY = {
       noActiveSession: "No active session",
       sendFirstTurn: "Send the first turn to begin.",
       typeMessageOrOpenThreadDrawer:
-        "Choose a thread or start one from Home.",
+        "Open Threads to switch or start a new thread.",
       you: "You",
       codex: "Codex",
       codexRunning: "Codex running",
@@ -287,7 +287,7 @@ const UI_COPY = {
     header: {
       home: "Home",
       settings: "설정",
-      threads: "Threads",
+      threads: "스레드",
       ready: "준비됨",
       working: "작업 중",
       pendingRequest: "응답 대기",
@@ -330,7 +330,7 @@ const UI_COPY = {
       noActiveSession: "활성 세션이 없습니다",
       sendFirstTurn: "첫 turn을 보내면 시작됩니다.",
       typeMessageOrOpenThreadDrawer:
-        "Home에서 thread를 고르거나 새로 시작해보세요.",
+        "스레드 메뉴에서 전환하거나 새 thread를 시작해보세요.",
       you: "나",
       codex: "Codex",
       codexRunning: "Codex 작업 중",

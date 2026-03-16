@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--no-server",
         action="store_true",
-        help="Do not start `npm run dev` automatically when the app is not running.",
+        help="Do not start `npm run start` automatically when the app is not running.",
     )
     parser.add_argument(
         "--timeout",
@@ -82,7 +82,7 @@ def ensure_server(url: str, timeout: float, no_server: bool) -> Iterator[None]:
             raise RuntimeError(f"{url} is not reachable. Start the app or omit --no-server.")
 
         process = subprocess.Popen(
-            ["npm", "run", "dev"],
+            ["npm", "run", "start"],
             cwd=ROOT,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.STDOUT,
@@ -141,7 +141,7 @@ def capture_desktop(page: Page, output_dir: Path) -> None:
     page.screenshot(path=str(output_dir / "preview-settings.png"), full_page=True)
     close_surface(page)
 
-    page.locator(".home-sidebar .home-create-actions .plain-action").first.click()
+    page.locator(".home-launcher-actions .plain-action").first.click()
     page.wait_for_timeout(300)
     page.screenshot(path=str(output_dir / "preview-workspace.png"), full_page=True)
     close_surface(page)
@@ -158,7 +158,7 @@ def capture_mobile(page: Page, output_dir: Path) -> None:
     page.screenshot(path=str(output_dir / "preview-mobile-settings.png"), full_page=True)
     close_surface(page)
 
-    page.locator(".home-mobile-launcher-actions .plain-action").first.click()
+    page.locator(".home-launcher-actions .plain-action").first.click()
     page.wait_for_timeout(300)
     page.screenshot(path=str(output_dir / "preview-mobile-workspace.png"), full_page=True)
     close_surface(page)

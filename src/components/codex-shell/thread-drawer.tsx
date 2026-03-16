@@ -124,7 +124,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
 
             <div className="thread-drawer-stack">
               {activeThread ? (
-                <section className="thread-drawer-section" aria-label="Current thread">
+                <section className="thread-drawer-section" aria-label={copy.current}>
                   <div className="thread-drawer-section-head">
                     <div className="thread-drawer-section-label">{copy.current}</div>
                   </div>
@@ -154,7 +154,7 @@ export const ThreadDrawer = forwardRef<HTMLDivElement, ThreadDrawerProps>(
                   <span>{copy.recentAvailable(recentThreads.length)}</span>
                 </div>
 
-                <div className="thread-drawer-list" role="list" aria-label="Recent threads">
+                <div className="thread-drawer-list" role="list" aria-label={copy.recent}>
                   {recentThreads.length === 0 ? (
                     <div className="thread-drawer-empty">
                       {filteredCount === 0

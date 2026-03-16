@@ -47,6 +47,9 @@
 - Reduced mobile composer summary chrome and hid redundant ready-state badges so the transcript and launcher keep more usable height.
 - Restored a small horizontal inset to the mobile transcript so message rows no longer sit flush against the viewport edges.
 - Added a safe post-completion `thread/read` pass so each finished turn snaps back to the persisted transcript ordering before future live updates can diverge.
+- Replaced the split home sidebar/mobile launcher with one flat launcher strip so the first screen stays cleaner and more consistent across breakpoints.
+- Wired the dormant thread drawer into the chat shell so existing threads can be reopened without leaving the transcript view.
+- Flattened composer controls into a single direct row for model, reasoning, and plan instead of the earlier mobile summary toggle pattern.
 
 ### Verification
 
@@ -70,3 +73,5 @@
 - Bridge check: when a turn completes, the bridge now does one guarded `thread/read` refresh for that thread and skips applying it if a newer live turn has already started.
 - CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
 - Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.
+- Browser check: desktop and mobile chat both expose a working thread drawer from the left header button without turning transcript rows into cards.
+- Browser check: composer controls now stay visible as direct dropdowns/toggle in both desktop and mobile chat instead of expanding from a separate session summary.

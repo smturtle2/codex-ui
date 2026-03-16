@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a launcher, lets you choose a workspace before starting a thread, keeps `Model`, `Reasoning`, and `Plan` inside the composer, moves language into a separate settings panel, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a slim launcher, lets you choose a workspace before starting a thread, keeps `Model`, `Reasoning`, and `Plan` inside the composer, opens existing threads from chat through a dedicated thread drawer, moves language into a separate settings panel, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
@@ -61,10 +61,11 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
 - Launcher-first flow: open an existing thread or start a new one from a dedicated home screen.
 - Consistent new-thread flow: slash commands return to the launcher so workspace selection stays part of starting a new thread.
+- In-chat thread drawer: switch threads from the transcript shell without bouncing back through Home.
 - Mobile quick start: keep `Start thread` and workspace selection visible above the thread list on narrow screens.
 - Workspace picker: choose directories from a dedicated browser, keep the last selected workspace, and prioritize real project folders over generated directories.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
-- Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer, with a compact mobile strip and an immediate `Plan` toggle.
+- Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer as a single compact control row.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
 - Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure while preserving approval insertion points and stable entry metadata.
 - Safe turn finalization: once a turn completes, the bridge rehydrates that thread through `thread/read` before the next turn can drift visually from the persisted transcript.
