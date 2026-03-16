@@ -17,6 +17,7 @@ const UI_COPY = {
     },
     header: {
       home: "Home",
+      settings: "Settings",
       threads: "Threads",
       ready: "ready",
       working: "working",
@@ -124,7 +125,8 @@ const UI_COPY = {
       threadList: (count: number) => `${count} threads`,
       createTitle: "New thread",
       createIntro:
-        "Pick the workspace here. Model, reasoning, language, and plan stay in the chat input once the thread opens.",
+        "Pick a workspace here, then open a thread. Model and reasoning stay in the composer. Language moves to Settings.",
+      settings: "Settings",
       workspace: "Workspace",
       workspaceSelected: "Selected workspace",
       browseWorkspace: "Choose directory",
@@ -139,7 +141,6 @@ const UI_COPY = {
       noThreads: "No threads yet.",
       noMatchingThreads: "No matching threads.",
       sessionLabel: "Current session",
-      languageLabel: "Language",
       openThread: "Open",
       updatedSort: "Recent",
       createdSort: "Created",
@@ -161,6 +162,10 @@ const UI_COPY = {
     },
     surface: {
       overlay: "Overlay",
+      settingsTitle: "Settings",
+      settingsSubtitle:
+        "Language lives here. Session controls stay in the composer.",
+      settingsFooter: "Changes apply immediately. Esc closes this overlay.",
       statusTitle: "Status",
       statusFooter: "Esc closes this overlay.",
       shortcutsTitle: "Shortcuts",
@@ -198,7 +203,7 @@ const UI_COPY = {
     },
     commandDescriptions: {
       model:
-        "Choose the current session model, reasoning effort, and UI language.",
+        "Choose the current session model and reasoning effort.",
       review: "Run an inline review against uncommitted changes.",
       new: "Start a fresh thread in the current workspace.",
       resume: "Return to Home and choose a thread.",
@@ -225,6 +230,13 @@ const UI_COPY = {
         ready: "ready",
         error: "error",
       },
+    },
+    settingsPanel: {
+      interfaceTitle: "Interface",
+      language: "Language",
+      sessionTitle: "Session snapshot",
+      shortcutsTitle: "Shortcuts",
+      applyHint: "Applies immediately.",
     },
     shortcutsPanel: {
       lines: [
@@ -273,6 +285,7 @@ const UI_COPY = {
     },
     header: {
       home: "Home",
+      settings: "설정",
       threads: "Threads",
       ready: "준비됨",
       working: "작업 중",
@@ -380,7 +393,8 @@ const UI_COPY = {
       threadList: (count: number) => `${count}개 thread`,
       createTitle: "새 thread",
       createIntro:
-        "여기서 워크스페이스를 고릅니다. 모델, 추론 수준, 언어, plan은 thread가 열린 뒤 채팅 입력 영역에서 바꿉니다.",
+        "여기서 워크스페이스를 고른 뒤 thread를 엽니다. 모델과 추론 수준은 composer에 두고, 언어는 설정 패널로 옮깁니다.",
+      settings: "설정",
       workspace: "워크스페이스",
       workspaceSelected: "선택된 워크스페이스",
       browseWorkspace: "디렉토리 선택",
@@ -395,7 +409,6 @@ const UI_COPY = {
       noThreads: "아직 thread가 없습니다.",
       noMatchingThreads: "일치하는 thread가 없습니다.",
       sessionLabel: "현재 세션",
-      languageLabel: "언어",
       openThread: "열기",
       updatedSort: "최근순",
       createdSort: "생성순",
@@ -417,6 +430,10 @@ const UI_COPY = {
     },
     surface: {
       overlay: "오버레이",
+      settingsTitle: "설정",
+      settingsSubtitle:
+        "언어 설정은 여기에서 관리하고, 세션 제어는 composer에 남깁니다.",
+      settingsFooter: "변경 사항은 즉시 적용됩니다. Esc 키로 닫습니다.",
       statusTitle: "상태",
       statusFooter: "Esc 키로 이 오버레이를 닫습니다.",
       shortcutsTitle: "단축키",
@@ -455,7 +472,7 @@ const UI_COPY = {
     },
     commandDescriptions: {
       model:
-        "현재 세션의 모델, 추론 수준, UI 언어를 선택합니다.",
+        "현재 세션의 모델과 추론 수준을 선택합니다.",
       review: "커밋되지 않은 변경사항에 대해 인라인 리뷰를 실행합니다.",
       new: "현재 워크스페이스에서 새 thread를 시작합니다.",
       resume: "Home으로 돌아가 thread를 선택합니다.",
@@ -482,6 +499,13 @@ const UI_COPY = {
         ready: "준비됨",
         error: "오류",
       },
+    },
+    settingsPanel: {
+      interfaceTitle: "인터페이스",
+      language: "언어",
+      sessionTitle: "세션 상태",
+      shortcutsTitle: "단축키",
+      applyHint: "즉시 적용됩니다.",
     },
     shortcutsPanel: {
       lines: [

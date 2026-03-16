@@ -1,4 +1,4 @@
-export type OverlayKind = "status" | "shortcuts" | "workspace";
+export type OverlayKind = "settings" | "status" | "shortcuts" | "workspace";
 
 export type SurfaceKind = OverlayKind;
 

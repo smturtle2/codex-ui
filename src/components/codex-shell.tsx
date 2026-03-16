@@ -22,6 +22,7 @@ import {
 } from "@/components/codex-shell/copy";
 import { ComposerDock } from "@/components/codex-shell/composer-dock";
 import { HomeScreen } from "@/components/codex-shell/home-screen";
+import { SettingsPanel } from "@/components/codex-shell/settings-panel";
 import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
 import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
@@ -808,6 +809,40 @@ export function CodexShell() {
   ]
     .filter(Boolean)
     .join(" / ");
+  const settingsFacts = [
+    {
+      label: copy.statusPanel.connection,
+      value: connectionState === "live" ? copy.statusPanel.live : headerStatus.label,
+    },
+    {
+      label: copy.statusPanel.activeThread,
+      value: activeThreadSummary?.title ?? copy.common.none,
+    },
+    {
+      label: copy.statusPanel.model,
+      value: currentModel?.displayName ?? currentModel?.model ?? "default",
+    },
+    {
+      label: copy.statusPanel.reasoning,
+      value: currentEffort ?? "default",
+    },
+    {
+      label: copy.statusPanel.planMode,
+      value: selectedPlanMode ? copy.common.on : copy.common.off,
+    },
+    {
+      label: copy.statusPanel.uiLanguage,
+      value: selectedLanguageLabel,
+    },
+    {
+      label: copy.statusPanel.runtime,
+      value: runtime,
+    },
+    {
+      label: copy.statusPanel.pendingRequests,
+      value: String(snapshot?.pendingRequests.length ?? 0),
+    },
+  ];
   const composerHelper = connectionState !== "live"
     ? copy.composer.helperReconnect
     : visibleCommands.length
@@ -1178,6 +1213,7 @@ export function CodexShell() {
             eyebrow: copy.home.eyebrow,
             title: copy.home.title,
             intro: copy.home.intro,
+            settings: copy.home.settings,
             currentThread: copy.home.currentThread,
             threadList: copy.home.threadList,
             createTitle: copy.home.createTitle,
@@ -1193,15 +1229,12 @@ export function CodexShell() {
             noThreads: copy.home.noThreads,
             noMatchingThreads: copy.home.noMatchingThreads,
             sessionLabel: copy.home.sessionLabel,
-            languageLabel: copy.home.languageLabel,
             openThread: copy.home.openThread,
             updatedSort: copy.home.updatedSort,
             createdSort: copy.home.createdSort,
             planOn: copy.home.planOn,
             planOff: copy.home.planOff,
           }}
-          languageOptions={languageOptions}
-          selectedLanguage={selectedLanguageValue}
           selectedPlanMode={selectedPlanMode}
           sessionSummary={sessionSummary}
           search={threadSearch}
@@ -1213,7 +1246,12 @@ export function CodexShell() {
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
-          onLanguageChange={handleLanguageChange}
+          onOpenSettings={() => {
+            openSurface(
+              "settings",
+              document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            );
+          }}
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
           onUseDefaultWorkspace={() => {
@@ -1243,11 +1281,18 @@ export function CodexShell() {
             sessionMeta={sessionMeta}
             sessionMetaTitle={sessionMetaTitle}
             homeLabel={copy.header.home}
+            settingsLabel={copy.header.settings}
             statusLabel={headerStatus.label}
             statusTone={headerStatus.tone}
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
               setViewMode("home");
+            }}
+            onSettingsClick={() => {
+              openSurface(
+                "settings",
+                document.activeElement instanceof HTMLElement ? document.activeElement : null,
+              );
             }}
           />
 
@@ -1280,16 +1325,13 @@ export function CodexShell() {
             activeTurn={Boolean(snapshot?.activeTurnId)}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
-            selectedLanguage={selectedLanguageValue}
             planMode={selectedPlanMode}
             modelOptions={sessionModelOptions}
             effortOptions={sessionEffortOptions}
-            languageOptions={languageOptions}
             labels={{
               session: copy.composer.session,
               model: copy.composer.model,
               reasoning: copy.composer.reasoning,
-              language: copy.composer.language,
               plan: copy.composer.plan,
               on: copy.composer.on,
               off: copy.composer.off,
@@ -1313,7 +1355,6 @@ export function CodexShell() {
             onEffortChange={(value) => {
               void handleComposerEffortChange(value);
             }}
-            onLanguageChange={handleLanguageChange}
             onPlanModeToggle={() => {
               void handlePlanModeToggle();
             }}
@@ -1357,6 +1398,33 @@ export function CodexShell() {
               void loadWorkspaceListing(path);
             }}
             onChoose={handleChooseWorkspace}
+          />
+        </SurfaceDialog>
+      ) : null}
+
+      {activeOverlay === "settings" ? (
+        <SurfaceDialog
+          ref={overlayPanelRef}
+          title={copy.surface.settingsTitle}
+          subtitle={copy.surface.settingsSubtitle}
+          footer={copy.surface.settingsFooter}
+          kickerLabel={copy.header.settings}
+          closeLabel={copy.common.close}
+          onClose={() => closeSurface()}
+        >
+          <SettingsPanel
+            selectedLanguage={selectedLanguageValue}
+            languageOptions={languageOptions}
+            facts={settingsFacts}
+            shortcuts={copy.shortcutsPanel.lines}
+            labels={{
+              interfaceTitle: copy.settingsPanel.interfaceTitle,
+              language: copy.settingsPanel.language,
+              sessionTitle: copy.settingsPanel.sessionTitle,
+              shortcutsTitle: copy.settingsPanel.shortcutsTitle,
+              applyHint: copy.settingsPanel.applyHint,
+            }}
+            onLanguageChange={handleLanguageChange}
           />
         </SurfaceDialog>
       ) : null}

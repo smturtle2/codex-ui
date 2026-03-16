@@ -9,28 +9,31 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a launcher, lets you choose a workspace before starting a thread, keeps session controls directly in the chat input, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a launcher, lets you choose a workspace before starting a thread, keeps `Model`, `Reasoning`, and `Plan` inside the composer, moves language into a separate settings panel, and streams updates over WebSocket without changing the transcript shape between history loads and realtime output.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
 ## Preview
 
-| Home | Workspace Picker |
+| Home | Settings |
 | --- | --- |
-| ![Home preview](./docs/preview-home.png) | ![Workspace picker preview](./docs/preview-workspace.png) |
+| ![Home preview](./docs/preview-home.png) | ![Settings preview](./docs/preview-settings.png) |
 
-| Desktop Chat | Mobile Chat |
+| Workspace Picker | Desktop Chat |
 | --- | --- |
-| ![Desktop chat preview](./docs/preview-desktop.png) | ![Mobile chat preview](./docs/preview-mobile.png) |
+| ![Workspace picker preview](./docs/preview-workspace.png) | ![Desktop chat preview](./docs/preview-desktop.png) |
+
+![Mobile chat preview](./docs/preview-mobile.png)
 
 ## Highlights
 
 - Launcher-first flow: open an existing thread or start a new one from a dedicated home screen.
 - Workspace picker: choose directories from a dedicated browser instead of typing raw paths.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by `---`.
-- Direct session controls: `Model`, `Reasoning`, `Language`, and `Plan` sit in the composer instead of hiding behind a separate dashboard.
+- Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer.
+- Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
 - Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure.
-- Mobile-aware layout: the launcher and shell reflow for narrow screens instead of just shrinking the desktop view.
+- Mobile-aware layout: home prioritizes the thread list first, while chat keeps the transcript largest on narrow screens.
 
 ## Architecture
 

@@ -236,21 +236,17 @@ pre {
 }
 
 .home-header-tools {
-  gap: 0.75rem;
-  align-items: end;
-  justify-items: end;
-}
-
-.home-language-field {
-  display: grid;
-  gap: 0.25rem;
-  min-width: 11rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
 }
 
 .home-grid {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+  grid-template-columns: minmax(0, 1.25fr) minmax(22rem, 26rem);
   gap: 2rem;
 }
 
@@ -262,7 +258,7 @@ pre {
 
 .home-sidebar {
   align-content: start;
-  gap: 1rem;
+  gap: 1.1rem;
   padding-left: 1.5rem;
   border-left: 1px solid var(--line);
 }
@@ -280,9 +276,9 @@ pre {
 
 .home-workspace-card {
   gap: 0.4rem;
-  padding: 0.95rem 1rem;
+  padding: 1rem;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, #ffffff, #fafafa);
+  background: #fafafa;
 }
 
 .home-workspace-card strong {
@@ -307,7 +303,7 @@ pre {
 }
 
 .home-session-summary {
-  gap: 0.25rem;
+  gap: 0.32rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
 }
@@ -411,7 +407,7 @@ pre {
 }
 
 .shell-header {
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -420,6 +416,14 @@ pre {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.85rem;
+}
+
+.shell-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  flex-wrap: wrap;
 }
 
 .shell-session {
@@ -554,8 +558,8 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.5rem 1.2rem 1.8rem;
-  scroll-padding-block-end: 12rem;
+  padding: 1.2rem 1rem 1.5rem;
+  scroll-padding-block-end: 10rem;
 }
 
 .transcript-scroll-shell {
@@ -585,7 +589,7 @@ pre {
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 1.35rem;
+  gap: 1.15rem;
   align-content: start;
   padding-bottom: 2rem;
 }
@@ -640,7 +644,7 @@ pre {
 
 .history-message-stack {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.45rem;
 }
 
 .history-message-line {
@@ -659,7 +663,7 @@ pre {
 }
 
 .history-event {
-  padding-top: 0.95rem;
+  padding-top: 0.8rem;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -717,7 +721,7 @@ pre {
 
 .composer-dock {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.35rem;
 }
 
 .command-menu {
@@ -746,21 +750,21 @@ pre {
 
 .composer-frame {
   display: grid;
-  gap: 0.8rem;
-  padding: 0.8rem 0 0.15rem;
+  gap: 0.72rem;
+  padding: 0.72rem 0 0.1rem;
   border-top: 1px solid var(--line-strong);
 }
 
 .composer-controls {
   display: flex;
-  gap: 0.7rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
 .composer-select-field {
   display: grid;
   gap: 0.24rem;
-  min-width: 10rem;
+  min-width: 9rem;
 }
 
 .composer-select-shell {
@@ -805,7 +809,7 @@ pre {
 }
 
 .composer-plan-toggle {
-  min-width: 8.75rem;
+  min-width: 8rem;
   justify-content: space-between;
 }
 
@@ -817,7 +821,7 @@ pre {
 .composer-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 1rem;
+  gap: 0.8rem;
   align-items: end;
 }
 
@@ -961,6 +965,72 @@ pre {
   display: grid;
   grid-template-columns: minmax(0, 22rem) repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.settings-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-section {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.settings-section-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.settings-fact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.settings-fact {
+  display: grid;
+  gap: 0.28rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+}
+
+.settings-fact-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+}
+
+.settings-fact-value {
+  font-size: 0.94rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.settings-shortcut-list {
+  display: grid;
+  border-top: 1px solid var(--line-strong);
+}
+
+.settings-shortcut-row {
+  padding: 0.82rem 0;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 .workspace-picker-section {
@@ -1127,9 +1197,8 @@ pre {
   }
 
   .home-grid {
-    display: flex;
-    flex-direction: column;
-    min-height: auto;
+    grid-template-columns: 1fr;
+    min-height: 0;
     gap: 1rem;
   }
 
@@ -1151,10 +1220,11 @@ pre {
   }
 
   .home-sidebar {
-    order: -1;
     min-height: auto;
-    padding-top: 0;
-    border-top: 0;
+    padding-left: 0;
+    padding-top: 1rem;
+    border-left: 0;
+    border-top: 1px solid var(--line);
   }
 
   .home-main {
@@ -1163,7 +1233,7 @@ pre {
   }
 
   .home-thread-list-shell {
-    min-height: auto;
+    min-height: 22rem;
   }
 
   .home-thread-list {
@@ -1172,6 +1242,14 @@ pre {
 
   .shell-status-line {
     white-space: normal;
+  }
+
+  .shell-header-rail {
+    gap: 0.75rem;
+  }
+
+  .shell-header-actions {
+    justify-content: flex-start;
   }
 
   .home-thread-row {
@@ -1208,6 +1286,10 @@ pre {
   .workspace-picker {
     grid-template-columns: 1fr;
   }
+
+  .settings-fact-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1233,7 +1315,7 @@ pre {
 
   .transcript-scroll,
   .overlay-scroll {
-    padding-inline: 0.85rem;
+    padding: 0.95rem 0.75rem 1.35rem;
   }
 
   .history-empty {
@@ -1250,24 +1332,23 @@ pre {
   }
 
   .composer-frame {
-    gap: 0.7rem;
+    gap: 0.65rem;
   }
 
   .composer-controls {
     display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(8.8rem, max-content);
-    overflow-x: auto;
-    padding-bottom: 0.15rem;
-    scrollbar-width: none;
-  }
-
-  .composer-controls::-webkit-scrollbar {
-    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .composer-select-field {
-    min-width: 8.8rem;
+    min-width: 0;
+  }
+
+  .composer-plan-toggle {
+    min-width: 0;
+    grid-column: 1 / -1;
   }
 
   .composer-input-row {
@@ -1275,7 +1356,7 @@ pre {
   }
 
   .composer-actions {
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   .surface-dialog,

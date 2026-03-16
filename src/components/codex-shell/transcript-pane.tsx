@@ -156,6 +156,10 @@ function summarizeEditedContent(
   entry: TimelineEntry,
   copy: UiCopy["transcript"],
 ): string {
+  if (entry.status === "running") {
+    return copy.editedContentHidden(0);
+  }
+
   const changeMatches = [
     ...entry.body.matchAll(/^(ADD|CREATE|UPDATE|DELETE|MODIFY|RENAME)\s+.+$/gm),
   ];

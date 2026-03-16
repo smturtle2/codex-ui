@@ -9,28 +9,31 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 런처 화면에서 시작하고, 새 thread를 만들기 전에 workspace를 고를 수 있으며, 세션 제어는 채팅 입력부 안에 두고, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 런처 화면에서 시작하고, 새 thread를 만들기 전에 workspace를 고를 수 있으며, `Model`, `Reasoning`, `Plan`은 채팅 입력부에 두고, 언어는 별도 설정 패널로 분리하며, WebSocket 스트리밍과 히스토리 로딩이 같은 transcript 구조를 유지합니다.
 
 상세 변경 내역은 [RELEASE_NOTES.md](./RELEASE_NOTES.md)에 정리했습니다.
 
 ## Preview
 
-| Home | Workspace Picker |
+| Home | Settings |
 | --- | --- |
-| ![Home preview](./docs/preview-home.png) | ![Workspace picker preview](./docs/preview-workspace.png) |
+| ![Home preview](./docs/preview-home.png) | ![Settings preview](./docs/preview-settings.png) |
 
-| Desktop Chat | Mobile Chat |
+| Workspace Picker | Desktop Chat |
 | --- | --- |
-| ![Desktop chat preview](./docs/preview-desktop.png) | ![Mobile chat preview](./docs/preview-mobile.png) |
+| ![Workspace picker preview](./docs/preview-workspace.png) | ![Desktop chat preview](./docs/preview-desktop.png) |
+
+![Mobile chat preview](./docs/preview-mobile.png)
 
 ## 핵심 특징
 
 - 런처 우선 흐름: 전용 홈 화면에서 기존 thread를 열거나 새 thread를 시작합니다.
 - 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택합니다.
 - transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 `---`로만 구분합니다.
-- 직접 세션 제어: `Model`, `Reasoning`, `Language`, `Plan`을 composer 안에서 바로 바꿉니다.
+- 직접 세션 제어: `Model`, `Reasoning`, `Plan`을 composer 안에서 바로 바꿉니다.
+- 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.
 - 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조로 정규화됩니다.
-- 모바일 재구성: 데스크톱을 줄이는 대신, 좁은 화면에 맞게 런처와 채팅 셸 구조가 바뀝니다.
+- 모바일 재구성: 홈에서는 thread 목록을 먼저 보여주고, 채팅에서는 transcript 영역을 가장 크게 남깁니다.
 
 ## 아키텍처
 

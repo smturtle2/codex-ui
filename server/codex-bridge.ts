@@ -435,6 +435,46 @@ function createTurnTimelineEntry(
   };
 }
 
+function timelineStatusFromItemStatus(
+  status: unknown,
+  fallbackStatus: TimelineEntry["status"],
+): TimelineEntry["status"] {
+  switch (status) {
+    case "inProgress":
+      return "running";
+    case "completed":
+    case "declined":
+      return "completed";
+    case "failed":
+      return "error";
+    default:
+      return fallbackStatus;
+  }
+}
+
+function getHydratedTimelineStatus(
+  turn: Pick<Turn, "status">,
+  item: Record<string, unknown>,
+): TimelineEntry["status"] {
+  const fallbackStatus =
+    turn.status === "failed"
+      ? "error"
+      : turn.status === "inProgress"
+        ? "running"
+        : "completed";
+  const itemType = typeof item.type === "string" ? item.type : "unknown";
+
+  if (itemType === "userMessage") {
+    return "completed";
+  }
+
+  if (typeof item.status === "string") {
+    return timelineStatusFromItemStatus(item.status, fallbackStatus);
+  }
+
+  return fallbackStatus;
+}
+
 function mergeHydratedTimelineEntry(
   existing: TimelineEntry | undefined,
   next: TimelineEntry,
@@ -608,6 +648,28 @@ function createPendingApprovalTimelineEntry(
     rawMethod: request.method,
     updatedAt: request.createdAt,
   };
+}
+
+function insertApprovalTimelineEntry(
+  entries: TimelineEntry[],
+  approvalEntry: TimelineEntry,
+): void {
+  if (!approvalEntry.turnId) {
+    entries.push(approvalEntry);
+    return;
+  }
+
+  const insertionIndex = [...entries]
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.turnId === approvalEntry.turnId)
+    .at(-1)?.index;
+
+  if (typeof insertionIndex !== "number") {
+    entries.push(approvalEntry);
+    return;
+  }
+
+  entries.splice(insertionIndex + 1, 0, approvalEntry);
 }
 
 export class CodexBridge extends EventEmitter {
@@ -1038,14 +1100,13 @@ export class CodexBridge extends EventEmitter {
       entries.push(createTurnTimelineEntry(thread.id, turn, Date.now()));
       const turnEntries = new Map<string, TimelineEntry>();
       const turnEntryOrder: string[] = [];
-      const isRunningTurn = turn.status === "inProgress";
 
       for (const item of turn.items as Array<Record<string, unknown>>) {
         const nextEntry = timelineEntryFromTurnItem(
           thread.id,
           turn.id,
           item,
-          isRunningTurn ? "running" : "completed",
+          getHydratedTimelineStatus(turn, item),
         );
         const currentEntry = turnEntries.get(nextEntry.id);
         if (!currentEntry) {
@@ -1056,7 +1117,7 @@ export class CodexBridge extends EventEmitter {
           mergeHydratedTimelineEntry(currentEntry, nextEntry),
         );
 
-        if (isRunningTurn) {
+        if (nextEntry.status === "running") {
           streamingItems.set(nextEntry.id, {
             turnId: turn.id,
             item,
@@ -1072,13 +1133,15 @@ export class CodexBridge extends EventEmitter {
       }
     }
 
-    for (const request of this.state.pendingRequests.values()) {
+    for (const request of [...this.state.pendingRequests.values()].sort(
+      (left, right) => left.createdAt - right.createdAt,
+    )) {
       const approvalEntry = createPendingApprovalTimelineEntry(request);
       if (!approvalEntry || approvalEntry.threadId !== thread.id) {
         continue;
       }
 
-      entries.push(approvalEntry);
+      insertApprovalTimelineEntry(entries, approvalEntry);
     }
 
     this.state.timelineByThread.set(thread.id, entries);

@@ -5,7 +5,6 @@ import type {
   RefObject,
 } from "react";
 
-import type { UiLanguage } from "@/components/codex-shell/copy";
 import type { SlashCommandDefinition } from "@/lib/shared";
 
 type SessionOption = {
@@ -25,16 +24,13 @@ type ComposerDockProps = {
   activeTurn: boolean;
   selectedModel: string;
   selectedEffort: string;
-  selectedLanguage: UiLanguage;
   planMode: boolean;
   modelOptions: SessionOption[];
   effortOptions: SessionOption[];
-  languageOptions: SessionOption[];
   labels: {
     session: string;
     model: string;
     reasoning: string;
-    language: string;
     plan: string;
     on: string;
     off: string;
@@ -48,7 +44,6 @@ type ComposerDockProps = {
   onCommandPick: (commandName: string) => void;
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
-  onLanguageChange: (value: UiLanguage) => void;
   onPlanModeToggle: () => void;
   onSubmit: () => void;
   onInterrupt: () => void;
@@ -116,18 +111,15 @@ export function ComposerDock({
   activeTurn,
   selectedModel,
   selectedEffort,
-  selectedLanguage,
   planMode,
   modelOptions,
   effortOptions,
-  languageOptions,
   labels,
   onComposerChange,
   onComposerKeyDown,
   onCommandPick,
   onModelChange,
   onEffortChange,
-  onLanguageChange,
   onPlanModeToggle,
   onSubmit,
   onInterrupt,
@@ -172,15 +164,6 @@ export function ComposerDock({
             options={effortOptions}
             unavailableLabel={labels.unavailable}
             onChange={onEffortChange}
-          />
-
-          <SessionSelectField
-            id="composer-language"
-            label={labels.language}
-            value={selectedLanguage}
-            options={languageOptions}
-            unavailableLabel={labels.unavailable}
-            onChange={(value) => onLanguageChange(value as UiLanguage)}
           />
 
           <button

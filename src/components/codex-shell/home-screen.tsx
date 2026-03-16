@@ -2,7 +2,6 @@
 
 import type { RefObject } from "react";
 
-import type { UiLanguage } from "@/components/codex-shell/copy";
 import type { ThreadDrawerSort } from "@/components/codex-shell/types";
 import type { ThreadListItem } from "@/lib/shared";
 
@@ -13,6 +12,7 @@ type HomeCopy = {
   eyebrow: string;
   title: string;
   intro: string;
+  settings: string;
   currentThread: string;
   threadList: (count: number) => string;
   createTitle: string;
@@ -28,7 +28,6 @@ type HomeCopy = {
   noThreads: string;
   noMatchingThreads: string;
   sessionLabel: string;
-  languageLabel: string;
   openThread: string;
   updatedSort: string;
   createdSort: string;
@@ -39,8 +38,6 @@ type HomeCopy = {
 type HomeScreenProps = {
   locale: UiLocale;
   copy: HomeCopy;
-  languageOptions: Array<{ value: UiLanguage; label: string }>;
-  selectedLanguage: UiLanguage;
   selectedPlanMode: boolean;
   sessionSummary: string;
   search: string;
@@ -52,7 +49,7 @@ type HomeScreenProps = {
   statusLabel: string;
   statusTone: "ready" | "working" | "pending" | "error" | "starting";
   searchInputRef?: RefObject<HTMLInputElement | null>;
-  onLanguageChange: (language: UiLanguage) => void;
+  onOpenSettings: () => void;
   onSearchChange: (value: string) => void;
   onSortChange: (sort: ThreadDrawerSort) => void;
   onUseDefaultWorkspace: () => void;
@@ -104,8 +101,6 @@ function ThreadRow({
 export function HomeScreen({
   locale,
   copy,
-  languageOptions,
-  selectedLanguage,
   selectedPlanMode,
   sessionSummary,
   search,
@@ -117,7 +112,7 @@ export function HomeScreen({
   statusLabel,
   statusTone,
   searchInputRef,
-  onLanguageChange,
+  onOpenSettings,
   onSearchChange,
   onSortChange,
   onUseDefaultWorkspace,
@@ -138,27 +133,9 @@ export function HomeScreen({
         </div>
 
         <div className="home-header-tools">
-          <label className="home-language-field" htmlFor="home-language">
-            <span>{copy.languageLabel}</span>
-            <span className="composer-select-shell">
-              <select
-                id="home-language"
-                className="composer-select"
-                value={selectedLanguage}
-                onChange={(event) => onLanguageChange(event.target.value as UiLanguage)}
-              >
-                {languageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <span className="composer-select-caret" aria-hidden="true">
-                v
-              </span>
-            </span>
-          </label>
-
+          <button className="plain-action" type="button" onClick={onOpenSettings}>
+            {copy.settings}
+          </button>
           <span className={`shell-status-badge tone-${statusTone}`}>{statusLabel}</span>
         </div>
       </header>

@@ -10,10 +10,12 @@ type ShellHeaderProps = {
   sessionMeta: string;
   sessionMetaTitle?: string | null;
   homeLabel: string;
+  settingsLabel: string;
   statusLabel: string;
   statusTone: HeaderStatusTone;
   homeButtonRef: RefObject<HTMLButtonElement | null>;
   onHomeClick: () => void;
+  onSettingsClick: () => void;
 };
 
 export function ShellHeader({
@@ -22,10 +24,12 @@ export function ShellHeader({
   sessionMeta,
   sessionMetaTitle = null,
   homeLabel,
+  settingsLabel,
   statusLabel,
   statusTone,
   homeButtonRef,
   onHomeClick,
+  onSettingsClick,
 }: ShellHeaderProps) {
   return (
     <header className="shell-header">
@@ -45,7 +49,12 @@ export function ShellHeader({
           <span className="shell-session-meta">{sessionMeta}</span>
         </div>
 
-        <span className={`shell-status-line tone-${statusTone}`}>{statusLabel}</span>
+        <div className="shell-header-actions">
+          <span className={`shell-status-line tone-${statusTone}`}>{statusLabel}</span>
+          <button className="plain-action" type="button" onClick={onSettingsClick}>
+            {settingsLabel}
+          </button>
+        </div>
       </div>
     </header>
   );
