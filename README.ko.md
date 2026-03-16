@@ -9,7 +9,7 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 시끄러운 대시보드로 바꾸지 않고, 원래의 작업 흐름에 가깝게 유지합니다. 흰 배경, 검은 타이포, 얇은 선, 직접 보이는 세션 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 대화가 가장 크게 보이는 구조만 남겼습니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 꾸미지 않고, 터미널에 가까운 작업 흐름을 브라우저로 옮깁니다. 흰 배경, 검은 타이포, 얇은 rail, composer 안의 직접 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 transcript가 가장 크게 보이는 구조만 남겼습니다.
 
 ## Preview
 
@@ -19,38 +19,39 @@
 
 ## UX Audit
 
-- 기존 모바일 레이아웃은 항상 열려 있는 controls가 높이를 너무 많이 차지해서, 작은 화면에서는 composer 상단을 compact summary row로 접을 수 있게 바꿨습니다.
-- transcript 영역이 박스처럼 닫혀 보이던 인상을 줄이기 위해 전체 셸을 더 평평한 rail 중심 구조로 정리했습니다.
-- bootstrap, thread/read, live delta 사이에서 transcript 모양이 어긋날 수 있던 부분을 줄이기 위해 활성 thread를 bootstrap 시 hydrate하고, turn 단위 file change를 같은 transcript 정규화 경로로 합쳤습니다.
-- 의미 없는 런타임 잡음은 기본 접힘 또는 숨김으로 유지해서 실제 대화와 중요한 예외만 잘 보이게 했습니다.
+- 기존 composer가 하단 카드처럼 보여서 transcript-first 인상이 약했습니다.
+- 모바일도 동작은 했지만, session controls보다 대화 영역이 더 강하게 우선되어야 했습니다.
+- 폰트가 로컬 환경 스택에 의존하고 있어서 한/영 혼용 시 일관성이 보장되지 않았습니다.
+- bootstrap hydration, `thread/read`, live delta가 항상 같은 transcript 모양을 유지해야 했습니다.
 
-## 이 UI가 최적화하는 것
+## 이번에 바뀐 점
+
+- 셸을 더 평평하게 만들었습니다. header와 composer가 카드 더미처럼 보이지 않고 rail처럼 읽히도록 정리했습니다.
+- 모바일을 더 적응형으로 바꿨습니다. session controls는 compact summary row로 접고, transcript가 세로 공간을 더 많이 차지합니다.
+- `next/font`로 `IBM Plex Sans KR`와 `IBM Plex Mono`를 실제 로드해서 한/영 혼용 렌더링을 안정화했습니다.
+- `Model`, `Reasoning`, `Language`, `Plan`은 그대로 composer 안에서 바로 제어할 수 있게 유지했습니다.
+- bootstrap, `thread/read`, live delta를 같은 정규화 경로에 두어 thread를 다시 열어도 출력 모양이 어긋나지 않게 했습니다.
+- diff는 기본 접힘, reasoning/plan 흔적은 저잡음 유지, 런타임 잡음은 숨김으로 두어 실제 대화가 앞에 오게 했습니다.
+
+## 설계 원칙
 
 - transcript 우선. 대화면이 가장 크고 가장 읽기 쉬워야 합니다.
-- 평면 transcript. 메시지는 채팅 카드가 아니라 평평한 transcript 블록으로 보입니다.
-- 최소한의 chrome. 상태, 단축키, thread 관리 UI는 가볍게 유지합니다.
-- 직접 제어. `Model`, `Reasoning`, `Language` 는 composer 안에서 바로 고르는 드롭다운입니다.
-- 모바일 control rail. 작은 화면에서는 transcript를 밀어내지 않도록 session controls를 compact summary row로 접어 둡니다.
-- 한 번의 계획 전환. `Plan` 모드는 입력 흐름 옆에 항상 있는 버튼으로 둡니다.
-- 안정적인 출력. thread를 다시 불러올 때와 실시간 업데이트할 때 같은 item-to-transcript 정규화 경로를 따르며, turn 단위 file change도 같은 방식으로 합칩니다.
-- 적은 잡음. edited content는 기본 접힘이고, 런타임 잡음은 숨기며, 의미 있는 상태만 남깁니다.
+- 채팅 카드 금지. 메시지는 flat transcript row와 역할 라벨, `---` turn 구분으로 읽습니다.
+- 흑백만 사용. 색 대신 대비, 간격, 타이포로 구조를 만듭니다.
+- 직접 제어. `Model`, `Reasoning`, `Language`, `Plan`을 composer 안에 둡니다.
+- 같은 출력 형태 유지. thread를 불러와도, 실시간으로 봐도 transcript 구조가 같아야 합니다.
+- 잡음은 숨김. file edit는 기본 접힘이고, 내부 로그성 이벤트는 화면을 지배하지 않게 둡니다.
+- 반응형은 축소가 아니라 재구성입니다. 모바일은 별도 구조로 transcript를 보호합니다.
 
 ## 핵심 UX
 
 - 새로고침 폴링이 아닌 WebSocket 기반 실시간 업데이트
-- 검정/흰색만 사용하는 절제된 시각 체계와 얇은 테두리 중심 UI
-- 버블 카드 대신 역할 라벨과 텍스트 줄로 읽는 flat transcript
+- user/assistant 메시지를 그룹화한 flat transcript row
 - composer 안의 직접 드롭다운으로 `Model`, `Reasoning`, `Language` 제어
-- 모바일에서도 transcript를 더 크게 유지하는 compact control rail
-- 메뉴에 숨기지 않은 composer 내부 `Plan` 토글 버튼
-- `---` 만 사용하는 turn 구분과 user/assistant 메시지 그룹화
-- transcript 안의 시각적 시간 표시는 빼서 thread 재로딩과 실시간 출력 인상이 어긋나지 않게 유지
-- 기본 접힘 diff와 저잡음 이벤트 렌더링, 필요할 때만 펼치는 구조
-- 스트리밍 중 자동으로 최신 transcript를 따라가는 스크롤 동작
-- 모바일에서도 composer보다 transcript가 더 크게 보이는 비율 유지
+- 입력 흐름 안에 놓인 `Plan` 토글 버튼
+- 스트리밍 중 자동으로 최신 transcript를 따라가는 스크롤
+- command, file change, permission, `request_user_input` 를 브라우저 안에서 처리
 - 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
-- command, file change, permission, `request_user_input` 를 브라우저 안에서 바로 처리
-- 가능할 때 bootstrap 시 활성 thread transcript를 먼저 hydrate해서 빈 화면으로 시작하지 않도록 보강
 
 ## 아키텍처
 

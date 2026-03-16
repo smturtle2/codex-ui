@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` keeps Codex close to its native workflow instead of turning it into a noisy dashboard. The shell stays intentionally strict: white background, black type, thin borders, direct session controls, live WebSocket updates, folded diffs, and a transcript that remains dominant on both desktop and mobile.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard full of cards and chrome. The interface is deliberately strict: white background, black type, thin rails, direct controls inside the composer, live WebSocket updates, hidden diffs by default, and a transcript that stays dominant on both desktop and mobile.
 
 ## Preview
 
@@ -19,38 +19,39 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 
 ## UX Audit
 
-- The previous mobile layout spent too much height on always-open controls, so the composer now collapses session settings into a compact summary row on small screens.
-- The transcript surface looked too boxed-in, so the shell now uses flatter rails and lets the conversation occupy more of the page.
-- Loaded thread history and live updates could diverge around bootstrap and diff shaping, so the bridge now hydrates an active thread on bootstrap and merges turn-level file changes through the same transcript model.
-- Low-signal runtime chatter stays folded or hidden by default, so only the conversation and meaningful exceptions stay visible.
+- The composer previously read like a bottom card, which made the UI feel control-heavy instead of transcript-first.
+- Mobile layout was functional, but the conversation still needed more visual priority than the session controls.
+- The font stack depended too much on local availability, so mixed English/Korean rendering was not reliably consistent.
+- Loaded thread history and live updates needed to stay visually identical, especially around bootstrap hydration and file-change rendering.
 
-## What This UI Optimizes For
+## What Changed
 
-- Transcript first. The conversation surface stays largest and easiest to scan.
-- Flat transcript. Messages render as plain transcript blocks instead of chat cards.
-- Minimal chrome. Status, shortcuts, and thread management stay lightweight.
-- Direct control. `Model`, `Reasoning`, and `Language` live inside the composer as visible dropdowns.
-- Mobile control rail. On small screens session controls collapse into a compact summary row instead of pushing the transcript down.
-- One-click planning. `Plan` mode stays next to the input flow as a dedicated button.
-- Stable output. Loaded threads and live updates normalize through the same item-to-transcript path, including turn-level file changes.
-- Less noise. Edited content starts folded, runtime chatter stays hidden, and only meaningful states stay visible.
+- The shell is flatter. The header and composer now read as rails instead of stacked cards, so the transcript feels like the primary surface.
+- Mobile is more adaptive. Session controls collapse into a compact summary row, while the transcript keeps the largest share of vertical space.
+- Fonts are loaded intentionally with `next/font` using `IBM Plex Sans KR` and `IBM Plex Mono` for stable bilingual rendering.
+- The composer remains direct. `Model`, `Reasoning`, `Language`, and the `Plan` toggle stay in the input flow instead of being buried in menus.
+- Transcript rendering stays stable. Thread bootstrap, `thread/read`, and live deltas all pass through the same normalization path.
+- Low-signal noise stays folded. Diffs start hidden, reasoning and plan traces stay out of the way unless they matter, and runtime chatter does not dominate the page.
+
+## Design Principles
+
+- Transcript first. The conversation should be the biggest thing on screen.
+- No chat cards. Messages render as flat transcript rows with role labels and `---` turn separators.
+- Black and white only. Contrast, spacing, and typography do the work instead of color.
+- Direct session control. `Model`, `Reasoning`, `Language`, and `Plan` live in the composer.
+- Same output shape everywhere. Loading a thread and watching it stream live should produce the same transcript structure.
+- Hide the noise. File edits stay folded until expanded, and low-value internal chatter stays out of the way.
+- Responsive by design. Mobile is not a scaled desktop layout; the shell changes shape to protect the transcript.
 
 ## Core UX
 
 - Real-time thread updates over WebSocket. No refresh polling.
-- Strict black/white visual system with compact borders and restrained spacing.
-- Flat transcript rows with role labels instead of bubble cards.
-- Composer control strip with direct selectors for `Model`, `Reasoning`, and `Language`.
-- Compact mobile control rail that keeps session settings reachable without letting the composer dominate the screen.
-- Dedicated `Plan` toggle inside the composer instead of burying it in a menu.
-- `---` turn separators with grouped user and assistant messages.
-- No inline transcript timestamps, so loaded threads and live output stay visually aligned.
-- Hidden diffs and low-noise event rendering by default, with explicit reveal when needed.
-- Automatic transcript follow mode while live output is streaming.
-- Mobile layout keeps the transcript taller than the composer while preserving usable controls.
-- Local thread drawer for search, sort, resume, and fresh-thread creation.
-- Inline approvals for commands, file changes, permissions, and `request_user_input`.
-- Bootstrap hydrates the active thread when available instead of showing an empty pane after reconnecting.
+- Flat transcript rows with grouped user and assistant messages.
+- Visible composer dropdowns for `Model`, `Reasoning`, and `Language`.
+- Dedicated `Plan` toggle inside the input flow.
+- Automatic transcript follow mode while output is streaming.
+- Inline handling for approvals, file changes, permissions, and `request_user_input`.
+- Local thread drawer for search, sorting, resume, and fresh-thread creation.
 
 ## Architecture
 

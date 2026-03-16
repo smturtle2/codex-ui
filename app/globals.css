@@ -1,30 +1,30 @@
 :root {
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-muted: #f7f7f7;
-  --surface-soft: #f1f1f1;
-  --surface-float: #ffffff;
-  --line: #d8d8d8;
-  --line-strong: #161616;
-  --text: #161616;
-  --muted: #5f5f5f;
-  --soft: #787878;
+  --surface-muted: #fafafa;
+  --surface-soft: #f4f4f4;
+  --surface-float: rgba(255, 255, 255, 0.94);
+  --line: #dddddd;
+  --line-soft: #ececec;
+  --line-strong: #111111;
+  --text: #111111;
+  --muted: #5c5c5c;
+  --soft: #838383;
   --inverse: #ffffff;
-  --selection: rgba(17, 17, 17, 0.08);
-  --content-width: 1680px;
-  --measure: 78rem;
-  --radius: 0.78rem;
-  --label-column: 4.5rem;
+  --selection: rgba(17, 17, 17, 0.1);
+  --content-width: 1760px;
+  --measure: 82rem;
+  --radius: 0.58rem;
+  --label-column: 4.15rem;
   --font-sans:
-    "IBM Plex Sans",
-    "Noto Sans KR",
+    var(--font-plex-sans),
     "Segoe UI",
     "Apple SD Gothic Neo",
     "Malgun Gothic",
     "Helvetica Neue",
     sans-serif;
   --font-mono:
-    "IBM Plex Mono",
+    var(--font-plex-mono),
     "Cascadia Mono",
     "SFMono-Regular",
     "Fira Mono",
@@ -50,6 +50,8 @@ body {
 
 body {
   overflow: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
@@ -97,14 +99,13 @@ pre {
   min-height: 0;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: max(0.55rem, env(safe-area-inset-top)) 0.75rem
-    max(0.55rem, env(safe-area-inset-bottom));
+  padding: max(0.46rem, env(safe-area-inset-top)) 0.9rem
+    max(0.46rem, env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0.45rem;
+  gap: 0.36rem;
 }
 
-.composer-frame,
 .thread-drawer-surface,
 .surface-dialog,
 .approval-modal,
@@ -115,7 +116,7 @@ pre {
 }
 
 .shell-header {
-  padding: 0 0.1rem 0.5rem;
+  padding: 0 0.05rem 0.36rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -142,7 +143,7 @@ pre {
   grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-areas: "threads session status";
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .shell-session,
@@ -155,9 +156,9 @@ pre {
 }
 
 .shell-session-title {
-  font-size: clamp(0.96rem, 0.95vw, 1.02rem);
-  font-weight: 700;
-  line-height: 1.25;
+  font-size: clamp(0.96rem, 0.95vw, 1.08rem);
+  font-weight: 600;
+  line-height: 1.18;
 }
 
 .shell-session-meta,
@@ -175,6 +176,23 @@ pre {
 .status-pre,
 .approval-copy p:last-child {
   color: var(--muted);
+}
+
+.shell-session-meta,
+.thread-drawer-header-copy span,
+.thread-drawer-list-header span,
+.thread-drawer-item-cwd,
+.thread-drawer-item-meta,
+.thread-drawer-empty,
+.surface-dialog-subtitle,
+.surface-dialog-footer,
+.composer-helper,
+.composer-inline-status,
+.command-menu-copy,
+.status-pre,
+.approval-copy p:last-child {
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .shell-status-badge,
@@ -200,7 +218,7 @@ pre {
 .composer-control-label,
 .composer-plan-toggle-label,
 .surface-dialog-kicker {
-  font-size: 0.69rem;
+  font-size: 0.67rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -215,8 +233,8 @@ pre {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 2rem;
-  padding: 0.45rem 0.74rem;
+  min-height: 1.95rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
@@ -272,7 +290,7 @@ pre {
   grid-area: threads;
   justify-self: start;
   justify-content: space-between;
-  padding-inline: 0.78rem;
+  padding-inline: 0.74rem;
   flex: 0 0 auto;
 }
 
@@ -286,8 +304,8 @@ pre {
   align-items: center;
   justify-content: center;
   justify-self: end;
-  min-height: 1.8rem;
-  padding: 0.12rem 0.52rem;
+  min-height: 1.72rem;
+  padding: 0.1rem 0.48rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   flex: 0 0 auto;
@@ -300,8 +318,6 @@ pre {
 }
 
 .shell-session-meta {
-  font-size: 0.79rem;
-  line-height: 1.45;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -316,8 +332,6 @@ pre {
 .transcript-surface {
   min-height: 0;
   overflow: hidden;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
 }
 
 .transcript-scroll,
@@ -333,7 +347,8 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.15rem 1.25rem 1.3rem;
+  padding: 1.35rem 1.4rem 1.6rem;
+  scroll-padding-block-end: 10rem;
 }
 
 .transcript-scroll-shell {
@@ -344,16 +359,18 @@ pre {
   min-height: 100%;
   display: grid;
   place-items: center;
+  padding: 0 1rem 14vh;
   text-align: center;
 }
 
 .history-empty-copy {
-  max-width: 28rem;
-  gap: 0.45rem;
+  max-width: 30rem;
+  gap: 0.5rem;
 }
 
 .history-empty-copy strong {
-  font-size: 1rem;
+  font-size: 1.02rem;
+  font-weight: 600;
 }
 
 .history-empty-copy p,
@@ -363,15 +380,38 @@ pre {
 }
 
 .history-list {
+  position: relative;
   width: min(100%, var(--measure));
   margin: 0 auto;
   display: grid;
-  gap: 1.15rem;
+  gap: 1.24rem;
   align-content: start;
 }
 
+.history-list::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--label-column) - 0.76rem);
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0,
+    var(--line-soft) 6%,
+    var(--line-soft) 94%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
 .history-turn-divider {
-  padding: 0.05rem 0;
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 0.02rem 0.72rem;
+  background: var(--surface);
   color: var(--soft);
   text-align: center;
   letter-spacing: 0.22em;
@@ -380,21 +420,24 @@ pre {
 
 .history-message-group,
 .history-event {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: var(--label-column) minmax(0, 1fr);
-  gap: 0.48rem 1rem;
+  gap: 0.42rem 1.12rem;
   align-items: start;
 }
 
 .history-message-group-head {
   display: grid;
-  gap: 0.14rem;
+  gap: 0.18rem;
+  padding-top: 0.2rem;
   align-content: start;
 }
 
 .history-message-stack {
   display: grid;
-  gap: 0.88rem;
+  gap: 0.56rem;
 }
 
 .history-message-entry {
@@ -403,13 +446,22 @@ pre {
 
 .history-message-line {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.75;
+  font-size: 1.02rem;
+  line-height: 1.84;
+  letter-spacing: -0.01em;
+}
+
+.history-message-group.role-user .history-message-line {
+  color: var(--muted);
+}
+
+.history-message-group.role-assistant .history-message-line {
+  font-weight: 500;
 }
 
 .history-event {
-  padding-top: 0.88rem;
-  border-top: 1px solid var(--line);
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line-soft);
 }
 
 .history-event-head {
@@ -440,7 +492,8 @@ pre {
 
 .history-event-summary {
   min-width: 0;
-  line-height: 1.68;
+  color: var(--muted);
+  line-height: 1.62;
 }
 
 .history-event-marker {
@@ -451,10 +504,10 @@ pre {
 
 .history-event-detail {
   margin: 0;
-  padding: 0 0 0 0.92rem;
-  border-left: 1px solid var(--line);
+  padding: 0 0 0 0.88rem;
+  border-left: 1px solid var(--line-soft);
   color: var(--muted);
-  line-height: 1.62;
+  line-height: 1.64;
 }
 
 .history-event.kind-diff .history-event-summary,
@@ -472,20 +525,20 @@ pre {
 
 .composer-dock {
   display: grid;
-  gap: 0.36rem;
+  gap: 0.22rem;
 }
 
 .command-menu {
   display: grid;
   gap: 0.14rem;
-  padding: 0.3rem;
+  padding: 0.24rem;
 }
 
 .command-menu-row {
   width: 100%;
   display: grid;
   gap: 0.16rem;
-  padding: 0.68rem 0.78rem;
+  padding: 0.58rem 0.72rem;
   border: 1px solid transparent;
   border-radius: calc(var(--radius) - 0.2rem);
   background: transparent;
@@ -504,17 +557,19 @@ pre {
 
 .composer-frame {
   display: grid;
-  gap: 0.52rem;
-  padding: 0.66rem 0.78rem 0.72rem;
+  gap: 0.48rem;
+  padding: 0.58rem 0 0.18rem;
   position: relative;
+  border-top: 1px solid var(--line-strong);
+  background: var(--surface-float);
+  backdrop-filter: blur(12px);
   transition:
     border-color 120ms ease,
-    box-shadow 120ms ease;
+    background-color 120ms ease;
 }
 
 .composer-frame:has(.composer-input:focus-visible) {
-  border-color: var(--line-strong);
-  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.04);
+  background: rgba(255, 255, 255, 0.98);
 }
 
 .composer-mobile-session-bar {
@@ -523,22 +578,24 @@ pre {
 
 .composer-controls {
   display: grid;
-  gap: 0.42rem;
-  padding-bottom: 0.1rem;
-  border-bottom: 1px solid var(--line);
+  gap: 0.36rem;
+  padding-bottom: 0.08rem;
 }
 
 .composer-controls-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.48rem;
+  grid-template-columns:
+    minmax(0, 1.22fr)
+    repeat(2, minmax(0, 0.92fr))
+    minmax(8.2rem, 0.72fr);
+  gap: 0.44rem;
   align-items: end;
 }
 
 .composer-control-label {
   display: block;
-  margin-bottom: 0.24rem;
-  color: var(--muted);
+  margin-bottom: 0.18rem;
+  color: var(--soft);
 }
 
 .composer-select-field {
@@ -555,11 +612,11 @@ pre {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 2.28rem;
-  padding-inline: 0.72rem;
+  min-height: 2.14rem;
+  padding-inline: 0.66rem;
   border: 1px solid var(--line);
-  border-radius: calc(var(--radius) - 0.06rem);
-  background: var(--surface);
+  border-radius: 0.45rem;
+  background: var(--surface-muted);
   transition:
     border-color 120ms ease,
     background-color 120ms ease;
@@ -578,10 +635,10 @@ pre {
   width: 100%;
   appearance: none;
   border: 0;
-  padding: 0.48rem 1.2rem 0.48rem 0;
+  padding: 0.42rem 1.1rem 0.42rem 0;
   background: transparent;
   outline: none;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   line-height: 1.35;
 }
 
@@ -607,9 +664,9 @@ pre {
 
 .composer-plan-toggle {
   width: 100%;
-  min-height: 2.28rem;
-  justify-content: flex-start;
-  border-radius: calc(var(--radius) - 0.06rem);
+  min-height: 2.14rem;
+  justify-content: space-between;
+  border-radius: 0.45rem;
   background: var(--surface-muted);
 }
 
@@ -621,8 +678,8 @@ pre {
 .composer-session-trigger {
   min-width: 0;
   justify-content: space-between;
-  padding-inline: 0.72rem;
-  border-radius: calc(var(--radius) - 0.06rem);
+  padding-inline: 0.66rem;
+  border-radius: 0.45rem;
 }
 
 .composer-session-trigger-label,
@@ -641,11 +698,11 @@ pre {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: left;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .composer-plan-toggle-value {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -656,15 +713,15 @@ pre {
 }
 
 .composer-input {
-  min-height: 3.1rem;
-  max-height: 12rem;
-  padding: 0.1rem 0 0;
+  min-height: 2.6rem;
+  max-height: 10rem;
+  padding: 0.08rem 0 0.14rem;
   border: 0;
   resize: none;
   background: transparent;
   outline: none;
-  font-size: 1rem;
-  line-height: 1.68;
+  font-size: 1.04rem;
+  line-height: 1.7;
 }
 
 .surface-input,
@@ -684,21 +741,21 @@ pre {
 .composer-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.55rem 0.85rem;
-  align-items: end;
+  gap: 0.42rem 0.74rem;
+  align-items: center;
 }
 
 .composer-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 0.24rem 0.72rem;
+  gap: 0.18rem 0.64rem;
   min-width: 0;
 }
 
 .composer-helper {
-  max-width: 32rem;
-  font-size: 0.74rem;
+  max-width: 36rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
@@ -706,19 +763,29 @@ pre {
   color: var(--text);
   font-size: 0.72rem;
   line-height: 1.35;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .composer-actions {
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.35rem;
 }
 
 .composer-utility-action {
-  min-height: 1.95rem;
-  padding: 0.34rem 0.62rem;
+  min-height: auto;
+  padding: 0.08rem 0.12rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.composer-utility-action:hover {
+  border: 0;
+  background: transparent;
+  color: var(--text);
 }
 
 .thread-drawer-backdrop,
@@ -946,34 +1013,37 @@ pre {
   .tui-shell,
   .thread-drawer-backdrop,
   .screen-overlay {
-    padding: 0.48rem;
+    padding: 0.5rem;
   }
 
   .shell-header {
-    padding-bottom: 0.42rem;
+    padding-bottom: 0.34rem;
   }
 
-  .composer-frame,
   .thread-drawer-surface,
   .surface-dialog,
   .approval-modal {
-    padding: 0.62rem;
+    padding: 0.72rem;
   }
 
   .transcript-scroll,
   .overlay-scroll {
-    padding: 1rem 0.95rem 1.12rem;
+    padding: 1.12rem 1rem 1.24rem;
   }
 
   .history-list {
     width: 100%;
-    gap: 0.98rem;
+    gap: 1rem;
+  }
+
+  .history-list::before {
+    left: calc(4rem - 0.7rem);
   }
 
   .history-message-group,
   .history-event {
     grid-template-columns: 4rem minmax(0, 1fr);
-    gap: 0.42rem 0.78rem;
+    gap: 0.4rem 0.86rem;
   }
 
   .surface-dialog,
@@ -986,13 +1056,13 @@ pre {
 
 @media (max-width: 760px) {
   .tui-shell {
-    padding: max(0.35rem, env(safe-area-inset-top)) 0.38rem
-      max(0.35rem, env(safe-area-inset-bottom));
-    gap: 0.32rem;
+    padding: max(0.32rem, env(safe-area-inset-top)) 0.46rem
+      max(0.3rem, env(safe-area-inset-bottom));
+    gap: 0.22rem;
   }
 
   .shell-header {
-    padding: 0 0.08rem 0.36rem;
+    padding: 0 0.04rem 0.26rem;
   }
 
   .shell-header-rail {
@@ -1001,7 +1071,7 @@ pre {
       "threads status"
       "session session";
     align-items: start;
-    gap: 0.5rem 0.65rem;
+    gap: 0.42rem 0.55rem;
   }
 
   .shell-session-meta {
@@ -1016,18 +1086,21 @@ pre {
 
   .transcript-scroll,
   .overlay-scroll {
-    padding: 0.85rem 0.16rem 0.98rem;
+    padding: 0.78rem 0 0.92rem;
   }
 
   .history-empty {
-    place-items: start center;
-    padding-top: 22vh;
+    padding: 0 0.9rem 16vh;
+  }
+
+  .history-list::before {
+    display: none;
   }
 
   .history-message-group,
   .history-event {
     grid-template-columns: 1fr;
-    gap: 0.3rem;
+    gap: 0.28rem;
   }
 
   .history-message-group-head,
@@ -1035,20 +1108,20 @@ pre {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.42rem;
   }
 
   .history-event-summaryline {
-    gap: 0.5rem;
+    gap: 0.42rem;
   }
 
   .history-message-line {
-    font-size: 0.98rem;
+    font-size: 0.97rem;
   }
 
   .composer-frame {
-    gap: 0.48rem;
-    padding: 0.54rem 0.58rem 0.58rem;
+    gap: 0.34rem;
+    padding: 0.42rem 0 0.1rem;
   }
 
   .composer-mobile-session-bar {
@@ -1061,16 +1134,16 @@ pre {
   .composer-session-trigger,
   .composer-plan-toggle-mobile {
     display: inline-flex;
-    min-height: 2.18rem;
-    padding: 0.46rem 0.58rem;
+    min-height: 2.02rem;
+    padding: 0.42rem 0.54rem;
   }
 
   .composer-plan-toggle-mobile {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.12rem;
-    min-width: 4.9rem;
-    border-radius: calc(var(--radius) - 0.06rem);
+    min-width: 4.4rem;
+    border-radius: 0.45rem;
     background: var(--surface-muted);
   }
 
@@ -1080,10 +1153,10 @@ pre {
 
   .composer-controls {
     display: none;
-    gap: 0.4rem;
-    padding-top: 0.48rem;
+    gap: 0.38rem;
+    padding-top: 0.42rem;
     padding-bottom: 0;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--line-soft);
     border-bottom: 0;
   }
 
@@ -1093,7 +1166,7 @@ pre {
 
   .composer-controls-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.42rem;
+    gap: 0.36rem;
   }
 
   .composer-controls-grid > :nth-child(3) {
@@ -1105,17 +1178,17 @@ pre {
   }
 
   .composer-select-shell {
-    min-height: 2.18rem;
+    min-height: 2.02rem;
   }
 
   .composer-input {
-    min-height: 2.6rem;
-    line-height: 1.6;
+    min-height: 2.26rem;
+    line-height: 1.56;
   }
 
   .composer-toolbar {
     grid-template-columns: 1fr;
-    gap: 0.45rem;
+    gap: 0.34rem;
     align-items: stretch;
   }
 
@@ -1123,18 +1196,26 @@ pre {
     display: none;
   }
 
+  .composer-inline-status {
+    font-size: 0.7rem;
+  }
+
   .composer-actions {
     width: 100%;
     justify-content: space-between;
-    gap: 0.34rem;
+    gap: 0.3rem;
   }
 
   .sidebar-trigger,
   .plain-action,
-  .action-button,
-  .composer-utility-action {
+  .action-button {
     min-height: 1.88rem;
     padding: 0.32rem 0.58rem;
+  }
+
+  .composer-utility-action {
+    min-height: auto;
+    padding: 0.08rem 0;
   }
 
   .thread-drawer-backdrop,
@@ -1168,7 +1249,7 @@ pre {
 
 @media (max-width: 480px) {
   .history-empty {
-    padding-top: 18vh;
+    padding-bottom: 14vh;
   }
 
   .composer-session-trigger-value {
