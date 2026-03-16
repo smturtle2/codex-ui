@@ -2,6 +2,8 @@ import http, {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import { readdir, realpath } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import process from "node:process";
 import next from "next";
 import { WebSocketServer } from "ws";
@@ -30,6 +32,47 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   }
 
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+type WorkspaceDirectoryEntry = {
+  name: string;
+  path: string;
+};
+
+async function resolveDirectoryPath(rawPath: string | null | undefined): Promise<string> {
+  const candidate = rawPath?.trim() ? resolve(rawPath.trim()) : process.cwd();
+  return realpath(candidate);
+}
+
+async function listWorkspaceDirectories(
+  rawPath: string | null | undefined,
+): Promise<{
+  currentPath: string;
+  parentPath: string | null;
+  directories: WorkspaceDirectoryEntry[];
+}> {
+  const currentPath = await resolveDirectoryPath(rawPath);
+  const entries = await readdir(currentPath, { withFileTypes: true });
+  const directories = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({
+      name: entry.name,
+      path: resolve(currentPath, entry.name),
+    }))
+    .sort((left, right) =>
+      left.name.localeCompare(right.name, undefined, {
+        sensitivity: "base",
+        numeric: true,
+      }),
+    );
+  const parentCandidate = dirname(currentPath);
+  const parentPath = parentCandidate === currentPath ? null : parentCandidate;
+
+  return {
+    currentPath,
+    parentPath,
+    directories,
+  };
 }
 
 async function main(): Promise<void> {
@@ -99,6 +142,12 @@ async function main(): Promise<void> {
 
         const snapshot = await bridge.readThread(body.threadId);
         json(response, 200, { snapshot });
+        return;
+      }
+
+      if (url.pathname === "/api/workspace/list" && request.method === "GET") {
+        const listing = await listWorkspaceDirectories(url.searchParams.get("path"));
+        json(response, 200, listing);
         return;
       }
 

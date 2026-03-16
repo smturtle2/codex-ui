@@ -4,7 +4,7 @@ import type { RefObject } from "react";
 
 import type { UiLanguage } from "@/components/codex-shell/copy";
 import type { ThreadDrawerSort } from "@/components/codex-shell/types";
-import type { WorkspaceOption, ThreadListItem } from "@/lib/shared";
+import type { ThreadListItem } from "@/lib/shared";
 
 import type { UiLocale } from "./copy";
 import { formatRelativeTime } from "./utils";
@@ -18,8 +18,8 @@ type HomeCopy = {
   createTitle: string;
   createIntro: string;
   workspace: string;
-  workspacePlaceholder: string;
-  workspaceHint: string;
+  workspaceSelected: string;
+  browseWorkspace: string;
   currentWorkspace: string;
   startThread: string;
   search: string;
@@ -49,15 +49,14 @@ type HomeScreenProps = {
   filteredThreads: ThreadListItem[];
   workspaceDraft: string;
   defaultWorkspacePath: string;
-  workspaceOptions: WorkspaceOption[];
   statusLabel: string;
   statusTone: "ready" | "working" | "pending" | "error" | "starting";
   searchInputRef?: RefObject<HTMLInputElement | null>;
   onLanguageChange: (language: UiLanguage) => void;
   onSearchChange: (value: string) => void;
   onSortChange: (sort: ThreadDrawerSort) => void;
-  onWorkspaceChange: (value: string) => void;
   onUseDefaultWorkspace: () => void;
+  onOpenWorkspacePicker: () => void;
   onCreateThread: () => void;
   onOpenThread: (threadId: string) => void;
 };
@@ -115,15 +114,14 @@ export function HomeScreen({
   filteredThreads,
   workspaceDraft,
   defaultWorkspacePath,
-  workspaceOptions,
   statusLabel,
   statusTone,
   searchInputRef,
   onLanguageChange,
   onSearchChange,
   onSortChange,
-  onWorkspaceChange,
   onUseDefaultWorkspace,
+  onOpenWorkspacePicker,
   onCreateThread,
   onOpenThread,
 }: HomeScreenProps) {
@@ -166,92 +164,48 @@ export function HomeScreen({
       </header>
 
       <div className="home-grid">
-        <section className="home-sidebar">
-          <div className="home-panel-head">
-            <span className="home-section-label">{copy.createTitle}</span>
-            <strong>{copy.createTitle}</strong>
-          </div>
-
-          <p className="home-panel-copy">{copy.createIntro}</p>
-
-          <label className="home-workspace-field" htmlFor="workspace-draft">
-            <span className="home-field-label">{copy.workspace}</span>
-            <input
-              id="workspace-draft"
-              list="workspace-presets"
-              className="surface-input"
-              value={workspaceDraft}
-              onChange={(event) => onWorkspaceChange(event.target.value)}
-              placeholder={copy.workspacePlaceholder}
-            />
-          </label>
-
-          <datalist id="workspace-presets">
-            {workspaceOptions.map((workspace) => (
-              <option key={workspace.path} value={workspace.path}>
-                {workspace.label}
-              </option>
-            ))}
-          </datalist>
-
-          <p className="home-workspace-hint">{copy.workspaceHint}</p>
-
-          <div className="home-create-actions">
-            <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
-              {copy.currentWorkspace}
-            </button>
-            <button className="action-button" type="button" onClick={onCreateThread}>
-              {copy.startThread}
-            </button>
-          </div>
-
-          <div className="home-session-summary">
-            <span className="home-section-label">{copy.sessionLabel}</span>
-            <strong>{sessionSummary}</strong>
-            <span>{selectedPlanMode ? copy.planOn : copy.planOff}</span>
-            <span title={defaultWorkspacePath}>{defaultWorkspacePath}</span>
-          </div>
-        </section>
-
         <section className="home-main">
           <div className="home-list-toolbar">
-            <label className="sr-only" htmlFor="home-search">
-              {copy.search}
-            </label>
-            <input
-              id="home-search"
-              ref={searchInputRef}
-              className="surface-input"
-              value={search}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder={copy.searchPlaceholder}
-            />
+            <div className="home-list-heading">
+              <span className="home-section-label">{copy.threadList(filteredThreads.length)}</span>
+              <strong>{copy.currentThread}</strong>
+            </div>
 
-            <div className="home-sort-group" role="group" aria-label={copy.sortThreads}>
-              <button
-                className={`picker-chip ${sort === "updated" ? "selected" : ""}`}
-                type="button"
-                aria-pressed={sort === "updated"}
-                onClick={() => onSortChange("updated")}
-              >
-                {copy.updatedSort}
-              </button>
-              <button
-                className={`picker-chip ${sort === "created" ? "selected" : ""}`}
-                type="button"
-                aria-pressed={sort === "created"}
-                onClick={() => onSortChange("created")}
-              >
-                {copy.createdSort}
-              </button>
+            <div className="home-toolbar-controls">
+              <label className="sr-only" htmlFor="home-search">
+                {copy.search}
+              </label>
+              <input
+                id="home-search"
+                ref={searchInputRef}
+                className="surface-input"
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={copy.searchPlaceholder}
+              />
+
+              <div className="home-sort-group" role="group" aria-label={copy.sortThreads}>
+                <button
+                  className={`picker-chip ${sort === "updated" ? "selected" : ""}`}
+                  type="button"
+                  aria-pressed={sort === "updated"}
+                  onClick={() => onSortChange("updated")}
+                >
+                  {copy.updatedSort}
+                </button>
+                <button
+                  className={`picker-chip ${sort === "created" ? "selected" : ""}`}
+                  type="button"
+                  aria-pressed={sort === "created"}
+                  onClick={() => onSortChange("created")}
+                >
+                  {copy.createdSort}
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="home-thread-list-shell">
-            <div className="home-list-head">
-              <span className="home-section-label">{copy.threadList(filteredThreads.length)}</span>
-            </div>
-
             <div className="home-thread-list">
               {activeThread ? (
                 <section className="home-thread-group">
@@ -287,6 +241,42 @@ export function HomeScreen({
             </div>
           </div>
         </section>
+
+        <aside className="home-sidebar">
+          <div className="home-panel-head">
+            <span className="home-section-label">{copy.createTitle}</span>
+            <strong>{copy.createTitle}</strong>
+          </div>
+
+          <p className="home-panel-copy">{copy.createIntro}</p>
+
+          <div className="home-workspace-card">
+            <span className="home-field-label">{copy.workspace}</span>
+            <strong>{copy.workspaceSelected}</strong>
+            <div className="home-workspace-path" title={workspaceDraft}>
+              {workspaceDraft}
+            </div>
+          </div>
+
+          <div className="home-create-actions">
+            <button className="plain-action" type="button" onClick={onOpenWorkspacePicker}>
+              {copy.browseWorkspace}
+            </button>
+            <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
+              {copy.currentWorkspace}
+            </button>
+            <button className="action-button" type="button" onClick={onCreateThread}>
+              {copy.startThread}
+            </button>
+          </div>
+
+          <div className="home-session-summary">
+            <span className="home-section-label">{copy.sessionLabel}</span>
+            <strong>{sessionSummary}</strong>
+            <span>{selectedPlanMode ? copy.planOn : copy.planOff}</span>
+            <span title={defaultWorkspacePath}>{defaultWorkspacePath}</span>
+          </div>
+        </aside>
       </div>
     </section>
   );

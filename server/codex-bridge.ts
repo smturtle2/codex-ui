@@ -269,9 +269,9 @@ function summarizeUserInputs(content: Array<{ type: string; text?: string; path?
 function resolveTimelineEntryId(
   itemType: string,
   itemId: string,
-  _turnId: string | null,
+  turnId: string | null,
 ): string {
-  return itemId;
+  return turnId ? `${turnId}:${itemType}:${itemId}` : `${itemType}:${itemId}`;
 }
 
 function buildFileChangeBody(
@@ -577,6 +577,37 @@ function timelineEntryFromTurnItem(
         updatedAt: now,
       };
   }
+}
+
+function isThreadNotMaterializedError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /not materialized yet|includeTurns is unavailable before first user message/i.test(
+    error.message,
+  );
+}
+
+function createPendingApprovalTimelineEntry(
+  request: TrackedPendingRequest,
+): TimelineEntry | null {
+  if (!request.threadId) {
+    return null;
+  }
+
+  return {
+    id: `request:${request.id}`,
+    threadId: request.threadId,
+    turnId: request.turnId,
+    kind: "approval",
+    title: request.summary,
+    body: request.detail,
+    tone: "warning",
+    status: "pending",
+    rawMethod: request.method,
+    updatedAt: request.createdAt,
+  };
 }
 
 export class CodexBridge extends EventEmitter {
@@ -957,12 +988,26 @@ export class CodexBridge extends EventEmitter {
   }
 
   private async readThreadWithTurns(threadId: string): Promise<Thread> {
-    const response = (await this.sendRequest<ThreadReadResponse>("thread/read", {
-      threadId,
-      includeTurns: true,
-    })) as ThreadReadResponse;
+    try {
+      const response = (await this.sendRequest<ThreadReadResponse>("thread/read", {
+        threadId,
+        includeTurns: true,
+      })) as ThreadReadResponse;
 
-    return response.thread;
+      return response.thread;
+    } catch (error) {
+      if (isThreadNotMaterializedError(error)) {
+        const existing = this.state.threads.get(threadId);
+        if (existing) {
+          return {
+            ...existing,
+            turns: [],
+          };
+        }
+      }
+
+      throw error;
+    }
   }
 
   private async fetchAndHydrateThread(threadId: string): Promise<Thread> {
@@ -987,14 +1032,21 @@ export class CodexBridge extends EventEmitter {
 
   private hydrateThreadTimeline(thread: Thread): void {
     const entries: TimelineEntry[] = [];
+    const streamingItems = new Map<string, StreamingItemState>();
 
     for (const turn of thread.turns) {
       entries.push(createTurnTimelineEntry(thread.id, turn, Date.now()));
       const turnEntries = new Map<string, TimelineEntry>();
       const turnEntryOrder: string[] = [];
+      const isRunningTurn = turn.status === "inProgress";
 
       for (const item of turn.items as Array<Record<string, unknown>>) {
-        const nextEntry = timelineEntryFromTurnItem(thread.id, turn.id, item, "completed");
+        const nextEntry = timelineEntryFromTurnItem(
+          thread.id,
+          turn.id,
+          item,
+          isRunningTurn ? "running" : "completed",
+        );
         const currentEntry = turnEntries.get(nextEntry.id);
         if (!currentEntry) {
           turnEntryOrder.push(nextEntry.id);
@@ -1003,6 +1055,13 @@ export class CodexBridge extends EventEmitter {
           nextEntry.id,
           mergeHydratedTimelineEntry(currentEntry, nextEntry),
         );
+
+        if (isRunningTurn) {
+          streamingItems.set(nextEntry.id, {
+            turnId: turn.id,
+            item,
+          });
+        }
       }
 
       for (const entryId of turnEntryOrder) {
@@ -1013,8 +1072,17 @@ export class CodexBridge extends EventEmitter {
       }
     }
 
+    for (const request of this.state.pendingRequests.values()) {
+      const approvalEntry = createPendingApprovalTimelineEntry(request);
+      if (!approvalEntry || approvalEntry.threadId !== thread.id) {
+        continue;
+      }
+
+      entries.push(approvalEntry);
+    }
+
     this.state.timelineByThread.set(thread.id, entries);
-    this.state.streamingItemsByThread.set(thread.id, new Map());
+    this.state.streamingItemsByThread.set(thread.id, streamingItems);
   }
 
   private resolveBootstrapThreadId(): string | null {
@@ -1137,19 +1205,11 @@ export class CodexBridge extends EventEmitter {
       createdAt: Date.now(),
     });
 
-    if (threadId) {
-      this.appendTimelineEntry(threadId, {
-        id: `request:${requestId}`,
-        threadId,
-        turnId,
-        kind: "approval",
-        title: summary,
-        body: detail,
-        tone: "warning",
-        status: "pending",
-        rawMethod: request.method,
-        updatedAt: Date.now(),
-      });
+    const approvalEntry = createPendingApprovalTimelineEntry(
+      this.state.pendingRequests.get(requestId)!,
+    );
+    if (approvalEntry) {
+      this.appendTimelineEntry(approvalEntry.threadId, approvalEntry);
     }
 
     this.publish();

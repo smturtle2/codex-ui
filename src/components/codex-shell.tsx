@@ -25,6 +25,7 @@ import { HomeScreen } from "@/components/codex-shell/home-screen";
 import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
 import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
+import { WorkspacePicker } from "@/components/codex-shell/workspace-picker";
 import type { SurfaceKind, ThreadDrawerSort } from "@/components/codex-shell/types";
 import {
   approvalDecisionLabel,
@@ -40,7 +41,7 @@ import {
 } from "@/components/codex-shell/utils";
 import type { CommandExecutionApprovalDecision } from "@/generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import type { ToolRequestUserInputQuestion } from "@/generated/codex-app-server/v2/ToolRequestUserInputQuestion";
-import type { BridgeSnapshot } from "@/lib/shared";
+import type { BridgeSnapshot, WorkspaceListing } from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
 
 type ApprovalChoice = {
@@ -113,6 +114,8 @@ export function CodexShell() {
   const [requestAnswers, setRequestAnswers] = useState<
     Record<string, Record<string, string>>
   >({});
+  const [workspaceListing, setWorkspaceListing] = useState<WorkspaceListing | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
@@ -489,6 +492,30 @@ export function CodexShell() {
     if (restoreFocus) {
       restoreFocusToOrigin();
     }
+  }
+
+  async function loadWorkspaceListing(path?: string | null) {
+    try {
+      setWorkspaceLoading(true);
+      const nextPath = path?.trim();
+      const query = nextPath ? `?path=${encodeURIComponent(nextPath)}` : "";
+      const listing = await callApi<WorkspaceListing>(`/api/workspace/list${query}`);
+      setWorkspaceListing(listing);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Failed to load directories.");
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }
+
+  async function handleOpenWorkspacePicker(origin?: HTMLElement | null) {
+    openSurface("workspace", origin);
+    await loadWorkspaceListing(workspaceDraft || snapshot?.defaultWorkspacePath);
+  }
+
+  function handleChooseWorkspace(path: string) {
+    setWorkspaceDraft(path);
+    closeSurface();
   }
 
   async function syncSnapshotFromResult(
@@ -1156,8 +1183,8 @@ export function CodexShell() {
             createTitle: copy.home.createTitle,
             createIntro: copy.home.createIntro,
             workspace: copy.home.workspace,
-            workspacePlaceholder: copy.home.workspacePlaceholder,
-            workspaceHint: copy.home.workspaceHint,
+            workspaceSelected: copy.home.workspaceSelected,
+            browseWorkspace: copy.home.browseWorkspace,
             currentWorkspace: copy.home.currentWorkspace,
             startThread: copy.home.startThread,
             search: copy.home.search,
@@ -1183,16 +1210,19 @@ export function CodexShell() {
           filteredThreads={filteredThreads}
           workspaceDraft={workspaceDraft}
           defaultWorkspacePath={snapshot?.defaultWorkspacePath ?? ""}
-          workspaceOptions={snapshot?.workspaceOptions ?? []}
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
           onLanguageChange={handleLanguageChange}
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
-          onWorkspaceChange={setWorkspaceDraft}
           onUseDefaultWorkspace={() => {
             setWorkspaceDraft(snapshot?.defaultWorkspacePath ?? "");
+          }}
+          onOpenWorkspacePicker={() => {
+            void handleOpenWorkspacePicker(
+              document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            );
           }}
           onCreateThread={() => {
             void handleCreateThread({
@@ -1252,12 +1282,6 @@ export function CodexShell() {
             selectedEffort={selectedEffortValue}
             selectedLanguage={selectedLanguageValue}
             planMode={selectedPlanMode}
-            sessionSummary={sessionSummary}
-            sessionAriaLabel={copy.composer.sessionAria(
-              selectedModelLabel,
-              selectedEffortLabel,
-              selectedLanguageLabel,
-            )}
             modelOptions={sessionModelOptions}
             effortOptions={sessionEffortOptions}
             languageOptions={languageOptions}
@@ -1301,6 +1325,40 @@ export function CodexShell() {
             }}
           />
         </section>
+      ) : null}
+
+      {activeOverlay === "workspace" ? (
+        <SurfaceDialog
+          ref={overlayPanelRef}
+          title={copy.workspacePicker.title}
+          subtitle={copy.workspacePicker.subtitle}
+          footer={copy.surface.statusFooter}
+          kickerLabel={copy.home.workspace}
+          closeLabel={copy.common.close}
+          size="wide"
+          onClose={() => closeSurface()}
+        >
+          <WorkspacePicker
+            listing={workspaceListing}
+            loading={workspaceLoading}
+            recentWorkspaces={snapshot?.workspaceOptions ?? []}
+            labels={{
+              currentPath: copy.workspacePicker.currentPath,
+              recent: copy.workspacePicker.recent,
+              folders: copy.workspacePicker.folders,
+              selectCurrent: copy.workspacePicker.selectCurrent,
+              goUp: copy.workspacePicker.goUp,
+              empty: copy.workspacePicker.empty,
+              current: copy.workspacePicker.current,
+              threads: copy.workspacePicker.threads,
+              loading: copy.workspacePicker.loading,
+            }}
+            onNavigate={(path) => {
+              void loadWorkspaceListing(path);
+            }}
+            onChoose={handleChooseWorkspace}
+          />
+        </SurfaceDialog>
       ) : null}
 
       {activeOverlay === "status" && snapshot ? (

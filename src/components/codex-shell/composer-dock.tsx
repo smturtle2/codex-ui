@@ -1,11 +1,8 @@
 "use client";
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEventHandler,
-  type RefObject,
+import type {
+  KeyboardEventHandler,
+  RefObject,
 } from "react";
 
 import type { UiLanguage } from "@/components/codex-shell/copy";
@@ -30,8 +27,6 @@ type ComposerDockProps = {
   selectedEffort: string;
   selectedLanguage: UiLanguage;
   planMode: boolean;
-  sessionSummary: string;
-  sessionAriaLabel: string;
   modelOptions: SessionOption[];
   effortOptions: SessionOption[];
   languageOptions: SessionOption[];
@@ -123,8 +118,6 @@ export function ComposerDock({
   selectedEffort,
   selectedLanguage,
   planMode,
-  sessionSummary,
-  sessionAriaLabel,
   modelOptions,
   effortOptions,
   languageOptions,
@@ -139,28 +132,6 @@ export function ComposerDock({
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
-  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
-  const sessionMenuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!sessionMenuOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      if (sessionMenuRef.current?.contains(event.target as Node)) {
-        return;
-      }
-
-      setSessionMenuOpen(false);
-    };
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [sessionMenuOpen]);
-
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -183,56 +154,34 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-session-bar">
-          <div ref={sessionMenuRef} className="composer-session-shell">
-            <button
-              className={`composer-session-trigger ${sessionMenuOpen ? "open" : ""}`}
-              type="button"
-              aria-expanded={sessionMenuOpen}
-              aria-label={sessionAriaLabel}
-              onClick={() => setSessionMenuOpen((current) => !current)}
-            >
-              <span className="composer-session-trigger-label">{labels.session}</span>
-              <span className="composer-session-trigger-value">{sessionSummary}</span>
-              <span className="composer-control-caret" aria-hidden="true">
-                v
-              </span>
-            </button>
+        <div className="composer-controls" role="group" aria-label={labels.session}>
+          <SessionSelectField
+            id="composer-model"
+            label={labels.model}
+            value={selectedModel}
+            options={modelOptions}
+            unavailableLabel={labels.unavailable}
+            selectRef={modelSelectRef}
+            onChange={onModelChange}
+          />
 
-            {sessionMenuOpen ? (
-              <div className="composer-session-menu" role="dialog" aria-label={labels.session}>
-                <div className="composer-session-grid">
-                  <SessionSelectField
-                    id="composer-model"
-                    label={labels.model}
-                    value={selectedModel}
-                    options={modelOptions}
-                    unavailableLabel={labels.unavailable}
-                    selectRef={modelSelectRef}
-                    onChange={onModelChange}
-                  />
+          <SessionSelectField
+            id="composer-effort"
+            label={labels.reasoning}
+            value={selectedEffort}
+            options={effortOptions}
+            unavailableLabel={labels.unavailable}
+            onChange={onEffortChange}
+          />
 
-                  <SessionSelectField
-                    id="composer-effort"
-                    label={labels.reasoning}
-                    value={selectedEffort}
-                    options={effortOptions}
-                    unavailableLabel={labels.unavailable}
-                    onChange={onEffortChange}
-                  />
-
-                  <SessionSelectField
-                    id="composer-language"
-                    label={labels.language}
-                    value={selectedLanguage}
-                    options={languageOptions}
-                    unavailableLabel={labels.unavailable}
-                    onChange={(value) => onLanguageChange(value as UiLanguage)}
-                  />
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <SessionSelectField
+            id="composer-language"
+            label={labels.language}
+            value={selectedLanguage}
+            options={languageOptions}
+            unavailableLabel={labels.unavailable}
+            onChange={(value) => onLanguageChange(value as UiLanguage)}
+          />
 
           <button
             className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
@@ -247,22 +196,15 @@ export function ComposerDock({
           </button>
         </div>
 
-        <textarea
-          ref={composerRef}
-          value={composer}
-          onChange={(event) => onComposerChange(event.target.value)}
-          onKeyDown={onComposerKeyDown}
-          placeholder={labels.placeholder}
-          className="composer-input"
-        />
-
-        <div className="composer-toolbar">
-          <div className="composer-meta">
-            <span className="composer-inline-status" aria-live="polite">
-              {statusText}
-            </span>
-            <span className="composer-helper">{helperText}</span>
-          </div>
+        <div className="composer-input-row">
+          <textarea
+            ref={composerRef}
+            value={composer}
+            onChange={(event) => onComposerChange(event.target.value)}
+            onKeyDown={onComposerKeyDown}
+            placeholder={labels.placeholder}
+            className="composer-input"
+          />
 
           <div className="composer-actions">
             {activeTurn ? (
@@ -280,6 +222,13 @@ export function ComposerDock({
               {labels.send}
             </button>
           </div>
+        </div>
+
+        <div className="composer-toolbar">
+          <span className="composer-inline-status" aria-live="polite">
+            {statusText}
+          </span>
+          <span className="composer-helper">{helperText}</span>
         </div>
       </div>
     </section>

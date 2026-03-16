@@ -117,15 +117,17 @@ const UI_COPY = {
     },
     home: {
       eyebrow: "Local-first Codex UI",
-      title: "Choose a thread or start a clean one.",
+      title: "Choose a thread or start a new one.",
       intro:
-        "Home stays minimal: pick an existing thread, set the workspace for a new one, then drop into the transcript.",
+        "Start from the launcher. Open a recent thread or pick a workspace for a new one, then move straight into the transcript.",
       currentThread: "Current thread",
       threadList: (count: number) => `${count} threads`,
       createTitle: "New thread",
       createIntro:
-        "Set the workspace here. Model and reasoning stay in the chat input once the thread opens.",
+        "Pick the workspace here. Model, reasoning, language, and plan stay in the chat input once the thread opens.",
       workspace: "Workspace",
+      workspaceSelected: "Selected workspace",
+      browseWorkspace: "Choose directory",
       workspacePlaceholder: "/path/to/workspace",
       workspaceHint:
         "Recent workspaces appear as suggestions. Leave this as the current workspace if you want the project you launched from.",
@@ -143,6 +145,19 @@ const UI_COPY = {
       createdSort: "Created",
       planOn: "Plan on",
       planOff: "Plan off",
+    },
+    workspacePicker: {
+      title: "Choose workspace",
+      subtitle: "Browse directories or pick from recent workspaces.",
+      currentPath: "Current path",
+      recent: "Recent workspaces",
+      folders: "Folders",
+      selectCurrent: "Use this directory",
+      goUp: "Parent",
+      empty: "No subdirectories here.",
+      current: "Current",
+      threads: (count: number) => `${count} thread${count === 1 ? "" : "s"}`,
+      loading: "Loading",
     },
     surface: {
       overlay: "Overlay",
@@ -360,13 +375,15 @@ const UI_COPY = {
       eyebrow: "로컬 우선 Codex UI",
       title: "기존 thread를 열거나 새 thread를 시작하세요.",
       intro:
-        "Home은 최소한으로 유지됩니다. 기존 thread를 선택하거나 새 thread의 워크스페이스를 정한 뒤 transcript로 들어갑니다.",
+        "런처에서 시작합니다. 최근 thread를 열거나 새 thread용 워크스페이스를 고른 뒤 곧바로 transcript로 들어갑니다.",
       currentThread: "현재 thread",
       threadList: (count: number) => `${count}개 thread`,
       createTitle: "새 thread",
       createIntro:
-        "여기서 워크스페이스를 정합니다. 모델과 추론 수준은 thread가 열린 뒤 채팅 입력 영역에서 바꿉니다.",
+        "여기서 워크스페이스를 고릅니다. 모델, 추론 수준, 언어, plan은 thread가 열린 뒤 채팅 입력 영역에서 바꿉니다.",
       workspace: "워크스페이스",
+      workspaceSelected: "선택된 워크스페이스",
+      browseWorkspace: "디렉토리 선택",
       workspacePlaceholder: "/path/to/workspace",
       workspaceHint:
         "최근 워크스페이스가 제안으로 표시됩니다. 현재 프로젝트에서 시작하려면 그대로 두세요.",
@@ -384,6 +401,19 @@ const UI_COPY = {
       createdSort: "생성순",
       planOn: "Plan 켜짐",
       planOff: "Plan 꺼짐",
+    },
+    workspacePicker: {
+      title: "워크스페이스 선택",
+      subtitle: "디렉토리를 탐색하거나 최근 워크스페이스에서 바로 고르세요.",
+      currentPath: "현재 경로",
+      recent: "최근 워크스페이스",
+      folders: "폴더",
+      selectCurrent: "이 디렉토리 사용",
+      goUp: "상위",
+      empty: "하위 디렉토리가 없습니다.",
+      current: "현재",
+      threads: (count: number) => `${count}개 thread`,
+      loading: "불러오는 중",
     },
     surface: {
       overlay: "오버레이",

@@ -83,6 +83,17 @@ export type WorkspaceOption = {
   isCurrent: boolean;
 };
 
+export type WorkspaceDirectoryEntry = {
+  name: string;
+  path: string;
+};
+
+export type WorkspaceListing = {
+  currentPath: string;
+  parentPath: string | null;
+  directories: WorkspaceDirectoryEntry[];
+};
+
 export type BridgeSnapshot = {
   phase: BridgePhase;
   lastError: string | null;
