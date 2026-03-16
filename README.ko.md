@@ -60,14 +60,16 @@
 ## 핵심 특징
 
 - 런처 우선 흐름: 전용 홈 화면에서 기존 thread를 열거나 새 thread를 시작합니다.
+- 일관된 새 thread 흐름: 슬래시 명령으로 새 thread를 시작할 때도 홈 런처로 돌아가 workspace 선택 단계를 유지합니다.
 - 모바일 quick start: 좁은 화면에서도 `Start thread`와 workspace 선택이 thread 목록 위에 바로 보입니다.
-- 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택합니다.
+- 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택하며, 마지막 선택을 유지하고 생성 폴더보다 실제 작업 폴더를 먼저 보여줍니다.
 - transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 문자 대신 얇은 시각적 구분선으로 나뉩니다.
 - 직접 세션 제어: `Model`, `Reasoning`, `Plan`을 composer 안에서 바로 바꾸고, 모바일에서도 compact strip과 즉시 누를 수 있는 `Plan` 토글을 유지합니다.
 - 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.
 - 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조와 approval 삽입 지점을 유지합니다.
-- 모바일 재구성: 홈에서는 thread 선택과 새 thread 시작을 동시에 바로 보여주고, 채팅은 최신 출력까지 자동 스크롤되며, settings/workspace surface는 모바일 시트처럼 동작합니다.
+- 모바일 재구성: 홈에서는 thread 선택과 새 thread 시작을 동시에 바로 보여주고, 채팅은 최신 출력까지 자동 스크롤되며, 유휴 상태의 중복 크롬을 줄여 채팅 공간을 더 확보하고, settings/workspace surface는 모바일 시트처럼 동작합니다.
 - Tailscale Funnel 플래그: `--funnel`만 붙이면 한 줄 실행으로 외부 공개까지 연결됩니다.
+- 고정된 preview 스크린샷: README 이미지는 실제 로컬 transcript 대신 내장 demo 상태로 생성됩니다.
 
 ## 아키텍처
 
@@ -127,3 +129,4 @@ python scripts/generate_preview_images.py
 ```
 
 `python scripts/generate_preview_images.py`를 실행하면 README에 쓰는 데스크톱/모바일 스크린샷 세트를 다시 생성합니다.
+이 스크립트는 `/?demo=1`을 열기 때문에 실제 로컬 transcript 내용에 영향받지 않고 같은 preview 자산을 다시 만들 수 있습니다.

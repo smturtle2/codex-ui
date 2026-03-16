@@ -60,14 +60,16 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 ## Highlights
 
 - Launcher-first flow: open an existing thread or start a new one from a dedicated home screen.
+- Consistent new-thread flow: slash commands return to the launcher so workspace selection stays part of starting a new thread.
 - Mobile quick start: keep `Start thread` and workspace selection visible above the thread list on narrow screens.
-- Workspace picker: choose directories from a dedicated browser instead of typing raw paths.
+- Workspace picker: choose directories from a dedicated browser, keep the last selected workspace, and prioritize real project folders over generated directories.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
 - Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer, with a compact mobile strip and an immediate `Plan` toggle.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
 - Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure and preserve approval insertion points.
-- Mobile-aware layout: home exposes both thread selection and new-thread controls immediately, chat opens scrolled to the latest output, and settings/workspace surfaces turn into phone-friendly sheets.
+- Mobile-aware layout: home exposes both thread selection and new-thread controls immediately, chat opens scrolled to the latest output, hides redundant idle chrome on phones, and settings/workspace surfaces turn into phone-friendly sheets.
 - Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
+- Deterministic previews: README screenshots come from a built-in demo state instead of live local thread content.
 
 ## Architecture
 
@@ -127,3 +129,4 @@ python scripts/generate_preview_images.py
 ```
 
 `python scripts/generate_preview_images.py` refreshes the desktop and mobile screenshots used in this README.
+It opens `/?demo=1`, so preview assets stay stable and do not depend on your real local transcript history.

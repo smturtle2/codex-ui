@@ -46,7 +46,6 @@ type HomeScreenProps = {
   activeThread: ThreadListItem | null;
   filteredThreads: ThreadListItem[];
   workspaceDraft: string;
-  defaultWorkspacePath: string;
   statusLabel: string;
   statusTone: "ready" | "working" | "pending" | "error" | "starting";
   searchInputRef?: RefObject<HTMLInputElement | null>;
@@ -109,7 +108,6 @@ export function HomeScreen({
   activeThread,
   filteredThreads,
   workspaceDraft,
-  defaultWorkspacePath,
   statusLabel,
   statusTone,
   searchInputRef,
@@ -282,7 +280,7 @@ export function HomeScreen({
             <span className="home-section-label">{copy.sessionLabel}</span>
             <strong>{sessionSummary}</strong>
             <span>{selectedPlanMode ? copy.planOn : copy.planOff}</span>
-            <span title={defaultWorkspacePath}>{defaultWorkspacePath}</span>
+            <span title={workspaceDraft}>{workspaceDraft}</span>
           </div>
         </aside>
       </div>

@@ -40,6 +40,17 @@ type WorkspaceDirectoryEntry = {
   path: string;
 };
 
+const DEEMPHASIZED_WORKSPACE_DIRECTORIES = new Set([
+  ".git",
+  ".next",
+  ".playwright-cli",
+  "coverage",
+  "dist",
+  "build",
+  "node_modules",
+  "output",
+]);
+
 type CliOptions = {
   funnel: boolean;
 };
@@ -81,18 +92,35 @@ async function listWorkspaceDirectories(
 }> {
   const currentPath = await resolveDirectoryPath(rawPath);
   const entries = await readdir(currentPath, { withFileTypes: true });
+  const getDirectoryPriority = (name: string): number => {
+    if (DEEMPHASIZED_WORKSPACE_DIRECTORIES.has(name)) {
+      return 3;
+    }
+
+    if (name.startsWith(".")) {
+      return 2;
+    }
+
+    return 1;
+  };
   const directories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => ({
       name: entry.name,
       path: resolve(currentPath, entry.name),
     }))
-    .sort((left, right) =>
-      left.name.localeCompare(right.name, undefined, {
+    .sort((left, right) => {
+      const leftPriority = getDirectoryPriority(left.name);
+      const rightPriority = getDirectoryPriority(right.name);
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority;
+      }
+
+      return left.name.localeCompare(right.name, undefined, {
         sensitivity: "base",
         numeric: true,
-      }),
-    );
+      });
+    });
   const parentCandidate = dirname(currentPath);
   const parentPath = parentCandidate === currentPath ? null : parentCandidate;
 

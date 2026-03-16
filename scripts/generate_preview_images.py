@@ -111,7 +111,8 @@ def prepare_page(page: Page, url: str) -> None:
     page.add_init_script(
         f"window.localStorage.setItem('{LANGUAGE_STORAGE_KEY}', 'system');"
     )
-    page.goto(url, wait_until="networkidle")
+    preview_url = f"{url.rstrip('/')}/?demo=1"
+    page.goto(preview_url, wait_until="networkidle")
 
 
 def close_surface(page: Page) -> None:

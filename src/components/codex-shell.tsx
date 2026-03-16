@@ -42,6 +42,13 @@ import {
 } from "@/components/codex-shell/utils";
 import type { CommandExecutionApprovalDecision } from "@/generated/codex-app-server/v2/CommandExecutionApprovalDecision";
 import type { ToolRequestUserInputQuestion } from "@/generated/codex-app-server/v2/ToolRequestUserInputQuestion";
+import {
+  activateDemoThread,
+  createDemoSnapshot,
+  createDemoThreadSnapshot,
+  createDemoWorkspaceListing,
+  updateDemoSessionSettings,
+} from "@/lib/demo";
 import type { BridgeSnapshot, WorkspaceListing } from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
 
@@ -54,6 +61,12 @@ type ApprovalChoice = {
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type ViewMode = "home" | "chat";
+
+const WORKSPACE_STORAGE_KEY = "codex-ui-workspace";
+
+type CodexShellProps = {
+  demoMode?: boolean;
+};
 
 async function callApi<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
@@ -97,9 +110,13 @@ function resolveSlashCommand(
   return rawValue;
 }
 
-export function CodexShell() {
-  const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+export function CodexShell({ demoMode = false }: CodexShellProps) {
+  const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(() =>
+    demoMode ? createDemoSnapshot() : null,
+  );
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    demoMode ? "live" : "connecting",
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [surface, setSurface] = useState<SurfaceKind | null>(null);
   const [composer, setComposer] = useState("");
@@ -146,6 +163,14 @@ export function CodexShell() {
     });
   });
 
+  const applyDemoSnapshot = useEffectEvent(
+    (mutate: (current: BridgeSnapshot) => BridgeSnapshot) => {
+      startTransition(() => {
+        setSnapshot((current) => (current ? mutate(current) : current));
+      });
+    },
+  );
+
   const refreshBootstrap = useEffectEvent(async (showToastOnError: boolean) => {
     try {
       const payload = await callApi<{ snapshot: BridgeSnapshot }>("/api/bootstrap");
@@ -160,6 +185,10 @@ export function CodexShell() {
   });
 
   useEffect(() => {
+    if (demoMode) {
+      return;
+    }
+
     let mounted = true;
     let reconnectTimer: number | null = null;
     let websocket: WebSocket | null = null;
@@ -231,28 +260,36 @@ export function CodexShell() {
       clearReconnectTimer();
       websocket?.close();
     };
-  }, []);
+  }, [demoMode, refreshBootstrap]);
 
   useEffect(() => {
     setBrowserLanguage(window.navigator.language || "en");
     setUiLanguage(parseUiLanguage(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)));
-  }, []);
+    setWorkspaceDraft(
+      demoMode
+        ? window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ??
+            createDemoSnapshot().defaultWorkspacePath
+        : window.localStorage.getItem(WORKSPACE_STORAGE_KEY) ?? "",
+    );
+  }, [demoMode]);
 
   useEffect(() => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, uiLanguage);
   }, [uiLanguage]);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
-
-  useEffect(() => {
-    if (!snapshot?.defaultWorkspacePath) {
+    const nextWorkspace = workspaceDraft.trim();
+    if (!nextWorkspace) {
+      window.localStorage.removeItem(WORKSPACE_STORAGE_KEY);
       return;
     }
 
-    setWorkspaceDraft((current) => current || snapshot.defaultWorkspacePath);
-  }, [snapshot?.defaultWorkspacePath]);
+    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, nextWorkspace);
+  }, [workspaceDraft]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     if (!toast) {
@@ -291,6 +328,21 @@ export function CodexShell() {
 
     return snapshot.timelineByThread[snapshot.activeThreadId] ?? [];
   }, [snapshot]);
+
+  useEffect(() => {
+    const nextWorkspace =
+      activeThreadSummary?.workspacePath ?? snapshot?.defaultWorkspacePath ?? "";
+    if (!nextWorkspace) {
+      return;
+    }
+
+    setWorkspaceDraft((current) => current || nextWorkspace);
+  }, [activeThreadSummary?.workspacePath, snapshot?.defaultWorkspacePath]);
+
+  const launchWorkspacePath = snapshot?.defaultWorkspacePath ?? "";
+  const currentWorkspacePath = activeThreadSummary?.workspacePath ?? launchWorkspacePath;
+  const preferredWorkspacePath =
+    workspaceDraft.trim() || currentWorkspacePath || launchWorkspacePath;
 
   const filteredThreads = useMemo(() => {
     if (!snapshot) {
@@ -521,6 +573,15 @@ export function CodexShell() {
   }
 
   async function loadWorkspaceListing(path?: string | null) {
+    if (demoMode) {
+      setWorkspaceLoading(true);
+      startTransition(() => {
+        setWorkspaceListing(createDemoWorkspaceListing(path ?? preferredWorkspacePath));
+      });
+      setWorkspaceLoading(false);
+      return;
+    }
+
     try {
       setWorkspaceLoading(true);
       const nextPath = path?.trim();
@@ -536,11 +597,11 @@ export function CodexShell() {
 
   async function handleOpenWorkspacePicker(origin?: HTMLElement | null) {
     openSurface("workspace", origin);
-    await loadWorkspaceListing(workspaceDraft || snapshot?.defaultWorkspacePath);
+    await loadWorkspaceListing(preferredWorkspacePath);
   }
 
   function handleChooseWorkspace(path: string) {
-    setWorkspaceDraft(path);
+    setWorkspaceDraft(path.trim());
     closeSurface();
   }
 
@@ -565,7 +626,25 @@ export function CodexShell() {
     closeCurrentSurface?: boolean;
     workspacePath?: string | null;
   }) {
-    const workspacePath = options?.workspacePath?.trim() || snapshot?.defaultWorkspacePath || "";
+    const workspacePath =
+      options?.workspacePath?.trim() || preferredWorkspacePath || launchWorkspacePath;
+    setWorkspaceDraft(workspacePath);
+
+    if (demoMode) {
+      applyDemoSnapshot((current) => createDemoThreadSnapshot(current, workspacePath));
+
+      if (options?.closeCurrentSurface) {
+        setSurface(null);
+      }
+
+      setViewMode("chat");
+      setComposer("");
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+      }, 0);
+      return;
+    }
+
     await syncSnapshotFromResult(
       () =>
         callApi("/api/thread/start", {
@@ -615,12 +694,18 @@ export function CodexShell() {
     switch (command.action) {
       case "new":
       case "clear":
-        await handleCreateThread({
-          workspacePath: snapshot?.defaultWorkspacePath ?? activeThreadSummary?.workspacePath ?? null,
-        });
+        setWorkspaceDraft(preferredWorkspacePath);
+        setViewMode("home");
+        window.setTimeout(() => {
+          homeSearchRef.current?.focus();
+        }, 0);
         break;
       case "resume":
+        setWorkspaceDraft(preferredWorkspacePath);
         setViewMode("home");
+        window.setTimeout(() => {
+          homeSearchRef.current?.focus();
+        }, 0);
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -628,11 +713,20 @@ export function CodexShell() {
           return;
         }
 
-        await syncSnapshotFromResult(
-          () => callApi("/api/thread/fork", { threadId: snapshot.activeThreadId }),
-          copy.actions.forkingThread,
-        );
-        break;
+        {
+          const threadId = snapshot.activeThreadId;
+
+          if (demoMode) {
+            applyDemoSnapshot((current) => activateDemoThread(current, threadId));
+            break;
+          }
+
+          await syncSnapshotFromResult(
+            () => callApi("/api/thread/fork", { threadId }),
+            copy.actions.forkingThread,
+          );
+          break;
+        }
       case "model":
         window.setTimeout(() => {
           composerModelSelectRef.current?.focus();
@@ -656,6 +750,15 @@ export function CodexShell() {
   }
 
   async function handleResumeThread(threadId: string) {
+    if (demoMode) {
+      applyDemoSnapshot((current) => activateDemoThread(current, threadId));
+      setViewMode("chat");
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+      }, 0);
+      return;
+    }
+
     await syncSnapshotFromResult(
       () => callApi("/api/thread/resume", { threadId }),
       copy.actions.resumingThread,
@@ -667,6 +770,11 @@ export function CodexShell() {
   }
 
   async function handleOpenThread(threadId: string) {
+    if (demoMode) {
+      await handleResumeThread(threadId);
+      return;
+    }
+
     if (threadId === snapshot?.activeThreadId) {
       await syncSnapshotFromResult(
         () => callApi("/api/thread/read", { threadId }),
@@ -683,6 +791,10 @@ export function CodexShell() {
   }
 
   async function handleInterrupt() {
+    if (demoMode) {
+      return;
+    }
+
     await syncSnapshotFromResult(
       () => callApi("/api/turn/interrupt", {}),
       copy.actions.interruptingTurn,
@@ -690,6 +802,19 @@ export function CodexShell() {
   }
 
   async function handleModelChange(model: string, effort: string | null) {
+    if (demoMode) {
+      applyDemoSnapshot((current) =>
+        updateDemoSessionSettings(current, {
+          model,
+          effort: effort as BridgeSnapshot["sessionSettings"]["effort"],
+        }),
+      );
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+      }, 0);
+      return;
+    }
+
     await syncSnapshotFromResult(
       () => callApi("/api/session/settings", { model, effort }),
       copy.actions.updatingSessionSettings,
@@ -735,6 +860,18 @@ export function CodexShell() {
   }
 
   async function handlePlanModeToggle() {
+    if (demoMode) {
+      applyDemoSnapshot((current) =>
+        updateDemoSessionSettings(current, {
+          planMode: !current.sessionSettings.planMode,
+        }),
+      );
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+      }, 0);
+      return;
+    }
+
     await syncSnapshotFromResult(
       () =>
         callApi("/api/session/settings", {
@@ -748,6 +885,10 @@ export function CodexShell() {
   }
 
   async function handleServerRequestResponse(requestId: string, result: unknown) {
+    if (demoMode) {
+      return;
+    }
+
     await syncSnapshotFromResult(
       () =>
         callApi("/api/server-request/respond", {
@@ -1268,7 +1409,6 @@ export function CodexShell() {
           activeThread={activeThreadSummary}
           filteredThreads={visibleHomeThreads}
           workspaceDraft={workspaceDraft}
-          defaultWorkspacePath={snapshot?.defaultWorkspacePath ?? ""}
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
@@ -1281,7 +1421,7 @@ export function CodexShell() {
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
           onUseDefaultWorkspace={() => {
-            setWorkspaceDraft(snapshot?.defaultWorkspacePath ?? "");
+            setWorkspaceDraft(currentWorkspacePath);
           }}
           onOpenWorkspacePicker={() => {
             void handleOpenWorkspacePicker(
