@@ -51,6 +51,8 @@ const UI_COPY = {
         "Arrow keys move. Enter runs. Tab completes. Esc hides.",
       helperStreaming: "Streaming live. Diffs stay folded until opened.",
       helperIdle: "/ commands. Enter sends. Shift+Enter adds a newline.",
+      showSettings: "Show settings",
+      hideSettings: "Hide settings",
       sessionAria: (
         selectedModelLabel: string,
         selectedEffortLabel: string,
@@ -325,6 +327,8 @@ const UI_COPY = {
         "방향키로 이동하고 Enter로 실행합니다. Tab으로 완성하고 Esc로 닫습니다.",
       helperStreaming: "실시간 스트리밍 중입니다. diff는 펼칠 때까지 접혀 있습니다.",
       helperIdle: "/ 명령어 사용 가능. Enter 전송, Shift+Enter 줄바꿈.",
+      showSettings: "설정 펼치기",
+      hideSettings: "설정 숨기기",
       sessionAria: (
         selectedModelLabel: string,
         selectedEffortLabel: string,

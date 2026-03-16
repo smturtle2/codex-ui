@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEventHandler, type RefObject } from "react";
+import { useEffect, useState, type KeyboardEventHandler, type RefObject } from "react";
 
 import type { SlashCommandDefinition } from "@/lib/shared";
 
@@ -20,6 +20,8 @@ type ComposerDockProps = {
   canSubmit: boolean;
   activeTurn: boolean;
   showToolbar?: boolean;
+  isPhoneLayout: boolean;
+  sessionSummary: string;
   selectedModel: string;
   selectedEffort: string;
   planMode: boolean;
@@ -33,6 +35,9 @@ type ComposerDockProps = {
     plan: string;
     on: string;
     off: string;
+    session: string;
+    showSettings: string;
+    hideSettings: string;
     placeholder: string;
     interrupt: string;
     send: string;
@@ -109,6 +114,8 @@ export function ComposerDock({
   canSubmit,
   activeTurn,
   showToolbar = true,
+  isPhoneLayout,
+  sessionSummary,
   selectedModel,
   selectedEffort,
   planMode,
@@ -124,6 +131,14 @@ export function ComposerDock({
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
+  const [mobileSessionExpanded, setMobileSessionExpanded] = useState(!isPhoneLayout);
+
+  useEffect(() => {
+    setMobileSessionExpanded(!isPhoneLayout);
+  }, [isPhoneLayout]);
+
+  const showSessionControls = !isPhoneLayout || mobileSessionExpanded;
+
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -146,54 +161,78 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-controls" role="group" aria-label={labels.mode}>
-          <SessionSelectField
-            id="composer-model"
-            label={labels.model}
-            value={selectedModel}
-            options={modelOptions}
-            unavailableLabel={labels.unavailable}
-            selectRef={modelSelectRef}
-            onChange={onModelChange}
-          />
+        {isPhoneLayout ? (
+          <div className="composer-mobile-session">
+            <div className="composer-mobile-session-copy">
+              <span className="composer-control-label">{labels.session}</span>
+              <span className="composer-mobile-session-summary" title={sessionSummary}>
+                {sessionSummary}
+              </span>
+            </div>
 
-          <SessionSelectField
-            id="composer-effort"
-            label={labels.reasoning}
-            value={selectedEffort}
-            options={effortOptions}
-            unavailableLabel={labels.unavailable}
-            onChange={onEffortChange}
-          />
+            <button
+              className="plain-action composer-mobile-session-toggle"
+              type="button"
+              aria-expanded={mobileSessionExpanded}
+              onClick={() => {
+                setMobileSessionExpanded((current) => !current);
+              }}
+            >
+              {mobileSessionExpanded ? labels.hideSettings : labels.showSettings}
+            </button>
+          </div>
+        ) : null}
 
-          <div className="composer-mode-field" role="group" aria-label={labels.mode}>
-            <span className="composer-control-label">{labels.mode}</span>
-            <div className="composer-mode-group">
-              <button
-                className={`picker-chip ${planMode ? "" : "selected"}`}
-                type="button"
-                aria-pressed={!planMode}
-                onClick={() => onModeChange(false)}
-              >
-                <span>{labels.fast}</span>
-                <span className="composer-mode-state">
-                  {planMode ? labels.off : labels.on}
-                </span>
-              </button>
-              <button
-                className={`picker-chip ${planMode ? "selected" : ""}`}
-                type="button"
-                aria-pressed={planMode}
-                onClick={() => onModeChange(true)}
-              >
-                <span>{labels.plan}</span>
-                <span className="composer-mode-state">
-                  {planMode ? labels.on : labels.off}
-                </span>
-              </button>
+        {showSessionControls ? (
+          <div className="composer-controls" role="group" aria-label={labels.mode}>
+            <SessionSelectField
+              id="composer-model"
+              label={labels.model}
+              value={selectedModel}
+              options={modelOptions}
+              unavailableLabel={labels.unavailable}
+              selectRef={modelSelectRef}
+              onChange={onModelChange}
+            />
+
+            <SessionSelectField
+              id="composer-effort"
+              label={labels.reasoning}
+              value={selectedEffort}
+              options={effortOptions}
+              unavailableLabel={labels.unavailable}
+              onChange={onEffortChange}
+            />
+
+            <div className="composer-mode-field" role="group" aria-label={labels.mode}>
+              <span className="composer-control-label">{labels.mode}</span>
+              <div className="composer-mode-group">
+                <button
+                  className={`picker-chip ${planMode ? "" : "selected"}`}
+                  type="button"
+                  aria-pressed={!planMode}
+                  onClick={() => onModeChange(false)}
+                >
+                  <span>{labels.fast}</span>
+                  <span className="composer-mode-state">
+                    {planMode ? labels.off : labels.on}
+                  </span>
+                </button>
+                <button
+                  className={`picker-chip ${planMode ? "selected" : ""}`}
+                  type="button"
+                  aria-pressed={planMode}
+                  onClick={() => onModeChange(true)}
+                >
+                  <span>{labels.plan}</span>
+                  <span className="composer-mode-state">
+                    {planMode ? labels.on : labels.off}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="composer-input-row">
           <textarea

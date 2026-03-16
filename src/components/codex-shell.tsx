@@ -1052,6 +1052,14 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   ]
     .filter(Boolean)
     .join(" / ");
+  const composerSessionSummary = [
+    selectedModelLabel,
+    selectedEffortLabel,
+    `${copy.composer.fast} ${selectedPlanMode ? copy.composer.off : copy.composer.on}`,
+    `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
+  ]
+    .filter(Boolean)
+    .join(" / ");
   const workspacePickerOptions = useMemo(() => {
     const draftPath = workspaceDraft.trim();
     const options = [...(snapshot?.workspaceOptions ?? [])];
@@ -1613,6 +1621,8 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             canSubmit={Boolean(composer.trim())}
             activeTurn={Boolean(snapshot?.activeTurnId)}
             showToolbar={!hidePhoneIdleChrome}
+            isPhoneLayout={isPhoneLayout}
+            sessionSummary={composerSessionSummary}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
@@ -1626,6 +1636,9 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               plan: copy.composer.plan,
               on: copy.composer.on,
               off: copy.composer.off,
+              session: copy.composer.session,
+              showSettings: copy.composer.showSettings,
+              hideSettings: copy.composer.hideSettings,
               placeholder: copy.composer.placeholder,
               interrupt: copy.composer.interrupt,
               send: copy.composer.send,
