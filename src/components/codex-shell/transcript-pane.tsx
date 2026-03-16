@@ -313,7 +313,9 @@ export function TranscriptPane({
                   role="separator"
                   aria-label={copy.turnSeparator}
                 >
-                  ---
+                  <span className="history-turn-divider-line" aria-hidden="true" />
+                  <span className="history-turn-divider-mark" aria-hidden="true" />
+                  <span className="history-turn-divider-line" aria-hidden="true" />
                 </div>
               );
             }

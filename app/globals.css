@@ -1523,3 +1523,707 @@ pre {
     max-width: none;
   }
 }
+
+/* Refined monochrome shell */
+
+:root {
+  --surface-muted: #fafafa;
+  --surface-soft: #f3f3f3;
+  --line: #e2e2e2;
+  --line-soft: #efefef;
+  --soft: #7b7b7b;
+  --radius: 0.35rem;
+  --content-width: 1600px;
+  --measure: 84rem;
+  --shadow: 0 22px 80px rgba(17, 17, 17, 0.05);
+}
+
+.tui-page {
+  background:
+    linear-gradient(180deg, rgba(17, 17, 17, 0.02), transparent 11rem),
+    linear-gradient(180deg, #ffffff, #fcfcfc);
+}
+
+.home-shell {
+  gap: 0.9rem;
+}
+
+.home-header {
+  align-items: end;
+  gap: 0.9rem 1.25rem;
+  padding-bottom: 0.8rem;
+}
+
+.home-copy {
+  gap: 0.4rem;
+}
+
+.home-copy h1 {
+  max-width: 18ch;
+  font-size: clamp(1.8rem, 4vw, 3.1rem);
+}
+
+.home-copy p {
+  font-size: 0.95rem;
+  max-width: 37rem;
+}
+
+.home-grid {
+  grid-template-columns: minmax(0, 1.75fr) minmax(19rem, 23rem);
+  gap: 1.8rem;
+}
+
+.home-main {
+  gap: 0.85rem;
+}
+
+.home-sidebar {
+  gap: 0.85rem;
+  padding-left: 1.35rem;
+}
+
+.home-panel-copy {
+  font-size: 0.88rem;
+}
+
+.home-workspace-card {
+  gap: 0.28rem;
+  padding: 0.75rem 0 0.9rem;
+  border: 0;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.home-workspace-card strong {
+  font-size: 1rem;
+}
+
+.home-workspace-path {
+  font-size: 0.78rem;
+}
+
+.home-create-actions {
+  grid-template-columns: 1fr;
+}
+
+.home-create-actions .action-button {
+  grid-column: auto;
+}
+
+.home-session-summary {
+  gap: 0.24rem;
+  padding-top: 0.05rem;
+  border-top: 0;
+}
+
+.home-list-toolbar {
+  gap: 0.7rem;
+}
+
+.home-list-heading strong {
+  font-size: 0.98rem;
+}
+
+.home-toolbar-controls {
+  gap: 0.65rem;
+}
+
+.home-sort-group {
+  gap: 0.3rem;
+}
+
+.home-mobile-launcher {
+  gap: 0.7rem;
+  padding: 0.8rem 0 0.9rem;
+}
+
+.home-mobile-launcher-copy {
+  gap: 0.22rem;
+}
+
+.home-mobile-workspace-path {
+  font-size: 0.76rem;
+}
+
+.home-mobile-session {
+  font-size: 0.74rem;
+}
+
+.home-mobile-launcher-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.home-thread-list-shell {
+  display: grid;
+  min-height: 0;
+}
+
+.home-thread-list {
+  padding-right: 0.15rem;
+}
+
+.home-group-label {
+  padding: 0.72rem 0 0.38rem;
+}
+
+.home-thread-row {
+  gap: 0.72rem;
+  padding: 0.82rem 0;
+}
+
+.home-thread-title {
+  font-size: 0.98rem;
+}
+
+.home-thread-time,
+.home-thread-open,
+.workspace-picker-loading {
+  font-size: 0.7rem;
+}
+
+.home-thread-path,
+.home-thread-meta,
+.home-empty {
+  font-size: 0.78rem;
+}
+
+.home-thread-open {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.home-thread-row:hover .home-thread-open,
+.home-thread-row:focus-visible .home-thread-open,
+.home-thread-row.current .home-thread-open {
+  opacity: 1;
+}
+
+.shell-header {
+  padding-bottom: 0.45rem;
+}
+
+.shell-header-rail {
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.shell-session {
+  gap: 0.14rem;
+}
+
+.shell-session-title {
+  font-size: 0.98rem;
+  line-height: 1.28;
+}
+
+.shell-session-meta {
+  font-size: 0.77rem;
+}
+
+.shell-status-line,
+.shell-status-badge {
+  letter-spacing: 0.1em;
+}
+
+.shell-status-line {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.shell-status-line.tone-working,
+.shell-status-line.tone-pending,
+.shell-status-line.tone-error {
+  border-color: var(--line-strong);
+}
+
+.shell-status-badge {
+  min-height: 1.7rem;
+  padding: 0.1rem 0.5rem;
+}
+
+.sidebar-trigger,
+.plain-action,
+.picker-chip,
+.action-button,
+.composer-plan-toggle,
+.workspace-picker-row,
+.approval-option,
+.command-menu-row {
+  min-height: 2.05rem;
+  padding: 0.4rem 0.72rem;
+  border-radius: 0.35rem;
+}
+
+.sidebar-trigger,
+.plain-action,
+.picker-chip,
+.workspace-picker-row,
+.approval-option,
+.command-menu-row {
+  background: transparent;
+}
+
+.sidebar-trigger:hover,
+.plain-action:hover,
+.picker-chip:hover,
+.composer-plan-toggle:hover,
+.workspace-picker-row:hover,
+.approval-option:hover,
+.command-menu-row:hover {
+  background: var(--surface-muted);
+}
+
+.transcript-scroll,
+.overlay-scroll {
+  padding: 0.75rem 0.95rem 1.05rem;
+}
+
+.history-empty {
+  padding-bottom: 16vh;
+}
+
+.history-list {
+  gap: 0.95rem;
+  width: min(100%, var(--measure));
+}
+
+.history-list::before {
+  left: calc(var(--label-column) - 0.92rem);
+  opacity: 0.9;
+}
+
+.history-turn-divider {
+  width: min(100%, calc(var(--measure) - 2.2rem));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.16rem 0;
+}
+
+.history-turn-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line));
+}
+
+.history-turn-divider-line:last-of-type {
+  background: linear-gradient(90deg, var(--line), transparent);
+}
+
+.history-turn-divider-mark {
+  flex: 0 0 1.7rem;
+  height: 0.34rem;
+  background:
+    linear-gradient(var(--soft), var(--soft)) left center / 0.34rem 1px no-repeat,
+    linear-gradient(var(--soft), var(--soft)) center center / 0.34rem 1px no-repeat,
+    linear-gradient(var(--soft), var(--soft)) right center / 0.34rem 1px no-repeat;
+  opacity: 0.78;
+}
+
+.history-message-group,
+.history-event {
+  gap: 0.34rem 1rem;
+}
+
+.history-message-group-head,
+.history-event-head {
+  gap: 0.16rem;
+  padding-top: 0.18rem;
+}
+
+.history-message-line {
+  font-size: 1rem;
+  line-height: 1.82;
+}
+
+.history-event {
+  padding-top: 0.7rem;
+}
+
+.history-event-body {
+  gap: 0.36rem;
+}
+
+.history-event-summaryline {
+  align-items: center;
+}
+
+.history-event-marker {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.history-event-detail {
+  padding-left: 0.85rem;
+  font-size: 0.82rem;
+}
+
+.composer-dock {
+  gap: 0.25rem;
+}
+
+.command-menu {
+  gap: 0.12rem;
+  padding: 0.16rem;
+  border-radius: 0.35rem;
+}
+
+.command-menu-copy {
+  font-size: 0.78rem;
+}
+
+.composer-frame {
+  gap: 0.52rem;
+  padding-top: 0.45rem;
+}
+
+.composer-session-shell {
+  gap: 0.45rem;
+}
+
+.composer-controls {
+  gap: 0.5rem;
+}
+
+.composer-select-field {
+  min-width: 8.2rem;
+}
+
+.composer-select-shell {
+  min-height: 2.05rem;
+  padding-inline: 0.62rem;
+  background: transparent;
+}
+
+.composer-select {
+  padding: 0.38rem 1rem 0.38rem 0;
+  font-size: 0.82rem;
+}
+
+.composer-plan-toggle {
+  min-width: 7.25rem;
+}
+
+.composer-input-row {
+  gap: 0.6rem;
+}
+
+.composer-input {
+  font-size: 1rem;
+  line-height: 1.74;
+}
+
+.composer-actions {
+  gap: 0.4rem;
+}
+
+.composer-toolbar {
+  align-items: flex-start;
+  gap: 0.34rem 0.9rem;
+}
+
+.composer-inline-status {
+  font-size: 0.72rem;
+}
+
+.composer-helper {
+  font-size: 0.7rem;
+}
+
+.screen-overlay {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.surface-dialog,
+.approval-modal {
+  gap: 0.85rem;
+  padding: 0.95rem;
+  box-shadow: var(--shadow);
+}
+
+.surface-dialog-footer {
+  font-size: 0.76rem;
+}
+
+.workspace-picker {
+  gap: 0.95rem 1.05rem;
+}
+
+.workspace-picker-current {
+  padding-bottom: 0.85rem;
+}
+
+.workspace-picker-path,
+.surface-input,
+.raw-json-editor,
+.approval-command,
+.plain-question {
+  background: #fafafa;
+}
+
+.workspace-picker-path {
+  padding: 0.8rem 0.85rem;
+}
+
+.workspace-picker-row {
+  padding: 0.75rem 0;
+}
+
+.workspace-picker-row-main strong {
+  font-size: 0.9rem;
+}
+
+.settings-fact-grid {
+  gap: 0.55rem;
+}
+
+.settings-fact {
+  padding: 0.75rem 0.8rem;
+  background: #fafafa;
+}
+
+.settings-shortcut-row {
+  padding: 0.72rem 0;
+}
+
+.toast {
+  border-radius: 0.4rem;
+}
+
+@media (max-width: 1120px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+
+  .home-sidebar {
+    padding-left: 0;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 820px) {
+  .home-shell {
+    gap: 0.85rem;
+  }
+
+  .home-copy h1 {
+    max-width: 14ch;
+  }
+
+  .home-header {
+    gap: 0.75rem;
+    padding-bottom: 0.72rem;
+  }
+
+  .home-header-tools {
+    justify-content: flex-start;
+  }
+
+  .home-toolbar-controls {
+    gap: 0.55rem;
+  }
+
+  .home-mobile-launcher-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tui-shell {
+    gap: 0.35rem;
+  }
+
+  .shell-header {
+    padding-bottom: 0.35rem;
+  }
+
+  .shell-header-rail {
+    gap: 0.55rem 0.7rem;
+    align-items: start;
+  }
+
+  .shell-session {
+    gap: 0.12rem;
+  }
+
+  .shell-session-title {
+    font-size: 0.94rem;
+  }
+
+  .shell-session-meta {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+  }
+
+  .transcript-scroll,
+  .overlay-scroll {
+    padding: 0.55rem 0.05rem 0.8rem;
+  }
+
+  .history-list {
+    gap: 0.8rem;
+  }
+
+  .history-list::before {
+    left: 0.28rem;
+  }
+
+  .history-turn-divider {
+    width: 100%;
+    gap: 0.45rem;
+  }
+
+  .history-turn-divider-mark {
+    flex-basis: 1.6rem;
+  }
+
+  .history-message-line {
+    font-size: 0.97rem;
+    line-height: 1.76;
+  }
+
+  .composer-frame {
+    gap: 0.44rem;
+    padding-top: 0.35rem;
+  }
+
+  .composer-session-toggle {
+    padding: 0.48rem 0.62rem;
+    background: transparent;
+  }
+
+  .composer-session-toggle-summary {
+    font-size: 0.78rem;
+  }
+
+  .composer-input {
+    min-height: 2.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .tui-shell {
+    gap: 0.18rem;
+  }
+
+  .home-copy h1 {
+    font-size: clamp(1.52rem, 8.5vw, 2.15rem);
+  }
+
+  .home-copy p {
+    font-size: 0.89rem;
+  }
+
+  .home-toolbar-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .home-sort-group {
+    width: 100%;
+  }
+
+  .home-sort-group .picker-chip {
+    flex: 1;
+  }
+
+  .home-mobile-launcher {
+    gap: 0.62rem;
+    padding: 0.74rem 0 0.82rem;
+  }
+
+  .home-mobile-launcher-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .home-thread-row {
+    padding: 0.74rem 0;
+  }
+
+  .shell-header-rail {
+    gap: 0.38rem 0.5rem;
+  }
+
+  .shell-header-actions {
+    gap: 0.35rem;
+  }
+
+  .shell-header {
+    padding-bottom: 0.28rem;
+  }
+
+  .shell-session-title {
+    font-size: 0.9rem;
+  }
+
+  .shell-session-meta {
+    font-size: 0.74rem;
+  }
+
+  .transcript-scroll,
+  .overlay-scroll {
+    padding: 0.35rem 0 0.64rem;
+  }
+
+  .history-message-group,
+  .history-event {
+    gap: 0.26rem;
+  }
+
+  .history-list {
+    gap: 0.72rem;
+  }
+
+  .history-turn-divider {
+    gap: 0.36rem;
+  }
+
+  .history-turn-divider-mark {
+    flex-basis: 1.45rem;
+  }
+
+  .composer-dock {
+    gap: 0.18rem;
+  }
+
+  .composer-frame {
+    gap: 0.38rem;
+    padding-top: 0.28rem;
+  }
+
+  .composer-session-shell.expanded .composer-controls {
+    gap: 0.48rem;
+  }
+
+  .composer-session-toggle {
+    padding: 0.42rem 0.56rem;
+  }
+
+  .composer-input-row {
+    gap: 0.42rem;
+  }
+
+  .composer-input {
+    min-height: 2.5rem;
+    line-height: 1.6;
+  }
+
+  .composer-toolbar {
+    gap: 0.3rem 0.65rem;
+  }
+
+  .surface-dialog,
+  .surface-dialog.wide,
+  .approval-modal {
+    padding: 0.78rem;
+  }
+}

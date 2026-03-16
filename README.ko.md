@@ -62,7 +62,7 @@
 - 런처 우선 흐름: 전용 홈 화면에서 기존 thread를 열거나 새 thread를 시작합니다.
 - 모바일 quick start: 좁은 화면에서도 `Start thread`와 workspace 선택이 thread 목록 위에 바로 보입니다.
 - 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택합니다.
-- transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 `---`로만 구분합니다.
+- transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 문자 대신 얇은 시각적 구분선으로 나뉩니다.
 - 직접 세션 제어: `Model`, `Reasoning`, `Plan`을 composer 안에서 바로 바꿉니다.
 - 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.
 - 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조와 approval 순서를 유지합니다.

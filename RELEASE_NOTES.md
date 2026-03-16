@@ -8,6 +8,8 @@
 - Language settings were separated correctly, but mobile launcher flow still needed a faster first-screen decision.
 - `thread/read` hydration and live updates still had edge-case divergence around item completion status and approval ordering.
 - Funnel access worked, but starting the app and exposing it publicly still took multiple commands.
+- Turn boundaries still read too much like literal `---` text instead of a UI separator.
+- Mobile chat still spent slightly too much height on shell chrome after the earlier pass.
 
 ### Implemented
 
@@ -25,6 +27,8 @@
 - Stopped concatenating plan deltas during streaming and now let the completed plan item replace the running placeholder, matching `thread/read` more closely.
 - Updated the preview generator to export the same desktop/mobile screenshot set referenced by both READMEs.
 - Documented the extra `--funnel` prerequisites and the screenshot refresh command in the English and Korean READMEs.
+- Rebalanced the turn divider styling so it reads like a centered rule instead of literal text while staying transcript-flat.
+- Tightened the narrow-screen header/composer spacing again so the transcript keeps more vertical space on mobile.
 
 ### Verification
 
@@ -34,6 +38,7 @@
 - Browser check: mobile home shows search, quick-start actions, and thread list without requiring a separate panel.
 - Browser check: mobile chat keeps transcript dominant while composer exposes model, reasoning, and plan behind a compact session toggle.
 - Browser check: once a thread is open, Home search still preserves the current thread while showing `No matching threads.` for the filtered recent list.
+- Browser check: turn separators now read as a centered rule motif rather than literal `---` characters.
 - API check: live turn output and subsequent `thread/read` produced the same normalized timeline for a real turn.
 - CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
 - Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.

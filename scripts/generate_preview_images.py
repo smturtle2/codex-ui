@@ -14,6 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 BASE_URL = os.environ.get("UI_BASE_URL", "http://127.0.0.1:3000")
 PROMPT = os.environ.get("UI_PREVIEW_PROMPT", "Reply with exactly OK.")
+CHROME_CANDIDATES = [
+    os.environ.get("UI_PREVIEW_CHROME"),
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+]
 
 
 def wait_for_server(timeout_seconds: int = 30) -> None:
@@ -51,6 +57,31 @@ def wait_for_reply(page) -> None:
         page.wait_for_timeout(3000)
 
 
+def goto_app(page) -> None:
+    page.goto(BASE_URL, wait_until="load")
+    page.wait_for_timeout(1200)
+
+
+def launch_browser(playwright):
+    for candidate in CHROME_CANDIDATES:
+        if not candidate:
+            continue
+
+        path = Path(candidate)
+        if not path.exists():
+            continue
+
+        try:
+            return playwright.chromium.launch(
+                headless=True,
+                executable_path=str(path),
+            )
+        except Exception:
+            continue
+
+    return playwright.chromium.launch(headless=True)
+
+
 def open_chat_preview(page) -> None:
     thread_rows = page.locator(".home-thread-row")
     thread_count = thread_rows.count()
@@ -58,12 +89,10 @@ def open_chat_preview(page) -> None:
     if thread_count > 0:
         target_index = 1 if thread_count > 1 else 0
         thread_rows.nth(target_index).click()
-        page.wait_for_load_state("networkidle")
-        page.wait_for_timeout(800)
+        page.wait_for_timeout(1100)
         return
 
     page.get_by_role("button", name="Start thread").click()
-    page.wait_for_load_state("networkidle")
     page.wait_for_timeout(900)
 
     composer = page.locator("textarea")
@@ -75,7 +104,7 @@ def open_chat_preview(page) -> None:
 
 def capture_desktop(browser) -> None:
     page = browser.new_page(viewport={"width": 1440, "height": 960})
-    page.goto(BASE_URL, wait_until="networkidle")
+    goto_app(page)
 
     page.screenshot(path=str(DOCS / "preview-home.png"), full_page=True)
 
@@ -100,7 +129,7 @@ def capture_mobile(browser) -> None:
         is_mobile=True,
         has_touch=True,
     )
-    page.goto(BASE_URL, wait_until="networkidle")
+    goto_app(page)
     page.screenshot(path=str(DOCS / "preview-mobile-home.png"), full_page=True)
 
     page.get_by_role("button", name="Settings").click()
@@ -123,7 +152,7 @@ def main() -> None:
     wait_for_server()
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = launch_browser(playwright)
         try:
             capture_desktop(browser)
             capture_mobile(browser)
