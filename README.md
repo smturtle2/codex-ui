@@ -66,7 +66,7 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
 - Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer, with a compact mobile strip and an immediate `Plan` toggle.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
-- Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure and preserve approval insertion points.
+- Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure while preserving approval insertion points and stable entry metadata.
 - Mobile-aware layout: home exposes both thread selection and new-thread controls immediately, chat opens scrolled to the latest output, hides redundant idle chrome on phones, and settings/workspace surfaces turn into phone-friendly sheets.
 - Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
 - Deterministic previews: README screenshots come from a built-in demo state instead of live local thread content.

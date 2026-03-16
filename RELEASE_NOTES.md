@@ -41,6 +41,8 @@
 - Persisted the selected workspace across reloads and reused it for Home quick start plus slash-driven new-thread actions instead of silently falling back to the launch directory.
 - Reordered the workspace picker so normal project folders appear before hidden/generated directories such as `.git`, `.next`, and `node_modules`.
 - Hid redundant idle status chrome on very narrow screens so the mobile transcript keeps more vertical space without losing working/pending indicators.
+- Reused existing `updatedAt` values for unchanged hydrated timeline entries so reopening the same thread no longer mutates an otherwise identical transcript snapshot.
+- Removed the heavy focused textarea ring from the composer so the chat input stays visually flat instead of reading like a boxed card.
 
 ### Verification
 
@@ -55,8 +57,9 @@
 - Browser check: once a thread is open, Home search still preserves the current thread while showing `No matching threads.` for the filtered recent list.
 - Browser check: turn separators now read as a centered rule motif rather than literal `---` characters.
 - Browser check: mobile ready state no longer spends an extra line on idle status text, leaving more height for the transcript.
+- Browser check: the focused composer no longer draws a thick rectangular ring around the input area on desktop or mobile.
 - Browser check: after choosing a custom workspace, reload and `/new` continue to target that workspace instead of jumping back to the launch directory.
 - API/UI check: workspace directory browsing now surfaces regular source folders ahead of hidden and generated directories.
-- API check: live turn output and subsequent `thread/read` produced the same normalized timeline for a real turn.
+- API check: live turn output and subsequent `thread/read` now produce the same normalized timeline entries for a real turn, including stable unchanged-entry timestamps.
 - CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
 - Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.
