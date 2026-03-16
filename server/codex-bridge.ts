@@ -1272,7 +1272,7 @@ export class CodexBridge extends EventEmitter {
       this.state.pendingRequests.get(requestId)!,
     );
     if (approvalEntry) {
-      this.appendTimelineEntry(approvalEntry.threadId, approvalEntry);
+      this.insertApprovalEntryIntoTimeline(approvalEntry.threadId, approvalEntry);
     }
 
     this.publish();
@@ -1459,8 +1459,17 @@ export class CodexBridge extends EventEmitter {
         const turnId = typeof params.turnId === "string" ? params.turnId : null;
         const item = params.item as Record<string, unknown> | undefined;
         if (threadId && item) {
-          this.upsertStreamingTimelineEntry(threadId, turnId, item, "completed");
-          const entry = timelineEntryFromTurnItem(threadId, turnId, item, "completed");
+          const completionStatus =
+            typeof item.status === "string"
+              ? timelineStatusFromItemStatus(item.status, "completed")
+              : "completed";
+          this.upsertStreamingTimelineEntry(threadId, turnId, item, completionStatus);
+          const entry = timelineEntryFromTurnItem(
+            threadId,
+            turnId,
+            item,
+            completionStatus,
+          );
           this.clearStreamingItem(threadId, entry.id);
         }
         break;
@@ -1733,6 +1742,12 @@ export class CodexBridge extends EventEmitter {
   private appendTimelineEntry(threadId: string, entry: TimelineEntry): void {
     const timeline = this.state.timelineByThread.get(threadId) ?? [];
     timeline.push(entry);
+    this.state.timelineByThread.set(threadId, timeline);
+  }
+
+  private insertApprovalEntryIntoTimeline(threadId: string, entry: TimelineEntry): void {
+    const timeline = this.state.timelineByThread.get(threadId) ?? [];
+    insertApprovalTimelineEntry(timeline, entry);
     this.state.timelineByThread.set(threadId, timeline);
   }
 

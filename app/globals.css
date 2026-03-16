@@ -260,6 +260,11 @@ pre {
   gap: 1rem;
 }
 
+.home-mobile-launcher,
+.home-mobile-launcher-copy {
+  display: grid;
+}
+
 .home-sidebar {
   align-content: start;
   gap: 0.95rem;
@@ -315,6 +320,49 @@ pre {
 .home-list-toolbar {
   display: grid;
   gap: 0.8rem;
+}
+
+.home-mobile-launcher {
+  display: none;
+  gap: 0.9rem;
+  padding: 0.95rem 0 1rem;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+}
+
+.home-mobile-launcher-copy {
+  gap: 0.32rem;
+}
+
+.home-mobile-launcher-copy strong {
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.home-mobile-workspace-path,
+.home-mobile-session {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.home-mobile-workspace-path {
+  font-family: var(--font-mono), monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.home-mobile-session {
+  font-size: 0.8rem;
+}
+
+.home-mobile-launcher-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.home-mobile-launcher-actions .action-button {
+  grid-column: 1 / -1;
 }
 
 .home-list-heading {
@@ -1259,16 +1307,16 @@ pre {
   }
 
   .home-sidebar {
-    min-height: auto;
-    padding-left: 0;
-    padding-top: 1rem;
-    border-left: 0;
-    border-top: 1px solid var(--line);
+    display: none;
   }
 
   .home-main {
     display: block;
     min-height: auto;
+  }
+
+  .home-mobile-launcher {
+    display: grid;
   }
 
   .home-thread-list-shell {
@@ -1347,6 +1395,14 @@ pre {
   }
 
   .home-create-actions .action-button {
+    grid-column: auto;
+  }
+
+  .home-mobile-launcher-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .home-mobile-launcher-actions .action-button {
     grid-column: auto;
   }
 

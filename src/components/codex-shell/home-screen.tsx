@@ -122,6 +122,9 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const recentThreads = filteredThreads.filter((thread) => !thread.isActive);
   const showEmpty = !activeThread && recentThreads.length === 0;
+  const mobileSessionSummary = [sessionSummary, selectedPlanMode ? copy.planOn : copy.planOff]
+    .filter(Boolean)
+    .join(" / ");
 
   return (
     <section className="home-shell">
@@ -181,6 +184,29 @@ export function HomeScreen({
               </div>
             </div>
           </div>
+
+          <section className="home-mobile-launcher" aria-label={copy.createTitle}>
+            <div className="home-mobile-launcher-copy">
+              <span className="home-section-label">{copy.createTitle}</span>
+              <strong>{copy.workspaceSelected}</strong>
+              <div className="home-mobile-workspace-path" title={workspaceDraft}>
+                {workspaceDraft}
+              </div>
+              <span className="home-mobile-session">{mobileSessionSummary}</span>
+            </div>
+
+            <div className="home-mobile-launcher-actions">
+              <button className="plain-action" type="button" onClick={onOpenWorkspacePicker}>
+                {copy.browseWorkspace}
+              </button>
+              <button className="plain-action" type="button" onClick={onUseDefaultWorkspace}>
+                {copy.currentWorkspace}
+              </button>
+              <button className="action-button" type="button" onClick={onCreateThread}>
+                {copy.startThread}
+              </button>
+            </div>
+          </section>
 
           <div className="home-thread-list-shell">
             <div className="home-thread-list">

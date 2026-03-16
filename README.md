@@ -28,13 +28,14 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 ## Highlights
 
 - Launcher-first flow: open an existing thread or start a new one from a dedicated home screen.
+- Mobile quick start: keep `Start thread` and workspace selection visible above the thread list on narrow screens.
 - Workspace picker: choose directories from a dedicated browser instead of typing raw paths.
 - Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by `---`.
 - Direct session controls: `Model`, `Reasoning`, and `Plan` stay in the composer.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
-- Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure.
-- Mobile-aware layout: home prioritizes the thread list first, while chat keeps the transcript largest on narrow screens.
-- Tailscale Funnel helper: expose the local UI on the public internet with a repo-local command instead of ad-hoc shell history.
+- Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure and preserve ordering for approvals.
+- Mobile-aware layout: home exposes both thread selection and new-thread controls immediately, while chat keeps the transcript largest on narrow screens.
+- Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
 
 ## Architecture
 
@@ -60,22 +61,21 @@ Local bridge
 ## Quick Start
 
 ```bash
-npm install
-npm run dev
+npm run up
 ```
 
 Open `http://127.0.0.1:3000`.
 
 ## External Access
 
-Use Tailscale Funnel to expose the local UI publicly:
+Use Tailscale Funnel to expose the local UI publicly in one line:
 
 ```bash
-npm run dev
-npm run funnel
+npm run up -- --funnel
 ```
 
-- `npm run funnel` shares the app running on `http://127.0.0.1:3000`.
+- `--funnel` also works with `npm run dev -- --funnel` and `npm run start -- --funnel`.
+- `npm run up -- --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
 - If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
 - `npm run funnel:status` shows the current Funnel mapping.
 - `npm run funnel:off` resets the Funnel config for this node.

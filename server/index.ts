@@ -2,6 +2,7 @@ import http, {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import { spawn } from "node:child_process";
 import { readdir, realpath } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -38,6 +39,33 @@ type WorkspaceDirectoryEntry = {
   name: string;
   path: string;
 };
+
+type CliOptions = {
+  funnel: boolean;
+};
+
+function parseCliOptions(argv: string[]): CliOptions {
+  return {
+    funnel: argv.includes("--funnel"),
+  };
+}
+
+function maybeStartFunnel(port: number): void {
+  const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
+    cwd: process.cwd(),
+    stdio: "inherit",
+  });
+
+  child.on("error", (error) => {
+    console.error(`Failed to start Tailscale Funnel helper: ${error.message}`);
+  });
+
+  child.on("close", (code) => {
+    if (code && code !== 0) {
+      console.error(`Tailscale Funnel helper exited with code ${code}.`);
+    }
+  });
+}
 
 async function resolveDirectoryPath(rawPath: string | null | undefined): Promise<string> {
   const candidate = rawPath?.trim() ? resolve(rawPath.trim()) : process.cwd();
@@ -76,6 +104,7 @@ async function listWorkspaceDirectories(
 }
 
 async function main(): Promise<void> {
+  const cliOptions = parseCliOptions(process.argv.slice(2));
   const port = Number(process.env.PORT ?? "3000");
   const host = process.env.HOST ?? "127.0.0.1";
   const dev = process.env.NODE_ENV !== "production";
@@ -274,6 +303,10 @@ async function main(): Promise<void> {
   });
 
   console.log(`codex-ui listening on http://${host}:${port}`);
+
+  if (cliOptions.funnel) {
+    maybeStartFunnel(port);
+  }
 }
 
 void main();

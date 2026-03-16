@@ -28,13 +28,14 @@
 ## 핵심 특징
 
 - 런처 우선 흐름: 전용 홈 화면에서 기존 thread를 열거나 새 thread를 시작합니다.
+- 모바일 quick start: 좁은 화면에서도 `Start thread`와 workspace 선택이 thread 목록 위에 바로 보입니다.
 - 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택합니다.
 - transcript 우선 셸: 채팅 영역이 가장 크게 보이고, 메시지는 flat row로 유지되며, turn은 `---`로만 구분합니다.
 - 직접 세션 제어: `Model`, `Reasoning`, `Plan`을 composer 안에서 바로 바꿉니다.
 - 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.
-- 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조로 정규화됩니다.
-- 모바일 재구성: 홈에서는 thread 목록을 먼저 보여주고, 채팅에서는 transcript 영역을 가장 크게 남깁니다.
-- Tailscale Funnel helper: 임시 셸 명령을 외우지 않아도 repo 안에서 바로 외부 공개를 켤 수 있습니다.
+- 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조와 approval 순서를 유지합니다.
+- 모바일 재구성: 홈에서는 thread 선택과 새 thread 시작을 동시에 바로 보여주고, 채팅에서는 transcript 영역을 가장 크게 남깁니다.
+- Tailscale Funnel 플래그: `--funnel`만 붙이면 한 줄 실행으로 외부 공개까지 연결됩니다.
 
 ## 아키텍처
 
@@ -60,22 +61,21 @@ Local bridge
 ## 빠른 시작
 
 ```bash
-npm install
-npm run dev
+npm run up
 ```
 
 브라우저에서 `http://127.0.0.1:3000`을 열면 됩니다.
 
 ## 외부 접속
 
-Tailscale Funnel로 로컬 UI를 외부에 공개할 수 있습니다.
+Tailscale Funnel로 로컬 UI를 한 줄로 외부에 공개할 수 있습니다.
 
 ```bash
-npm run dev
-npm run funnel
+npm run up -- --funnel
 ```
 
-- `npm run funnel`은 `http://127.0.0.1:3000`에서 실행 중인 앱을 공개합니다.
+- `--funnel`은 `npm run dev -- --funnel`, `npm run start -- --funnel`에서도 동일하게 사용할 수 있습니다.
+- `npm run up -- --funnel`은 의존성 설치, 로컬 서버 실행, repo-local Funnel helper 실행까지 한 번에 처리합니다.
 - 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
 - `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.
 - `npm run funnel:off`로 이 노드의 Funnel 설정을 초기화할 수 있습니다.
