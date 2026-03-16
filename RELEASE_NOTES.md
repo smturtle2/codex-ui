@@ -46,6 +46,7 @@
 - Stopped auto-focusing the composer on phone layouts when opening chat or changing lightweight session controls, which avoids the mobile keyboard stealing space immediately.
 - Reduced mobile composer summary chrome and hid redundant ready-state badges so the transcript and launcher keep more usable height.
 - Restored a small horizontal inset to the mobile transcript so message rows no longer sit flush against the viewport edges.
+- Added a safe post-completion `thread/read` pass so each finished turn snaps back to the persisted transcript ordering before future live updates can diverge.
 
 ### Verification
 
@@ -66,5 +67,6 @@
 - Browser check: after choosing a custom workspace, reload and `/new` continue to target that workspace instead of jumping back to the launch directory.
 - API/UI check: workspace directory browsing now surfaces regular source folders ahead of hidden and generated directories.
 - API check: live turn output and subsequent `thread/read` now produce the same normalized timeline entries for a real turn, including stable unchanged-entry timestamps.
+- Bridge check: when a turn completes, the bridge now does one guarded `thread/read` refresh for that thread and skips applying it if a newer live turn has already started.
 - CLI check: `npm run dev -- --funnel` forwards the `--funnel` flag to the app entrypoint.
 - Tooling check: `python scripts/generate_preview_images.py` now targets `preview-home.png`, `preview-settings.png`, `preview-workspace.png`, `preview-desktop.png`, `preview-mobile-home.png`, `preview-mobile-settings.png`, `preview-mobile-workspace.png`, and `preview-mobile-chat.png`.

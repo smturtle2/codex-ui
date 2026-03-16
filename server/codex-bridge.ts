@@ -1124,6 +1124,34 @@ export class CodexBridge extends EventEmitter {
     return thread;
   }
 
+  private async canonicalizeCompletedTurn(
+    threadId: string,
+    completedTurnId: string,
+  ): Promise<void> {
+    try {
+      const thread = await this.readThreadWithTurns(threadId);
+      const activeTurnId = this.state.activeTurnIds.get(threadId);
+      if (activeTurnId && activeTurnId !== completedTurnId) {
+        return;
+      }
+
+      const completedTurn = thread.turns.find((turn) => turn.id === completedTurnId);
+      if (!completedTurn || completedTurn.status === "inProgress") {
+        return;
+      }
+
+      this.state.threads.set(thread.id, thread);
+      this.hydrateThreadTimeline(thread);
+      this.publish();
+    } catch (error) {
+      this.logLine(
+        `Failed to canonicalize thread ${threadId} after turn completion: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
   private getResolvedModel(): Model | null {
     return (
       this.state.models.find((model) => model.model === this.state.sessionSettings.model) ??
@@ -1550,6 +1578,7 @@ export class CodexBridge extends EventEmitter {
             });
           }
           this.clearStreamingItemsForTurn(threadId, turn.id);
+          void this.canonicalizeCompletedTurn(threadId, turn.id);
         }
         break;
       }
