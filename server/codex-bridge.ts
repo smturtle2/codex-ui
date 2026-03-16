@@ -400,6 +400,25 @@ function createTurnTimelineEntry(
   };
 }
 
+function mergeHydratedTimelineEntry(
+  existing: TimelineEntry | undefined,
+  next: TimelineEntry,
+): TimelineEntry {
+  if (!existing) {
+    return next;
+  }
+
+  if (next.kind === "diff") {
+    const body = [existing.body.trim(), next.body.trim()].filter(Boolean).join("\n\n");
+    return {
+      ...next,
+      body,
+    };
+  }
+
+  return next;
+}
+
 function timelineEntryFromTurnItem(
   threadId: string,
   turnId: string | null,
@@ -619,6 +638,7 @@ export class CodexBridge extends EventEmitter {
   async refreshBootstrapData(): Promise<BridgeSnapshot> {
     await this.ensureReady();
     await Promise.allSettled([this.refreshThreads(), this.refreshModels()]);
+    await this.hydrateBootstrapThread();
     this.publish();
     return this.getSnapshot();
   }
@@ -646,11 +666,9 @@ export class CodexBridge extends EventEmitter {
       threadId,
       persistExtendedHistory: true,
     })) as ThreadResumeResponse;
-    const fullThread = await this.readThreadWithTurns(response.thread.id);
+    const fullThread = await this.fetchAndHydrateThread(response.thread.id);
 
     this.state.activeThreadId = fullThread.id;
-    this.state.threads.set(fullThread.id, fullThread);
-    this.hydrateThreadTimeline(fullThread);
     await this.refreshThreads();
     this.publish();
     return this.getSnapshot();
@@ -662,11 +680,9 @@ export class CodexBridge extends EventEmitter {
       threadId,
       persistExtendedHistory: true,
     })) as ThreadForkResponse;
-    const fullThread = await this.readThreadWithTurns(response.thread.id);
+    const fullThread = await this.fetchAndHydrateThread(response.thread.id);
 
     this.state.activeThreadId = fullThread.id;
-    this.state.threads.set(fullThread.id, fullThread);
-    this.hydrateThreadTimeline(fullThread);
     await this.refreshThreads();
     this.publish();
     return this.getSnapshot();
@@ -674,10 +690,8 @@ export class CodexBridge extends EventEmitter {
 
   async readThread(threadId: string): Promise<BridgeSnapshot> {
     await this.ensureReady();
-    const thread = await this.readThreadWithTurns(threadId);
-
-    this.state.threads.set(thread.id, thread);
-    this.hydrateThreadTimeline(thread);
+    const thread = await this.fetchAndHydrateThread(threadId);
+    this.state.activeThreadId = thread.id;
     this.publish();
     return this.getSnapshot();
   }
@@ -920,6 +934,13 @@ export class CodexBridge extends EventEmitter {
     return response.thread;
   }
 
+  private async fetchAndHydrateThread(threadId: string): Promise<Thread> {
+    const thread = await this.readThreadWithTurns(threadId);
+    this.state.threads.set(thread.id, thread);
+    this.hydrateThreadTimeline(thread);
+    return thread;
+  }
+
   private getResolvedModel(): Model | null {
     return (
       this.state.models.find((model) => model.model === this.state.sessionSettings.model) ??
@@ -938,13 +959,59 @@ export class CodexBridge extends EventEmitter {
 
     for (const turn of thread.turns) {
       entries.push(createTurnTimelineEntry(thread.id, turn, Date.now()));
+      const turnEntries = new Map<string, TimelineEntry>();
+      const turnEntryOrder: string[] = [];
+
       for (const item of turn.items as Array<Record<string, unknown>>) {
-        entries.push(timelineEntryFromTurnItem(thread.id, turn.id, item, "completed"));
+        const nextEntry = timelineEntryFromTurnItem(thread.id, turn.id, item, "completed");
+        const currentEntry = turnEntries.get(nextEntry.id);
+        if (!currentEntry) {
+          turnEntryOrder.push(nextEntry.id);
+        }
+        turnEntries.set(
+          nextEntry.id,
+          mergeHydratedTimelineEntry(currentEntry, nextEntry),
+        );
+      }
+
+      for (const entryId of turnEntryOrder) {
+        const entry = turnEntries.get(entryId);
+        if (entry) {
+          entries.push(entry);
+        }
       }
     }
 
     this.state.timelineByThread.set(thread.id, entries);
     this.state.streamingItemsByThread.set(thread.id, new Map());
+  }
+
+  private resolveBootstrapThreadId(): string | null {
+    const threads = [...this.state.threads.values()].sort(
+      (left, right) => right.updatedAt - left.updatedAt,
+    );
+
+    if (
+      this.state.activeThreadId &&
+      threads.some((thread) => thread.id === this.state.activeThreadId)
+    ) {
+      return this.state.activeThreadId;
+    }
+
+    return (
+      threads.find((thread) => thread.status.type === "active")?.id ??
+      null
+    );
+  }
+
+  private async hydrateBootstrapThread(): Promise<void> {
+    const threadId = this.resolveBootstrapThreadId();
+    if (!threadId) {
+      return;
+    }
+
+    this.state.activeThreadId = threadId;
+    await this.fetchAndHydrateThread(threadId);
   }
 
   private async sendRequest<T>(method: string, params?: unknown): Promise<T> {
@@ -1152,6 +1219,9 @@ export class CodexBridge extends EventEmitter {
           typeof params.threadId === "string" ? params.threadId : undefined;
         const status = params.status as ThreadStatus | undefined;
         if (threadId && status) {
+          if (!this.state.activeThreadId && status.type === "active") {
+            this.state.activeThreadId = threadId;
+          }
           const existing = this.state.threads.get(threadId);
           if (existing) {
             this.state.threads.set(threadId, {
@@ -1183,6 +1253,9 @@ export class CodexBridge extends EventEmitter {
           typeof params.threadId === "string" ? params.threadId : undefined;
         const turn = params.turn as Turn | undefined;
         if (threadId && turn) {
+          if (!this.state.activeThreadId) {
+            this.state.activeThreadId = threadId;
+          }
           this.state.activeTurnIds.set(threadId, turn.id);
           this.state.activeTurnStartedAt.set(threadId, now);
           this.upsertTimelineEntry(

@@ -5,7 +5,8 @@ import "./globals.css";
 
 export const metadata = {
   title: "Codex UI",
-  description: "Monochrome local WebUI for Codex with live WebSocket streaming.",
+  description:
+    "Transcript-first monochrome local WebUI for Codex with live WebSocket streaming.",
 };
 
 export const viewport: Viewport = {

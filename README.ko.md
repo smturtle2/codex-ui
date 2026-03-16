@@ -9,7 +9,7 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 시끄러운 대시보드로 바꾸지 않고, 원래의 작업 흐름에 가깝게 유지합니다. 흰 배경, 검은 타이포, 얇은 선, 직접 보이는 composer 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 대화가 가장 크게 보이는 구조만 남겼습니다.
+`codex-ui`는 Codex를 시끄러운 대시보드로 바꾸지 않고, 원래의 작업 흐름에 가깝게 유지합니다. 흰 배경, 검은 타이포, 얇은 선, 직접 보이는 세션 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 대화가 가장 크게 보이는 구조만 남겼습니다.
 
 ## Preview
 
@@ -17,15 +17,22 @@
 | --- | --- |
 | ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
+## UX Audit
+
+- 기존 모바일 레이아웃은 항상 열려 있는 controls가 높이를 너무 많이 차지해서, 작은 화면에서는 composer 상단을 compact summary row로 접을 수 있게 바꿨습니다.
+- transcript 영역이 박스처럼 닫혀 보이던 인상을 줄이기 위해 전체 셸을 더 평평한 rail 중심 구조로 정리했습니다.
+- bootstrap, thread/read, live delta 사이에서 transcript 모양이 어긋날 수 있던 부분을 줄이기 위해 활성 thread를 bootstrap 시 hydrate하고, turn 단위 file change를 같은 transcript 정규화 경로로 합쳤습니다.
+- 의미 없는 런타임 잡음은 기본 접힘 또는 숨김으로 유지해서 실제 대화와 중요한 예외만 잘 보이게 했습니다.
+
 ## 이 UI가 최적화하는 것
 
 - transcript 우선. 대화면이 가장 크고 가장 읽기 쉬워야 합니다.
 - 평면 transcript. 메시지는 채팅 카드가 아니라 평평한 transcript 블록으로 보입니다.
 - 최소한의 chrome. 상태, 단축키, thread 관리 UI는 가볍게 유지합니다.
 - 직접 제어. `Model`, `Reasoning`, `Language` 는 composer 안에서 바로 고르는 드롭다운입니다.
-- 모바일 control rail. 작은 화면에서는 같은 제어가 transcript를 밀어내지 않도록 composer 안의 가로 레일로 유지됩니다.
+- 모바일 control rail. 작은 화면에서는 transcript를 밀어내지 않도록 session controls를 compact summary row로 접어 둡니다.
 - 한 번의 계획 전환. `Plan` 모드는 입력 흐름 옆에 항상 있는 버튼으로 둡니다.
-- 안정적인 출력. thread를 다시 불러올 때와 실시간 업데이트할 때 같은 item-to-transcript 정규화 경로를 따릅니다.
+- 안정적인 출력. thread를 다시 불러올 때와 실시간 업데이트할 때 같은 item-to-transcript 정규화 경로를 따르며, turn 단위 file change도 같은 방식으로 합칩니다.
 - 적은 잡음. edited content는 기본 접힘이고, 런타임 잡음은 숨기며, 의미 있는 상태만 남깁니다.
 
 ## 핵심 UX
@@ -43,6 +50,7 @@
 - 모바일에서도 composer보다 transcript가 더 크게 보이는 비율 유지
 - 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
 - command, file change, permission, `request_user_input` 를 브라우저 안에서 바로 처리
+- 가능할 때 bootstrap 시 활성 thread transcript를 먼저 hydrate해서 빈 화면으로 시작하지 않도록 보강
 
 ## 아키텍처
 
@@ -56,7 +64,7 @@ Local bridge
   ├─ server/index.ts
   └─ server/codex-bridge.ts
        ├─ codex app-server over stdio JSON-RPC
-       └─ live delta 와 thread/read 를 함께 쓰는 정규화 계층
+       └─ bootstrap hydration, thread/read, live delta 를 함께 쓰는 정규화 계층
 ```
 
 ## 빠른 시작

@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` keeps Codex close to its native workflow instead of turning it into a noisy dashboard. The shell is intentionally strict: white background, black type, thin borders, direct composer controls, live WebSocket updates, folded diffs, and a transcript that stays visually dominant on both desktop and mobile.
+`codex-ui` keeps Codex close to its native workflow instead of turning it into a noisy dashboard. The shell stays intentionally strict: white background, black type, thin borders, direct session controls, live WebSocket updates, folded diffs, and a transcript that remains dominant on both desktop and mobile.
 
 ## Preview
 
@@ -17,15 +17,22 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 | --- | --- |
 | ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
+## UX Audit
+
+- The previous mobile layout spent too much height on always-open controls, so the composer now collapses session settings into a compact summary row on small screens.
+- The transcript surface looked too boxed-in, so the shell now uses flatter rails and lets the conversation occupy more of the page.
+- Loaded thread history and live updates could diverge around bootstrap and diff shaping, so the bridge now hydrates an active thread on bootstrap and merges turn-level file changes through the same transcript model.
+- Low-signal runtime chatter stays folded or hidden by default, so only the conversation and meaningful exceptions stay visible.
+
 ## What This UI Optimizes For
 
 - Transcript first. The conversation surface stays largest and easiest to scan.
 - Flat transcript. Messages render as plain transcript blocks instead of chat cards.
 - Minimal chrome. Status, shortcuts, and thread management stay lightweight.
 - Direct control. `Model`, `Reasoning`, and `Language` live inside the composer as visible dropdowns.
-- Mobile control rail. On small screens the same controls stay in the composer as a compact horizontal strip instead of pushing the transcript down.
+- Mobile control rail. On small screens session controls collapse into a compact summary row instead of pushing the transcript down.
 - One-click planning. `Plan` mode stays next to the input flow as a dedicated button.
-- Stable output. Loaded threads and live updates normalize through the same item-to-transcript path.
+- Stable output. Loaded threads and live updates normalize through the same item-to-transcript path, including turn-level file changes.
 - Less noise. Edited content starts folded, runtime chatter stays hidden, and only meaningful states stay visible.
 
 ## Core UX
@@ -43,6 +50,7 @@ Monochrome, transcript-first local UI for the real `codex app-server`.
 - Mobile layout keeps the transcript taller than the composer while preserving usable controls.
 - Local thread drawer for search, sort, resume, and fresh-thread creation.
 - Inline approvals for commands, file changes, permissions, and `request_user_input`.
+- Bootstrap hydrates the active thread when available instead of showing an empty pane after reconnecting.
 
 ## Architecture
 
@@ -56,7 +64,7 @@ Local bridge
   ├─ server/index.ts
   └─ server/codex-bridge.ts
        ├─ codex app-server over stdio JSON-RPC
-       └─ shared normalization for live deltas and thread/read hydration
+       └─ shared normalization for bootstrap hydration, thread/read, and live deltas
 ```
 
 ## Quick Start

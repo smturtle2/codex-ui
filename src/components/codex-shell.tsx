@@ -719,6 +719,24 @@ export function CodexShell() {
     label: effort.reasoningEffort,
   }));
   const languageOptions = getLanguageOptions(locale);
+  const selectedModelLabel =
+    sessionModelOptions.find((option) => option.value === selectedModelValue)?.label ??
+    selectedModelValue ??
+    copy.common.unavailable;
+  const selectedEffortLabel =
+    sessionEffortOptions.find((option) => option.value === selectedEffortValue)?.label ??
+    selectedEffortValue ??
+    copy.common.unavailable;
+  const selectedLanguageLabel =
+    languageOptions.find((option) => option.value === selectedLanguageValue)?.label ??
+    selectedLanguageValue;
+  const sessionSummary = [
+    selectedModelLabel,
+    selectedEffortLabel,
+    selectedLanguageLabel,
+  ]
+    .filter(Boolean)
+    .join(" / ");
   const composerHelper = connectionState !== "live"
     ? copy.composer.helperReconnect
     : visibleCommands.length
@@ -1167,6 +1185,12 @@ export function CodexShell() {
           selectedEffort={selectedEffortValue}
           selectedLanguage={selectedLanguageValue}
           planMode={selectedPlanMode}
+          sessionSummary={sessionSummary}
+          sessionAriaLabel={copy.composer.sessionAria(
+            selectedModelLabel,
+            selectedEffortLabel,
+            selectedLanguageLabel,
+          )}
           modelOptions={sessionModelOptions}
           effortOptions={sessionEffortOptions}
           languageOptions={languageOptions}

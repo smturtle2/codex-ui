@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useState,
   type KeyboardEventHandler,
   type RefObject,
 } from "react";
@@ -32,6 +33,8 @@ type ComposerDockProps = {
   selectedEffort: string;
   selectedLanguage: UiLanguage;
   planMode: boolean;
+  sessionSummary: string;
+  sessionAriaLabel: string;
   modelOptions: SessionModelOption[];
   effortOptions: SessionEffortOption[];
   languageOptions: SessionModelOption[];
@@ -126,6 +129,8 @@ export function ComposerDock({
   selectedEffort,
   selectedLanguage,
   planMode,
+  sessionSummary,
+  sessionAriaLabel,
   modelOptions,
   effortOptions,
   languageOptions,
@@ -141,6 +146,8 @@ export function ComposerDock({
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
+  const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
+
   return (
     <section className="composer-dock">
       {visibleCommands.length > 0 ? (
@@ -163,7 +170,40 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-controls" aria-label={labels.session}>
+        <div className="composer-mobile-session-bar">
+          <button
+            className={`composer-session-trigger ${mobileSessionOpen ? "open" : ""}`}
+            type="button"
+            aria-expanded={mobileSessionOpen}
+            aria-label={sessionAriaLabel}
+            onClick={() => setMobileSessionOpen((current) => !current)}
+          >
+            <span className="composer-session-trigger-label">{labels.session}</span>
+            <span className="composer-session-trigger-value">{sessionSummary}</span>
+            <span className="composer-control-caret" aria-hidden="true">
+              v
+            </span>
+          </button>
+
+          <button
+            className={`composer-plan-toggle composer-plan-toggle-mobile ${
+              planMode ? "selected" : ""
+            }`}
+            type="button"
+            aria-pressed={planMode}
+            onClick={onPlanModeToggle}
+          >
+            <span className="composer-plan-toggle-label">{labels.plan}</span>
+            <span className="composer-plan-toggle-value">
+              {planMode ? labels.on : labels.off}
+            </span>
+          </button>
+        </div>
+
+        <div
+          className={`composer-controls ${mobileSessionOpen ? "open" : ""}`}
+          aria-label={labels.session}
+        >
           <div className="composer-controls-grid">
             <SessionSelectField
               id="composer-model"
@@ -196,7 +236,9 @@ export function ComposerDock({
             <label className="composer-plan-field">
               <span className="composer-control-label">{labels.plan}</span>
               <button
-                className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
+                className={`composer-plan-toggle composer-plan-toggle-desktop ${
+                  planMode ? "selected" : ""
+                }`}
                 type="button"
                 aria-pressed={planMode}
                 onClick={onPlanModeToggle}
