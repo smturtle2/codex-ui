@@ -1,5 +1,5 @@
 export type OverlayKind = "status" | "shortcuts";
 
-export type SurfaceKind = "threads" | OverlayKind;
+export type SurfaceKind = OverlayKind;
 
 export type ThreadDrawerSort = "created" | "updated";

@@ -9,33 +9,35 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 대시보드처럼 과하게 꾸미지 않고, 터미널에 가까운 작업 흐름을 브라우저로 옮깁니다. 흰 배경, 검은 타이포, 얇은 rail, composer 안의 직접 제어, WebSocket 실시간 갱신, 기본 접힘 diff, 그리고 데스크톱과 모바일 모두에서 transcript가 가장 크게 보이는 구조만 남겼습니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 꾸미지 않고, 터미널에 가까운 작업 흐름을 브라우저로 옮깁니다. 이제 앱은 실제 Home 화면으로 시작하고, 새 thread 생성 전에 workspace를 고를 수 있으며, 모델과 추론 제어는 채팅 입력 흐름 안에 두고, 히스토리에서 불러온 thread와 실시간 출력이 같은 transcript 모양을 유지합니다.
 
 ## Preview
 
-| Desktop | Mobile |
-| --- | --- |
-| ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
+| Home | Desktop Chat | Mobile Chat |
+| --- | --- | --- |
+| ![Home preview](./docs/preview-home.png) | ![Desktop preview](./docs/preview-desktop.png) | ![Mobile preview](./docs/preview-mobile.png) |
 
 ## UX Audit
 
-- 기존 composer가 하단 카드처럼 보여서 transcript-first 인상이 약했습니다.
-- 모바일도 동작은 했지만, session controls보다 대화 영역이 더 강하게 우선되어야 했습니다.
-- 폰트가 로컬 환경 스택에 의존하고 있어서 한/영 혼용 시 일관성이 보장되지 않았습니다.
-- bootstrap hydration, `thread/read`, live delta가 항상 같은 transcript 모양을 유지해야 했습니다.
+- 앱이 바로 shell로 들어가서 기존 thread를 고르거나 새로 만드는 시작 단계가 분명하지 않았습니다.
+- 새 thread 생성 시 workspace를 먼저 정할 수 없었습니다.
+- 모바일에서 controls의 존재감이 아직 transcript보다 컸습니다.
+- `thread/read`로 불러온 결과와 실시간 file-change 출력이 어긋날 수 있었습니다.
+- 빌드가 원격 폰트 fetch에 의존해서 제한 환경에서 깨질 수 있었습니다.
 
 ## 이번에 바뀐 점
 
-- 셸을 더 평평하게 만들었습니다. header와 composer가 카드 더미처럼 보이지 않고 rail처럼 읽히도록 정리했습니다.
-- 모바일을 더 적응형으로 바꿨습니다. session controls는 compact summary row로 접고, transcript가 세로 공간을 더 많이 차지합니다.
-- `next/font`로 `IBM Plex Sans KR`와 `IBM Plex Mono`를 실제 로드해서 한/영 혼용 렌더링을 안정화했습니다.
-- `Model`, `Reasoning`, `Language`, `Plan`은 그대로 composer 안에서 바로 제어할 수 있게 유지했습니다.
-- bootstrap, `thread/read`, live delta를 같은 정규화 경로에 두어 thread를 다시 열어도 출력 모양이 어긋나지 않게 했습니다.
-- diff는 기본 접힘, reasoning/plan 흔적은 저잡음 유지, 런타임 잡음은 숨김으로 두어 실제 대화가 앞에 오게 했습니다.
+- Home을 첫 화면으로 두었습니다. 이제 앱을 켜면 바로 thread 선택과 새 thread 시작 흐름이 보입니다.
+- 새 thread 생성이 명시적입니다. 최근 workspace 제안과 함께 원하는 workspace를 먼저 정할 수 있습니다.
+- 셸을 더 평평하게 만들었습니다. header와 composer는 rail처럼 읽히고, transcript가 데스크톱과 모바일 모두에서 가장 크게 보입니다.
+- 세션 제어는 입력 흐름 안에 남겼습니다. `Model`, `Reasoning`, `Language` 는 composer session 메뉴 안에 있고, `Plan` 은 별도 토글로 유지됩니다.
+- transcript 정규화를 더 엄격하게 만들었습니다. bootstrap, `thread/read`, live event가 같은 file-change 경로를 써서 불러온 화면과 실시간 화면이 맞춰집니다.
+- 타이포는 로컬 친화적으로 바꿨습니다. 빌드 시 Google Fonts fetch에 의존하지 않습니다.
 
 ## 설계 원칙
 
 - transcript 우선. 대화면이 가장 크고 가장 읽기 쉬워야 합니다.
+- Home 먼저. 앱을 열자마자 thread와 workspace 선택이 분명해야 합니다.
 - 채팅 카드 금지. 메시지는 flat transcript row와 역할 라벨, `---` turn 구분으로 읽습니다.
 - 흑백만 사용. 색 대신 대비, 간격, 타이포로 구조를 만듭니다.
 - 직접 제어. `Model`, `Reasoning`, `Language`, `Plan`을 composer 안에 둡니다.
@@ -45,13 +47,14 @@
 
 ## 핵심 UX
 
+- 기존 thread를 고르거나 workspace를 정해 새 thread를 시작하는 Home 화면
 - 새로고침 폴링이 아닌 WebSocket 기반 실시간 업데이트
 - user/assistant 메시지를 그룹화한 flat transcript row
-- composer 안의 직접 드롭다운으로 `Model`, `Reasoning`, `Language` 제어
+- composer session dropdown으로 `Model`, `Reasoning`, `Language` 제어
 - 입력 흐름 안에 놓인 `Plan` 토글 버튼
 - 스트리밍 중 자동으로 최신 transcript를 따라가는 스크롤
 - command, file change, permission, `request_user_input` 를 브라우저 안에서 처리
-- 검색, 정렬, 재개, 새 thread 생성을 포함한 로컬 thread drawer
+- workspace 메타데이터와 함께 검색/정렬/재개가 가능한 로컬 thread 목록
 
 ## 아키텍처
 
@@ -85,12 +88,11 @@ npm run dev
 
 ## 사용 흐름
 
-1. 앱을 시작하고 `Threads` 에서 기존 thread를 열거나 새로 만듭니다.
-2. composer 제어줄에서 `Model`, `Reasoning`, `Language` 를 바로 선택합니다.
-3. 다음 turn을 plan collaboration mode로 보내고 싶다면 `Plan` 버튼을 토글합니다.
+1. 앱을 시작하면 Home에서 기존 thread를 고르거나, 원하는 workspace로 새 thread를 시작합니다.
+2. composer session 메뉴에서 `Model`, `Reasoning`, `Language` 를 정합니다.
+3. 다음 turn을 plan collaboration mode로 보내고 싶다면 `Plan` 을 토글합니다.
 4. 메시지를 보내고 WebSocket으로 갱신되는 transcript를 그대로 따라갑니다.
-5. 필요할 때만 `Status` 와 `Shortcuts` 를 열고, transcript는 메인 화면에 그대로 둡니다.
-6. diff는 필요할 때만 펼치고 approval은 같은 흐름 안에서 처리합니다.
+5. diff는 필요할 때만 펼치고 approval은 같은 흐름 안에서 처리합니다.
 
 ## 개발
 
@@ -102,6 +104,6 @@ npm run check
 
 ## 참고
 
-- thread drawer는 로컬 Codex 세션을 읽기 때문에 다른 워크스페이스의 thread도 보일 수 있습니다.
+- Home 목록은 로컬 Codex 세션을 읽기 때문에 다른 워크스페이스의 thread도 보일 수 있습니다.
 - 기본 주소는 `127.0.0.1:3000` 입니다.
 - 포트를 바꾸려면 `PORT=3001 node --import tsx server/index.ts` 를 사용하면 됩니다.

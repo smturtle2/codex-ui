@@ -23,6 +23,7 @@ import type {
   SessionSettings,
   TimelineEntry,
   ThreadListItem,
+  WorkspaceOption,
 } from "../src/lib/shared";
 
 type JsonRpcId = number | string;
@@ -194,6 +195,44 @@ function buildThreadListItem(thread: Thread, isActive: boolean): ThreadListItem 
   };
 }
 
+function buildWorkspaceOptions(
+  threads: Thread[],
+  defaultWorkspacePath: string,
+): WorkspaceOption[] {
+  const byPath = new Map<string, WorkspaceOption>();
+
+  for (const thread of threads) {
+    const current = byPath.get(thread.cwd);
+    const next: WorkspaceOption = {
+      path: thread.cwd,
+      label: formatWorkspaceLabel(thread.cwd),
+      threadCount: (current?.threadCount ?? 0) + 1,
+      lastUsedAt: current?.lastUsedAt
+        ? Math.max(current.lastUsedAt, thread.updatedAt)
+        : thread.updatedAt,
+      isCurrent: thread.cwd === defaultWorkspacePath,
+    };
+
+    byPath.set(thread.cwd, next);
+  }
+
+  if (!byPath.has(defaultWorkspacePath)) {
+    byPath.set(defaultWorkspacePath, {
+      path: defaultWorkspacePath,
+      label: formatWorkspaceLabel(defaultWorkspacePath),
+      threadCount: 0,
+      lastUsedAt: null,
+      isCurrent: true,
+    });
+  }
+
+  return [...byPath.values()].sort((left, right) => {
+    const leftScore = left.lastUsedAt ?? 0;
+    const rightScore = right.lastUsedAt ?? 0;
+    return rightScore - leftScore;
+  });
+}
+
 function stringifyUnknown(value: unknown): string {
   if (typeof value === "string") {
     return value;
@@ -230,12 +269,8 @@ function summarizeUserInputs(content: Array<{ type: string; text?: string; path?
 function resolveTimelineEntryId(
   itemType: string,
   itemId: string,
-  turnId: string | null,
+  _turnId: string | null,
 ): string {
-  if (itemType === "fileChange") {
-    return `diff:${turnId ?? itemId}`;
-  }
-
   return itemId;
 }
 
@@ -406,14 +441,6 @@ function mergeHydratedTimelineEntry(
 ): TimelineEntry {
   if (!existing) {
     return next;
-  }
-
-  if (next.kind === "diff") {
-    const body = [existing.body.trim(), next.body.trim()].filter(Boolean).join("\n\n");
-    return {
-      ...next,
-      body,
-    };
   }
 
   return next;
@@ -601,6 +628,7 @@ export class CodexBridge extends EventEmitter {
     const threads = [...this.state.threads.values()].sort(
       (left, right) => right.updatedAt - left.updatedAt,
     );
+    const defaultWorkspacePath = process.cwd();
     const timelineByThread: Record<string, TimelineEntry[]> = {};
 
     for (const [threadId, timeline] of this.state.timelineByThread.entries()) {
@@ -623,6 +651,8 @@ export class CodexBridge extends EventEmitter {
       lastError: this.state.lastError,
       threads,
       threadList,
+      defaultWorkspacePath,
+      workspaceOptions: buildWorkspaceOptions(threads, defaultWorkspacePath),
       activeThreadId,
       activeTurnId,
       activeTurnStartedAt,
@@ -643,10 +673,11 @@ export class CodexBridge extends EventEmitter {
     return this.getSnapshot();
   }
 
-  async createThread(): Promise<BridgeSnapshot> {
+  async createThread(cwd?: string | null): Promise<BridgeSnapshot> {
     await this.ensureReady();
     const response = (await this.sendRequest<ThreadStartResponse>("thread/start", {
       model: this.state.sessionSettings.model,
+      cwd: cwd?.trim() ? cwd.trim() : undefined,
       experimentalRawEvents: false,
       persistExtendedHistory: true,
     })) as ThreadStartResponse;
@@ -1439,29 +1470,8 @@ export class CodexBridge extends EventEmitter {
         break;
       }
       case "turn/diff/updated": {
-        const threadId =
-          typeof params.threadId === "string" ? params.threadId : undefined;
-        const turnId = typeof params.turnId === "string" ? params.turnId : null;
-        const diff = typeof params.diff === "string" ? params.diff : "";
-        if (threadId) {
-          const diffEntryId = resolveTimelineEntryId("fileChange", "turn-diff", turnId);
-          const existingDiff = this.findTimelineEntry(threadId, diffEntryId);
-          if (existingDiff && existingDiff.rawMethod !== method) {
-            break;
-          }
-          this.upsertTimelineEntry(threadId, diffEntryId, {
-            id: diffEntryId,
-            threadId,
-            turnId,
-            kind: "diff",
-            title: "Edited content",
-            body: diff,
-            tone: "warning",
-            status: "completed",
-            rawMethod: method,
-            updatedAt: now,
-          });
-        }
+        // Ignore raw turn diff notifications so thread hydration and live updates
+        // both rely on the same fileChange item normalization path.
         break;
       }
       case "serverRequest/resolved": {

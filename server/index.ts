@@ -60,7 +60,8 @@ async function main(): Promise<void> {
       }
 
       if (url.pathname === "/api/thread/start" && request.method === "POST") {
-        const snapshot = await bridge.createThread();
+        const body = (await readJson(request)) as { cwd?: string | null } | null;
+        const snapshot = await bridge.createThread(body?.cwd ?? null);
         json(response, 200, { snapshot });
         return;
       }

@@ -75,11 +75,21 @@ export type ThreadListItem = {
   searchText: string;
 };
 
+export type WorkspaceOption = {
+  path: string;
+  label: string;
+  threadCount: number;
+  lastUsedAt: number | null;
+  isCurrent: boolean;
+};
+
 export type BridgeSnapshot = {
   phase: BridgePhase;
   lastError: string | null;
   threads: Thread[];
   threadList: ThreadListItem[];
+  defaultWorkspacePath: string;
+  workspaceOptions: WorkspaceOption[];
   activeThreadId: string | null;
   activeTurnId: string | null;
   activeTurnStartedAt: number | null;

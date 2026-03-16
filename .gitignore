@@ -2,3 +2,7 @@
 node_modules
 npm-debug.log*
 tsconfig.tsbuildinfo
+.playwright-cli/
+output/
+docs/*.html
+scripts/generate_preview_images.py

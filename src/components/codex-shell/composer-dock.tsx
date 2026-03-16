@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  useEffect,
+  useRef,
   useState,
   type KeyboardEventHandler,
   type RefObject,
@@ -9,12 +11,7 @@ import {
 import type { UiLanguage } from "@/components/codex-shell/copy";
 import type { SlashCommandDefinition } from "@/lib/shared";
 
-type SessionModelOption = {
-  value: string;
-  label: string;
-};
-
-type SessionEffortOption = {
+type SessionOption = {
   value: string;
   label: string;
 };
@@ -35,16 +32,14 @@ type ComposerDockProps = {
   planMode: boolean;
   sessionSummary: string;
   sessionAriaLabel: string;
-  modelOptions: SessionModelOption[];
-  effortOptions: SessionEffortOption[];
-  languageOptions: SessionModelOption[];
+  modelOptions: SessionOption[];
+  effortOptions: SessionOption[];
+  languageOptions: SessionOption[];
   labels: {
     session: string;
     model: string;
     reasoning: string;
     language: string;
-    status: string;
-    shortcuts: string;
     plan: string;
     on: string;
     off: string;
@@ -60,7 +55,6 @@ type ComposerDockProps = {
   onEffortChange: (value: string) => void;
   onLanguageChange: (value: UiLanguage) => void;
   onPlanModeToggle: () => void;
-  onSurfaceOpen: (surface: "status" | "shortcuts") => void;
   onSubmit: () => void;
   onInterrupt: () => void;
 };
@@ -69,7 +63,7 @@ type SessionSelectFieldProps = {
   id: string;
   label: string;
   value: string;
-  options: Array<{ value: string; label: string }>;
+  options: SessionOption[];
   unavailableLabel: string;
   selectRef?: RefObject<HTMLSelectElement | null>;
   onChange: (value: string) => void;
@@ -142,11 +136,30 @@ export function ComposerDock({
   onEffortChange,
   onLanguageChange,
   onPlanModeToggle,
-  onSurfaceOpen,
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
-  const [mobileSessionOpen, setMobileSessionOpen] = useState(false);
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+  const sessionMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!sessionMenuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (sessionMenuRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setSessionMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [sessionMenuOpen]);
 
   return (
     <section className="composer-dock">
@@ -170,25 +183,59 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        <div className="composer-mobile-session-bar">
-          <button
-            className={`composer-session-trigger ${mobileSessionOpen ? "open" : ""}`}
-            type="button"
-            aria-expanded={mobileSessionOpen}
-            aria-label={sessionAriaLabel}
-            onClick={() => setMobileSessionOpen((current) => !current)}
-          >
-            <span className="composer-session-trigger-label">{labels.session}</span>
-            <span className="composer-session-trigger-value">{sessionSummary}</span>
-            <span className="composer-control-caret" aria-hidden="true">
-              v
-            </span>
-          </button>
+        <div className="composer-session-bar">
+          <div ref={sessionMenuRef} className="composer-session-shell">
+            <button
+              className={`composer-session-trigger ${sessionMenuOpen ? "open" : ""}`}
+              type="button"
+              aria-expanded={sessionMenuOpen}
+              aria-label={sessionAriaLabel}
+              onClick={() => setSessionMenuOpen((current) => !current)}
+            >
+              <span className="composer-session-trigger-label">{labels.session}</span>
+              <span className="composer-session-trigger-value">{sessionSummary}</span>
+              <span className="composer-control-caret" aria-hidden="true">
+                v
+              </span>
+            </button>
+
+            {sessionMenuOpen ? (
+              <div className="composer-session-menu" role="dialog" aria-label={labels.session}>
+                <div className="composer-session-grid">
+                  <SessionSelectField
+                    id="composer-model"
+                    label={labels.model}
+                    value={selectedModel}
+                    options={modelOptions}
+                    unavailableLabel={labels.unavailable}
+                    selectRef={modelSelectRef}
+                    onChange={onModelChange}
+                  />
+
+                  <SessionSelectField
+                    id="composer-effort"
+                    label={labels.reasoning}
+                    value={selectedEffort}
+                    options={effortOptions}
+                    unavailableLabel={labels.unavailable}
+                    onChange={onEffortChange}
+                  />
+
+                  <SessionSelectField
+                    id="composer-language"
+                    label={labels.language}
+                    value={selectedLanguage}
+                    options={languageOptions}
+                    unavailableLabel={labels.unavailable}
+                    onChange={(value) => onLanguageChange(value as UiLanguage)}
+                  />
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           <button
-            className={`composer-plan-toggle composer-plan-toggle-mobile ${
-              planMode ? "selected" : ""
-            }`}
+            className={`composer-plan-toggle ${planMode ? "selected" : ""}`}
             type="button"
             aria-pressed={planMode}
             onClick={onPlanModeToggle}
@@ -198,57 +245,6 @@ export function ComposerDock({
               {planMode ? labels.on : labels.off}
             </span>
           </button>
-        </div>
-
-        <div
-          className={`composer-controls ${mobileSessionOpen ? "open" : ""}`}
-          aria-label={labels.session}
-        >
-          <div className="composer-controls-grid">
-            <SessionSelectField
-              id="composer-model"
-              label={labels.model}
-              value={selectedModel}
-              options={modelOptions}
-              unavailableLabel={labels.unavailable}
-              selectRef={modelSelectRef}
-              onChange={onModelChange}
-            />
-
-            <SessionSelectField
-              id="composer-effort"
-              label={labels.reasoning}
-              value={selectedEffort}
-              options={effortOptions}
-              unavailableLabel={labels.unavailable}
-              onChange={onEffortChange}
-            />
-
-            <SessionSelectField
-              id="composer-language"
-              label={labels.language}
-              value={selectedLanguage}
-              options={languageOptions}
-              unavailableLabel={labels.unavailable}
-              onChange={(value) => onLanguageChange(value as UiLanguage)}
-            />
-
-            <label className="composer-plan-field">
-              <span className="composer-control-label">{labels.plan}</span>
-              <button
-                className={`composer-plan-toggle composer-plan-toggle-desktop ${
-                  planMode ? "selected" : ""
-                }`}
-                type="button"
-                aria-pressed={planMode}
-                onClick={onPlanModeToggle}
-              >
-                <span className="composer-plan-toggle-value">
-                  {planMode ? labels.on : labels.off}
-                </span>
-              </button>
-            </label>
-          </div>
         </div>
 
         <textarea
@@ -267,26 +263,14 @@ export function ComposerDock({
             </span>
             <span className="composer-helper">{helperText}</span>
           </div>
+
           <div className="composer-actions">
-            <button
-              className="plain-action composer-utility-action"
-              type="button"
-              onClick={() => onSurfaceOpen("status")}
-            >
-              {labels.status}
-            </button>
-            <button
-              className="plain-action composer-utility-action"
-              type="button"
-              onClick={() => onSurfaceOpen("shortcuts")}
-            >
-              {labels.shortcuts}
-            </button>
             {activeTurn ? (
               <button className="plain-action" type="button" onClick={onInterrupt}>
                 {labels.interrupt}
               </button>
             ) : null}
+
             <button
               className="action-button"
               type="button"

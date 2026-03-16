@@ -52,16 +52,8 @@ function isVisibleEntry(entry: TimelineEntry): boolean {
     return entry.status === "pending" || entry.status === "error";
   }
 
-  if (entry.kind === "review" || entry.kind === "reasoning") {
+  if (entry.kind === "reasoning") {
     return entry.status === "error";
-  }
-
-  if (entry.kind === "command" || entry.kind === "tool" || entry.kind === "input") {
-    return entry.status === "error" || entry.status === "pending";
-  }
-
-  if (entry.kind === "system" || entry.kind === "thread") {
-    return entry.status === "error" || entry.status === "pending";
   }
 
   return false;

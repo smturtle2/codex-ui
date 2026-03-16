@@ -21,9 +21,9 @@ import {
   type UiLanguage,
 } from "@/components/codex-shell/copy";
 import { ComposerDock } from "@/components/codex-shell/composer-dock";
+import { HomeScreen } from "@/components/codex-shell/home-screen";
 import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
-import { ThreadDrawer } from "@/components/codex-shell/thread-drawer";
 import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
 import type { SurfaceKind, ThreadDrawerSort } from "@/components/codex-shell/types";
 import {
@@ -51,6 +51,7 @@ type ApprovalChoice = {
 };
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
+type ViewMode = "home" | "chat";
 
 async function callApi<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
@@ -97,12 +98,14 @@ function resolveSlashCommand(
 export function CodexShell() {
   const [snapshot, setSnapshot] = useState<BridgeSnapshot | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+  const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [surface, setSurface] = useState<SurfaceKind | null>(null);
   const [composer, setComposer] = useState("");
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
   const [browserLanguage, setBrowserLanguage] = useState("en");
   const [threadSearch, setThreadSearch] = useState("");
   const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
+  const [workspaceDraft, setWorkspaceDraft] = useState("");
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [selectedApprovalIndex, setSelectedApprovalIndex] = useState(0);
   const [commandMenuDismissed, setCommandMenuDismissed] = useState(false);
@@ -115,11 +118,11 @@ export function CodexShell() {
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
+  const homeSearchRef = useRef<HTMLInputElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
-  const threadDrawerPanelRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
   const approvalDialogRef = useRef<HTMLDivElement | null>(null);
-  const threadButtonRef = useRef<HTMLButtonElement | null>(null);
+  const homeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousActiveThreadIdRef = useRef<string | null>(null);
   const previousTimelineLengthRef = useRef(0);
   const transcriptPinnedRef = useRef(true);
@@ -240,6 +243,14 @@ export function CodexShell() {
   }, [locale]);
 
   useEffect(() => {
+    if (!snapshot?.defaultWorkspacePath) {
+      return;
+    }
+
+    setWorkspaceDraft((current) => current || snapshot.defaultWorkspacePath);
+  }, [snapshot?.defaultWorkspacePath]);
+
+  useEffect(() => {
     if (!toast) {
       return;
     }
@@ -294,8 +305,8 @@ export function CodexShell() {
     });
   }, [deferredThreadSearch, snapshot, threadSort]);
 
-  const recentThreads = useMemo(
-    () => filteredThreads.filter((thread) => !thread.isActive),
+  const filteredActiveThread = useMemo(
+    () => filteredThreads.find((thread) => thread.isActive) ?? null,
     [filteredThreads],
   );
 
@@ -339,13 +350,6 @@ export function CodexShell() {
 
     if (previousPendingRequestIdRef.current && !currentPendingRequestId) {
       window.setTimeout(() => {
-        if (surface === "threads") {
-          const target =
-            threadDrawerPanelRef.current?.querySelector<HTMLElement>('[data-autofocus="true"]');
-          target?.focus();
-          return;
-        }
-
         if (surface) {
           const target =
             overlayPanelRef.current?.querySelector<HTMLElement>('[data-autofocus="true"]');
@@ -359,12 +363,17 @@ export function CodexShell() {
           return;
         }
 
+        if (viewMode === "home") {
+          homeSearchRef.current?.focus();
+          return;
+        }
+
         composerRef.current?.focus();
       }, 0);
     }
 
     previousPendingRequestIdRef.current = currentPendingRequestId;
-  }, [pendingRequest?.id, surface]);
+  }, [pendingRequest?.id, surface, viewMode]);
 
   const visibleCommands = !commandMenuDismissed && composer.trimStart().startsWith("/")
     ? filterCommands(composer.trimStart(), locale)
@@ -466,6 +475,11 @@ export function CodexShell() {
         return;
       }
 
+      if (viewMode === "home") {
+        homeSearchRef.current?.focus();
+        return;
+      }
+
       composerRef.current?.focus();
     }, 0);
   }
@@ -494,16 +508,24 @@ export function CodexShell() {
     }
   }
 
-  async function handleCreateThread(closeCurrentSurface = false) {
+  async function handleCreateThread(options?: {
+    closeCurrentSurface?: boolean;
+    workspacePath?: string | null;
+  }) {
+    const workspacePath = options?.workspacePath?.trim() || snapshot?.defaultWorkspacePath || "";
     await syncSnapshotFromResult(
-      () => callApi("/api/thread/start", {}),
+      () =>
+        callApi("/api/thread/start", {
+          cwd: workspacePath || undefined,
+        }),
       copy.actions.startingThread,
     );
 
-    if (closeCurrentSurface) {
+    if (options?.closeCurrentSurface) {
       setSurface(null);
     }
 
+    setViewMode("chat");
     setComposer("");
     window.setTimeout(() => {
       composerRef.current?.focus();
@@ -540,10 +562,12 @@ export function CodexShell() {
     switch (command.action) {
       case "new":
       case "clear":
-        await handleCreateThread();
+        await handleCreateThread({
+          workspacePath: snapshot?.defaultWorkspacePath ?? activeThreadSummary?.workspacePath ?? null,
+        });
         break;
       case "resume":
-        openSurface("threads", threadButtonRef.current);
+        setViewMode("home");
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -583,10 +607,26 @@ export function CodexShell() {
       () => callApi("/api/thread/resume", { threadId }),
       copy.actions.resumingThread,
     );
-    setSurface(null);
+    setViewMode("chat");
     window.setTimeout(() => {
       composerRef.current?.focus();
     }, 0);
+  }
+
+  async function handleOpenThread(threadId: string) {
+    if (threadId === snapshot?.activeThreadId) {
+      await syncSnapshotFromResult(
+        () => callApi("/api/thread/read", { threadId }),
+        copy.actions.loadingThread,
+      );
+      setViewMode("chat");
+      window.setTimeout(() => {
+        composerRef.current?.focus();
+      }, 0);
+      return;
+    }
+
+    await handleResumeThread(threadId);
   }
 
   async function handleInterrupt() {
@@ -632,6 +672,10 @@ export function CodexShell() {
 
   function handleLanguageChange(language: UiLanguage) {
     setUiLanguage(language);
+    if (viewMode !== "chat") {
+      return;
+    }
+
     window.setTimeout(() => {
       composerRef.current?.focus();
     }, 0);
@@ -675,7 +719,7 @@ export function CodexShell() {
     typeof (pendingRequest?.params as { command?: string } | undefined)?.command === "string"
       ? ((pendingRequest?.params as { command?: string }).command ?? null)
       : null;
-  const activeOverlay = surface && surface !== "threads" ? surface : null;
+  const activeOverlay = surface;
   const sessionTitle = activeThreadSummary?.title ?? (locale === "ko" ? "새 세션" : "New session");
   const sessionMeta = activeThreadSummary
     ? [
@@ -686,8 +730,8 @@ export function CodexShell() {
         .filter(Boolean)
         .join(" · ")
     : locale === "ko"
-      ? "thread를 열거나 첫 메시지를 보내세요."
-      : "Open a thread or send the first message.";
+      ? "Home에서 thread를 열거나 새로 시작하세요."
+      : "Open a thread from Home or start a new one.";
   const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
   const headerStatus = connectionState !== "live"
     ? {
@@ -910,11 +954,9 @@ export function CodexShell() {
   useEffect(() => {
     const panel = pendingRequest
       ? approvalDialogRef.current
-      : surface === "threads"
-        ? threadDrawerPanelRef.current
-        : surface
-          ? overlayPanelRef.current
-          : null;
+      : surface
+        ? overlayPanelRef.current
+        : null;
 
     if (!panel) {
       return;
@@ -975,10 +1017,17 @@ export function CodexShell() {
       return;
     }
 
-    if (document.activeElement === document.body) {
-      composerRef.current?.focus();
+    if (document.activeElement !== document.body) {
+      return;
     }
-  }, [pendingRequest, surface]);
+
+    if (viewMode === "chat") {
+      composerRef.current?.focus();
+      return;
+    }
+
+    homeSearchRef.current?.focus();
+  }, [pendingRequest, surface, viewMode]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1095,153 +1144,164 @@ export function CodexShell() {
 
   return (
     <main className="tui-page">
-      {surface === "threads" ? (
-        <ThreadDrawer
-          ref={threadDrawerPanelRef}
+      {viewMode === "home" ? (
+        <HomeScreen
           locale={locale}
           copy={{
-            title: copy.header.threads,
-            sessions: copy.threadDrawer.sessions,
-            close: copy.common.close,
-            search: copy.threadDrawer.search,
-            searchPlaceholder: copy.threadDrawer.searchPlaceholder,
-            newThread: copy.threadDrawer.newThread,
-            threadControls: copy.threadDrawer.threadControls,
-            sortThreads: copy.threadDrawer.sortThreads,
-            current: copy.common.current,
-            recent: copy.common.recent,
-            recentAvailable: copy.threadDrawer.recentAvailable,
-            noMatchingThreads: copy.threadDrawer.noMatchingThreads,
-            noOtherThreads: copy.threadDrawer.noOtherThreads,
-            recentSort: copy.threadDrawer.recentSort,
-            createdSort: copy.threadDrawer.createdSort,
+            eyebrow: copy.home.eyebrow,
+            title: copy.home.title,
+            intro: copy.home.intro,
+            currentThread: copy.home.currentThread,
+            threadList: copy.home.threadList,
+            createTitle: copy.home.createTitle,
+            createIntro: copy.home.createIntro,
+            workspace: copy.home.workspace,
+            workspacePlaceholder: copy.home.workspacePlaceholder,
+            workspaceHint: copy.home.workspaceHint,
+            currentWorkspace: copy.home.currentWorkspace,
+            startThread: copy.home.startThread,
+            search: copy.home.search,
+            searchPlaceholder: copy.home.searchPlaceholder,
+            sortThreads: copy.home.sortThreads,
+            noThreads: copy.home.noThreads,
+            noMatchingThreads: copy.home.noMatchingThreads,
+            sessionLabel: copy.home.sessionLabel,
+            languageLabel: copy.home.languageLabel,
+            openThread: copy.home.openThread,
+            updatedSort: copy.home.updatedSort,
+            createdSort: copy.home.createdSort,
+            planOn: copy.home.planOn,
+            planOff: copy.home.planOff,
           }}
+          languageOptions={languageOptions}
+          selectedLanguage={selectedLanguageValue}
+          selectedPlanMode={selectedPlanMode}
+          sessionSummary={sessionSummary}
           search={threadSearch}
           sort={threadSort}
-          filteredCount={filteredThreads.length}
-          activeThread={activeThreadSummary}
-          recentThreads={recentThreads}
+          activeThread={filteredActiveThread}
+          filteredThreads={filteredThreads}
+          workspaceDraft={workspaceDraft}
+          defaultWorkspacePath={snapshot?.defaultWorkspacePath ?? ""}
+          workspaceOptions={snapshot?.workspaceOptions ?? []}
+          statusLabel={headerStatus.label}
+          statusTone={headerStatus.tone}
+          searchInputRef={homeSearchRef}
+          onLanguageChange={handleLanguageChange}
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
-          onClose={() => closeSurface()}
-          onCreateThread={() => {
-            void handleCreateThread(true);
+          onWorkspaceChange={setWorkspaceDraft}
+          onUseDefaultWorkspace={() => {
+            setWorkspaceDraft(snapshot?.defaultWorkspacePath ?? "");
           }}
-          onResumeThread={(threadId) => {
-            void handleResumeThread(threadId);
+          onCreateThread={() => {
+            void handleCreateThread({
+              workspacePath: workspaceDraft,
+            });
+          }}
+          onOpenThread={(threadId) => {
+            void handleOpenThread(threadId);
           }}
         />
       ) : null}
 
-      <section className="tui-shell">
-        <ShellHeader
-          threadCount={snapshot?.threadList.length ?? 0}
-          threadDrawerOpen={surface === "threads"}
-          sessionTitle={sessionTitle}
-          sessionMeta={sessionMeta}
-          sessionMetaTitle={sessionMetaTitle}
-          threadsLabel={copy.header.threads}
-          statusLabel={headerStatus.label}
-          statusTone={headerStatus.tone}
-          threadButtonRef={threadButtonRef}
-          onThreadsClick={() => {
-            if (surface === "threads") {
-              closeSurface();
-              return;
-            }
+      {viewMode === "chat" ? (
+        <section className="tui-shell">
+          <ShellHeader
+            threadCount={snapshot?.threadList.length ?? 0}
+            sessionTitle={sessionTitle}
+            sessionMeta={sessionMeta}
+            sessionMetaTitle={sessionMetaTitle}
+            homeLabel={copy.header.home}
+            statusLabel={headerStatus.label}
+            statusTone={headerStatus.tone}
+            homeButtonRef={homeButtonRef}
+            onHomeClick={() => {
+              setViewMode("home");
+            }}
+          />
 
-            openSurface("threads", threadButtonRef.current);
-          }}
-        />
+          <section className="transcript-surface">
+            <TranscriptPane
+              scrollRef={transcriptScrollRef}
+              timeline={activeTimeline}
+              locale={locale}
+              copy={copy.transcript}
+              emptyTitle={
+                activeThread ? copy.transcript.noTranscriptYet : copy.transcript.noActiveSession
+              }
+              emptyBody={
+                activeThread
+                  ? copy.transcript.sendFirstTurn
+                  : copy.transcript.typeMessageOrOpenThreadDrawer
+              }
+            />
+          </section>
 
-        <section className="transcript-surface">
-          <TranscriptPane
-            scrollRef={transcriptScrollRef}
-            timeline={activeTimeline}
-            locale={locale}
-            copy={copy.transcript}
-            emptyTitle={
-              activeThread ? copy.transcript.noTranscriptYet : copy.transcript.noActiveSession
-            }
-            emptyBody={
-              activeThread
-                ? copy.transcript.sendFirstTurn
-                : copy.transcript.typeMessageOrOpenThreadDrawer
-            }
+          <ComposerDock
+            composer={composer}
+            visibleCommands={visibleCommands}
+            selectedCommandIndex={selectedCommandIndex}
+            composerRef={composerRef}
+            modelSelectRef={composerModelSelectRef}
+            helperText={composerHelper}
+            statusText={composerStatus}
+            canSubmit={Boolean(composer.trim())}
+            activeTurn={Boolean(snapshot?.activeTurnId)}
+            selectedModel={selectedModelValue}
+            selectedEffort={selectedEffortValue}
+            selectedLanguage={selectedLanguageValue}
+            planMode={selectedPlanMode}
+            sessionSummary={sessionSummary}
+            sessionAriaLabel={copy.composer.sessionAria(
+              selectedModelLabel,
+              selectedEffortLabel,
+              selectedLanguageLabel,
+            )}
+            modelOptions={sessionModelOptions}
+            effortOptions={sessionEffortOptions}
+            languageOptions={languageOptions}
+            labels={{
+              session: copy.composer.session,
+              model: copy.composer.model,
+              reasoning: copy.composer.reasoning,
+              language: copy.composer.language,
+              plan: copy.composer.plan,
+              on: copy.composer.on,
+              off: copy.composer.off,
+              placeholder: copy.composer.placeholder,
+              interrupt: copy.composer.interrupt,
+              send: copy.composer.send,
+              unavailable: copy.common.unavailable,
+            }}
+            onComposerChange={handleComposerChange}
+            onComposerKeyDown={handleComposerKeyDown}
+            onCommandPick={(commandName) => {
+              setComposer(`/${commandName}`);
+              setCommandMenuDismissed(false);
+              window.setTimeout(() => {
+                composerRef.current?.focus();
+              }, 0);
+            }}
+            onModelChange={(value) => {
+              void handleComposerModelChange(value);
+            }}
+            onEffortChange={(value) => {
+              void handleComposerEffortChange(value);
+            }}
+            onLanguageChange={handleLanguageChange}
+            onPlanModeToggle={() => {
+              void handlePlanModeToggle();
+            }}
+            onSubmit={() => {
+              void handleSubmit();
+            }}
+            onInterrupt={() => {
+              void handleInterrupt();
+            }}
           />
         </section>
-
-        <ComposerDock
-          composer={composer}
-          visibleCommands={visibleCommands}
-          selectedCommandIndex={selectedCommandIndex}
-          composerRef={composerRef}
-          modelSelectRef={composerModelSelectRef}
-          helperText={composerHelper}
-          statusText={composerStatus}
-          canSubmit={Boolean(composer.trim())}
-          activeTurn={Boolean(snapshot?.activeTurnId)}
-          selectedModel={selectedModelValue}
-          selectedEffort={selectedEffortValue}
-          selectedLanguage={selectedLanguageValue}
-          planMode={selectedPlanMode}
-          sessionSummary={sessionSummary}
-          sessionAriaLabel={copy.composer.sessionAria(
-            selectedModelLabel,
-            selectedEffortLabel,
-            selectedLanguageLabel,
-          )}
-          modelOptions={sessionModelOptions}
-          effortOptions={sessionEffortOptions}
-          languageOptions={languageOptions}
-          labels={{
-            session: copy.composer.session,
-            model: copy.composer.model,
-            reasoning: copy.composer.reasoning,
-            language: copy.composer.language,
-            status: copy.composer.status,
-            shortcuts: copy.composer.shortcuts,
-            plan: copy.composer.plan,
-            on: copy.composer.on,
-            off: copy.composer.off,
-            placeholder: copy.composer.placeholder,
-            interrupt: copy.composer.interrupt,
-            send: copy.composer.send,
-            unavailable: copy.common.unavailable,
-          }}
-          onComposerChange={handleComposerChange}
-          onComposerKeyDown={handleComposerKeyDown}
-          onCommandPick={(commandName) => {
-            setComposer(`/${commandName}`);
-            setCommandMenuDismissed(false);
-            window.setTimeout(() => {
-              composerRef.current?.focus();
-            }, 0);
-          }}
-          onModelChange={(value) => {
-            void handleComposerModelChange(value);
-          }}
-          onEffortChange={(value) => {
-            void handleComposerEffortChange(value);
-          }}
-          onLanguageChange={handleLanguageChange}
-          onPlanModeToggle={() => {
-            void handlePlanModeToggle();
-          }}
-          onSurfaceOpen={(nextSurface) => {
-            openSurface(
-              nextSurface,
-              document.activeElement instanceof HTMLElement ? document.activeElement : null,
-            );
-          }}
-          onSubmit={() => {
-            void handleSubmit();
-          }}
-          onInterrupt={() => {
-            void handleInterrupt();
-          }}
-        />
-      </section>
+      ) : null}
 
       {activeOverlay === "status" && snapshot ? (
         <SurfaceDialog

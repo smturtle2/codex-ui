@@ -6,42 +6,37 @@ type HeaderStatusTone = "ready" | "working" | "pending" | "error" | "starting";
 
 type ShellHeaderProps = {
   threadCount: number;
-  threadDrawerOpen: boolean;
   sessionTitle: string;
   sessionMeta: string;
   sessionMetaTitle?: string | null;
-  threadsLabel: string;
+  homeLabel: string;
   statusLabel: string;
   statusTone: HeaderStatusTone;
-  threadButtonRef: RefObject<HTMLButtonElement | null>;
-  onThreadsClick: () => void;
+  homeButtonRef: RefObject<HTMLButtonElement | null>;
+  onHomeClick: () => void;
 };
 
 export function ShellHeader({
   threadCount,
-  threadDrawerOpen,
   sessionTitle,
   sessionMeta,
   sessionMetaTitle = null,
-  threadsLabel,
+  homeLabel,
   statusLabel,
   statusTone,
-  threadButtonRef,
-  onThreadsClick,
+  homeButtonRef,
+  onHomeClick,
 }: ShellHeaderProps) {
   return (
     <header className="shell-header">
       <div className="shell-header-rail">
         <button
-          ref={threadButtonRef}
-          className={`sidebar-trigger ${threadDrawerOpen ? "selected" : ""}`}
+          ref={homeButtonRef}
+          className="sidebar-trigger"
           type="button"
-          aria-haspopup="dialog"
-          aria-expanded={threadDrawerOpen}
-          aria-controls="thread-drawer"
-          onClick={onThreadsClick}
+          onClick={onHomeClick}
         >
-          <span className="sidebar-trigger-label">{threadsLabel}</span>
+          <span className="sidebar-trigger-label">{homeLabel}</span>
           <span className="sidebar-trigger-count">{threadCount}</span>
         </button>
 
@@ -50,7 +45,7 @@ export function ShellHeader({
           <span className="shell-session-meta">{sessionMeta}</span>
         </div>
 
-        <span className={`shell-status-badge tone-${statusTone}`}>{statusLabel}</span>
+        <span className={`shell-status-line tone-${statusTone}`}>{statusLabel}</span>
       </div>
     </header>
   );

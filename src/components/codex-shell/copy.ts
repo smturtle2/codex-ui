@@ -16,6 +16,7 @@ const UI_COPY = {
       ko: "Korean",
     },
     header: {
+      home: "Home",
       threads: "Threads",
       ready: "ready",
       working: "working",
@@ -59,7 +60,7 @@ const UI_COPY = {
       noActiveSession: "No active session",
       sendFirstTurn: "Send the first turn to begin.",
       typeMessageOrOpenThreadDrawer:
-        "Type a message or open the thread drawer.",
+        "Choose a thread or start one from Home.",
       you: "You",
       codex: "Codex",
       codexRunning: "Codex running",
@@ -92,6 +93,7 @@ const UI_COPY = {
     },
     actions: {
       startingThread: "Starting thread",
+      loadingThread: "Loading thread",
       sendingTurn: "Sending turn",
       forkingThread: "Forking thread",
       startingReview: "Starting review",
@@ -112,6 +114,35 @@ const UI_COPY = {
       noOtherThreads: "No other threads to switch to yet.",
       recentSort: "Recent",
       createdSort: "Created",
+    },
+    home: {
+      eyebrow: "Local-first Codex UI",
+      title: "Choose a thread or start a clean one.",
+      intro:
+        "Home stays minimal: pick an existing thread, set the workspace for a new one, then drop into the transcript.",
+      currentThread: "Current thread",
+      threadList: (count: number) => `${count} threads`,
+      createTitle: "New thread",
+      createIntro:
+        "Set the workspace here. Model and reasoning stay in the chat input once the thread opens.",
+      workspace: "Workspace",
+      workspacePlaceholder: "/path/to/workspace",
+      workspaceHint:
+        "Recent workspaces appear as suggestions. Leave this as the current workspace if you want the project you launched from.",
+      currentWorkspace: "Use current workspace",
+      startThread: "Start thread",
+      search: "Search threads",
+      searchPlaceholder: "Search by title, workspace, branch, or source",
+      sortThreads: "Sort threads",
+      noThreads: "No threads yet.",
+      noMatchingThreads: "No matching threads.",
+      sessionLabel: "Current session",
+      languageLabel: "Language",
+      openThread: "Open",
+      updatedSort: "Recent",
+      createdSort: "Created",
+      planOn: "Plan on",
+      planOff: "Plan off",
     },
     surface: {
       overlay: "Overlay",
@@ -154,8 +185,8 @@ const UI_COPY = {
       model:
         "Choose the current session model, reasoning effort, and UI language.",
       review: "Run an inline review against uncommitted changes.",
-      new: "Start a fresh thread in the current browser session.",
-      resume: "Open the thread drawer for previous local sessions.",
+      new: "Start a fresh thread in the current workspace.",
+      resume: "Return to Home and choose a thread.",
       fork: "Fork the active thread into a new branchable session.",
       status: "Open the runtime and bridge status panel.",
       clear: "Clear the working surface by starting a new thread.",
@@ -226,6 +257,7 @@ const UI_COPY = {
       ko: "한국어",
     },
     header: {
+      home: "Home",
       threads: "Threads",
       ready: "준비됨",
       working: "작업 중",
@@ -269,7 +301,7 @@ const UI_COPY = {
       noActiveSession: "활성 세션이 없습니다",
       sendFirstTurn: "첫 turn을 보내면 시작됩니다.",
       typeMessageOrOpenThreadDrawer:
-        "메시지를 입력하거나 thread drawer를 열어보세요.",
+        "Home에서 thread를 고르거나 새로 시작해보세요.",
       you: "나",
       codex: "Codex",
       codexRunning: "Codex 작업 중",
@@ -302,6 +334,7 @@ const UI_COPY = {
     },
     actions: {
       startingThread: "thread 시작 중",
+      loadingThread: "thread 불러오는 중",
       sendingTurn: "turn 전송 중",
       forkingThread: "thread 포크 중",
       startingReview: "리뷰 시작 중",
@@ -322,6 +355,35 @@ const UI_COPY = {
       noOtherThreads: "전환할 다른 thread가 아직 없습니다.",
       recentSort: "최근순",
       createdSort: "생성순",
+    },
+    home: {
+      eyebrow: "로컬 우선 Codex UI",
+      title: "기존 thread를 열거나 새 thread를 시작하세요.",
+      intro:
+        "Home은 최소한으로 유지됩니다. 기존 thread를 선택하거나 새 thread의 워크스페이스를 정한 뒤 transcript로 들어갑니다.",
+      currentThread: "현재 thread",
+      threadList: (count: number) => `${count}개 thread`,
+      createTitle: "새 thread",
+      createIntro:
+        "여기서 워크스페이스를 정합니다. 모델과 추론 수준은 thread가 열린 뒤 채팅 입력 영역에서 바꿉니다.",
+      workspace: "워크스페이스",
+      workspacePlaceholder: "/path/to/workspace",
+      workspaceHint:
+        "최근 워크스페이스가 제안으로 표시됩니다. 현재 프로젝트에서 시작하려면 그대로 두세요.",
+      currentWorkspace: "현재 워크스페이스 사용",
+      startThread: "thread 시작",
+      search: "thread 검색",
+      searchPlaceholder: "제목, 워크스페이스, 브랜치, 소스로 검색",
+      sortThreads: "thread 정렬",
+      noThreads: "아직 thread가 없습니다.",
+      noMatchingThreads: "일치하는 thread가 없습니다.",
+      sessionLabel: "현재 세션",
+      languageLabel: "언어",
+      openThread: "열기",
+      updatedSort: "최근순",
+      createdSort: "생성순",
+      planOn: "Plan 켜짐",
+      planOff: "Plan 꺼짐",
     },
     surface: {
       overlay: "오버레이",
@@ -365,8 +427,8 @@ const UI_COPY = {
       model:
         "현재 세션의 모델, 추론 수준, UI 언어를 선택합니다.",
       review: "커밋되지 않은 변경사항에 대해 인라인 리뷰를 실행합니다.",
-      new: "현재 브라우저 세션에서 새 thread를 시작합니다.",
-      resume: "이전 로컬 세션을 여는 thread drawer를 엽니다.",
+      new: "현재 워크스페이스에서 새 thread를 시작합니다.",
+      resume: "Home으로 돌아가 thread를 선택합니다.",
       fork: "현재 thread를 새로 이어갈 수 있게 복제합니다.",
       status: "런타임 및 브리지 상태 패널을 엽니다.",
       clear: "새 thread를 시작해 작업 화면을 비웁니다.",
