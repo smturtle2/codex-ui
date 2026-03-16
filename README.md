@@ -34,6 +34,7 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input.
 - Realtime consistency: `thread/read`, bootstrap hydration, and live streaming normalize into the same transcript structure.
 - Mobile-aware layout: home prioritizes the thread list first, while chat keeps the transcript largest on narrow screens.
+- Tailscale Funnel helper: expose the local UI on the public internet with a repo-local command instead of ad-hoc shell history.
 
 ## Architecture
 
@@ -64,6 +65,24 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:3000`.
+
+## External Access
+
+Use Tailscale Funnel to expose the local UI publicly:
+
+```bash
+npm run dev
+npm run funnel
+```
+
+- `npm run funnel` shares the app running on `http://127.0.0.1:3000`.
+- If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
+- `npm run funnel:status` shows the current Funnel mapping.
+- `npm run funnel:off` resets the Funnel config for this node.
+
+Reference:
+- [Tailscale Funnel docs](https://tailscale.com/kb/1223/tailscale-funnel/)
+- [Tailscale CLI funnel reference](https://tailscale.com/docs/reference/tailscale-cli/funnel)
 
 ## Development
 

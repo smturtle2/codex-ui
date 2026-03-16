@@ -31,14 +31,18 @@ export function WorkspacePicker({
 }: WorkspacePickerProps) {
   return (
     <div className="workspace-picker">
-      <section className="workspace-picker-section">
-        <div className="workspace-picker-head">
-          <span className="home-section-label">{labels.currentPath}</span>
-          {loading ? <span className="workspace-picker-loading">{labels.loading}</span> : null}
-        </div>
+      <section className="workspace-picker-current">
+        <div className="workspace-picker-current-copy">
+          <div className="workspace-picker-head">
+            <span className="home-section-label">{labels.currentPath}</span>
+            {loading ? (
+              <span className="workspace-picker-loading">{labels.loading}</span>
+            ) : null}
+          </div>
 
-        <div className="workspace-picker-path" title={listing?.currentPath ?? ""}>
-          {listing?.currentPath ?? ""}
+          <div className="workspace-picker-path" title={listing?.currentPath ?? ""}>
+            {listing?.currentPath ?? ""}
+          </div>
         </div>
 
         <div className="workspace-picker-actions">
@@ -95,7 +99,7 @@ export function WorkspacePicker({
         </div>
       </section>
 
-      <section className="workspace-picker-section">
+      <section className="workspace-picker-section workspace-picker-folders-section">
         <div className="workspace-picker-head">
           <span className="home-section-label">{labels.folders}</span>
         </div>

@@ -12,6 +12,9 @@
     "dev": "node ./node_modules/tsx/dist/cli.mjs server/index.ts",
     "build": "node ./node_modules/next/dist/bin/next build",
     "start": "NODE_ENV=production node ./node_modules/tsx/dist/cli.mjs server/index.ts",
+    "funnel": "bash ./scripts/tailscale-funnel.sh up 3000",
+    "funnel:status": "bash ./scripts/tailscale-funnel.sh status",
+    "funnel:off": "bash ./scripts/tailscale-funnel.sh down",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "check": "npm run typecheck && npm run build"
   },

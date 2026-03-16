@@ -34,6 +34,7 @@
 - 전용 설정 패널: 언어 설정은 채팅 입력부가 아니라 별도 settings surface에서 관리합니다.
 - 실시간 일관성: bootstrap, `thread/read`, live streaming이 같은 transcript 구조로 정규화됩니다.
 - 모바일 재구성: 홈에서는 thread 목록을 먼저 보여주고, 채팅에서는 transcript 영역을 가장 크게 남깁니다.
+- Tailscale Funnel helper: 임시 셸 명령을 외우지 않아도 repo 안에서 바로 외부 공개를 켤 수 있습니다.
 
 ## 아키텍처
 
@@ -64,6 +65,24 @@ npm run dev
 ```
 
 브라우저에서 `http://127.0.0.1:3000`을 열면 됩니다.
+
+## 외부 접속
+
+Tailscale Funnel로 로컬 UI를 외부에 공개할 수 있습니다.
+
+```bash
+npm run dev
+npm run funnel
+```
+
+- `npm run funnel`은 `http://127.0.0.1:3000`에서 실행 중인 앱을 공개합니다.
+- 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
+- `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.
+- `npm run funnel:off`로 이 노드의 Funnel 설정을 초기화할 수 있습니다.
+
+참고 문서:
+- [Tailscale Funnel docs](https://tailscale.com/kb/1223/tailscale-funnel/)
+- [Tailscale CLI funnel reference](https://tailscale.com/docs/reference/tailscale-cli/funnel)
 
 ## 개발
 

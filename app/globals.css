@@ -163,16 +163,16 @@ pre {
 
 .home-header {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 1.5rem;
-  padding-bottom: 1rem;
+  gap: 1rem 1.5rem;
+  padding-bottom: 0.9rem;
   border-bottom: 1px solid var(--line);
 }
 
 .home-copy {
-  gap: 0.45rem;
-  max-width: 44rem;
+  gap: 0.35rem;
+  max-width: 40rem;
 }
 
 .home-eyebrow,
@@ -209,8 +209,8 @@ pre {
 
 .home-copy h1 {
   margin: 0;
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  line-height: 0.96;
+  font-size: clamp(1.9rem, 3.6vw, 2.95rem);
+  line-height: 0.98;
   letter-spacing: -0.04em;
 }
 
@@ -235,6 +235,10 @@ pre {
   line-height: 1.6;
 }
 
+.home-copy p {
+  max-width: 38rem;
+}
+
 .home-header-tools {
   display: flex;
   align-items: center;
@@ -246,8 +250,8 @@ pre {
 .home-grid {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(22rem, 26rem);
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1.5fr) minmax(19rem, 22rem);
+  gap: 1.6rem;
 }
 
 .home-main {
@@ -258,8 +262,8 @@ pre {
 
 .home-sidebar {
   align-content: start;
-  gap: 1.1rem;
-  padding-left: 1.5rem;
+  gap: 0.95rem;
+  padding-left: 1.15rem;
   border-left: 1px solid var(--line);
 }
 
@@ -276,7 +280,7 @@ pre {
 
 .home-workspace-card {
   gap: 0.4rem;
-  padding: 1rem;
+  padding: 0.9rem;
   border: 1px solid var(--line);
   background: #fafafa;
 }
@@ -304,7 +308,7 @@ pre {
 
 .home-session-summary {
   gap: 0.32rem;
-  padding-top: 1rem;
+  padding-top: 0.85rem;
   border-top: 1px solid var(--line);
 }
 
@@ -407,7 +411,7 @@ pre {
 }
 
 .shell-header {
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.55rem;
   border-bottom: 1px solid var(--line);
 }
 
@@ -558,7 +562,7 @@ pre {
 .transcript-scroll,
 .overlay-scroll {
   height: 100%;
-  padding: 1.2rem 1rem 1.5rem;
+  padding: 1rem 1rem 1.35rem;
   scroll-padding-block-end: 10rem;
 }
 
@@ -751,7 +755,7 @@ pre {
 .composer-frame {
   display: grid;
   gap: 0.72rem;
-  padding: 0.72rem 0 0.1rem;
+  padding: 0.62rem 0 0.1rem;
   border-top: 1px solid var(--line-strong);
 }
 
@@ -963,8 +967,9 @@ pre {
 .workspace-picker {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 22rem) repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 1rem 1.25rem;
 }
 
 .settings-panel {
@@ -1039,6 +1044,25 @@ pre {
   gap: 0.8rem;
 }
 
+.workspace-picker-current {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.9rem 1rem;
+  align-items: end;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-picker-current-copy {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.workspace-picker-folders-section {
+  min-width: 0;
+}
+
 .workspace-picker-head {
   display: flex;
   align-items: center;
@@ -1053,6 +1077,10 @@ pre {
   font-family: var(--font-mono), monospace;
   font-size: 0.8rem;
   word-break: break-all;
+}
+
+.workspace-picker-actions {
+  align-self: stretch;
 }
 
 .workspace-picker-list {
@@ -1179,10 +1207,6 @@ pre {
   .workspace-picker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .workspace-picker-section:first-child {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 820px) {
@@ -1203,7 +1227,6 @@ pre {
   }
 
   .home-header,
-  .shell-header-rail,
   .home-toolbar-controls,
   .composer-input-row {
     grid-template-columns: 1fr;
@@ -1212,6 +1235,22 @@ pre {
   .home-header,
   .shell-header-rail {
     display: grid;
+    align-items: start;
+  }
+
+  .shell-header-rail {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0.65rem 0.75rem;
+  }
+
+  .shell-session {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+
+  .shell-header-actions {
+    order: 2;
+    justify-content: flex-end;
     align-items: start;
   }
 
@@ -1242,14 +1281,6 @@ pre {
 
   .shell-status-line {
     white-space: normal;
-  }
-
-  .shell-header-rail {
-    gap: 0.75rem;
-  }
-
-  .shell-header-actions {
-    justify-content: flex-start;
   }
 
   .home-thread-row {
@@ -1285,6 +1316,12 @@ pre {
 
   .workspace-picker {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .workspace-picker-current {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .settings-fact-grid {
@@ -1302,7 +1339,7 @@ pre {
   }
 
   .home-copy h1 {
-    font-size: clamp(1.8rem, 9vw, 2.6rem);
+    font-size: clamp(1.7rem, 8.2vw, 2.35rem);
   }
 
   .home-create-actions {
@@ -1315,7 +1352,7 @@ pre {
 
   .transcript-scroll,
   .overlay-scroll {
-    padding: 0.95rem 0.75rem 1.35rem;
+    padding: 0.8rem 0.75rem 1.2rem;
   }
 
   .history-empty {
@@ -1332,7 +1369,8 @@ pre {
   }
 
   .composer-frame {
-    gap: 0.65rem;
+    gap: 0.55rem;
+    padding-top: 0.5rem;
   }
 
   .composer-controls {
@@ -1363,7 +1401,7 @@ pre {
   .surface-dialog.wide,
   .approval-modal {
     width: 100%;
-    max-height: min(92dvh, 100%);
+    max-height: min(94dvh, 100%);
     padding: 0.85rem;
   }
 
