@@ -15,6 +15,8 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
 ## Preview
 
+### Desktop
+
 <table>
   <tr>
     <td align="center"><strong>Home</strong></td>
@@ -32,13 +34,26 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
     <td><img src="./docs/preview-workspace.png" alt="Workspace picker preview" width="100%" /></td>
     <td><img src="./docs/preview-desktop.png" alt="Desktop chat preview" width="100%" /></td>
   </tr>
+</table>
+
+### Mobile
+
+<table>
   <tr>
-    <td colspan="2" align="center"><strong>Mobile Chat</strong></td>
+    <td align="center"><strong>Home</strong></td>
+    <td align="center"><strong>Settings</strong></td>
   </tr>
   <tr>
-    <td colspan="2" align="center">
-      <img src="./docs/preview-mobile.png" alt="Mobile chat preview" width="320" />
-    </td>
+    <td><img src="./docs/preview-mobile-home.png" alt="Mobile home preview" width="100%" /></td>
+    <td><img src="./docs/preview-mobile-settings.png" alt="Mobile settings preview" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Workspace Picker</strong></td>
+    <td align="center"><strong>Chat</strong></td>
+  </tr>
+  <tr>
+    <td><img src="./docs/preview-mobile-workspace.png" alt="Mobile workspace picker preview" width="100%" /></td>
+    <td><img src="./docs/preview-mobile-chat.png" alt="Mobile chat preview" width="100%" /></td>
   </tr>
 </table>
 
