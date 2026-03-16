@@ -807,6 +807,10 @@ pre {
   border-top: 1px solid var(--line-strong);
 }
 
+.composer-frame:has(.composer-input:focus-visible) {
+  box-shadow: inset 0 1px 0 var(--line-strong);
+}
+
 .composer-session-shell {
   display: grid;
   gap: 0.55rem;
@@ -935,6 +939,10 @@ pre {
   outline: none;
   font-size: 1.02rem;
   line-height: 1.78;
+}
+
+.composer-input:focus-visible {
+  outline: none;
 }
 
 .surface-input,

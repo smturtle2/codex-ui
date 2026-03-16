@@ -112,7 +112,8 @@ def prepare_page(page: Page, url: str) -> None:
         f"window.localStorage.setItem('{LANGUAGE_STORAGE_KEY}', 'system');"
     )
     preview_url = f"{url.rstrip('/')}/?demo=1"
-    page.goto(preview_url, wait_until="networkidle")
+    page.goto(preview_url, wait_until="load")
+    page.wait_for_timeout(900)
 
 
 def close_surface(page: Page) -> None:
@@ -129,8 +130,7 @@ def open_chat_from_home(page: Page) -> None:
     else:
         page.locator(".action-button").first.click()
 
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(700)
+    page.wait_for_timeout(900)
 
 
 def capture_desktop(page: Page, output_dir: Path) -> None:
