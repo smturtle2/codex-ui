@@ -833,6 +833,7 @@ export class CodexBridge extends EventEmitter {
     sessionSettings: {
       model: null,
       effort: null,
+      fastMode: true,
       planMode: false,
     },
   };
@@ -974,6 +975,9 @@ export class CodexBridge extends EventEmitter {
       ...this.state.sessionSettings,
       ...(typeof settings.model !== "undefined" ? { model: settings.model } : {}),
       ...(typeof settings.effort !== "undefined" ? { effort: settings.effort } : {}),
+      ...(typeof settings.fastMode !== "undefined"
+        ? { fastMode: settings.fastMode }
+        : {}),
       ...(typeof settings.planMode !== "undefined"
         ? { planMode: settings.planMode }
         : {}),
@@ -1001,16 +1005,26 @@ export class CodexBridge extends EventEmitter {
 
     const resolvedModel = this.getResolvedModel();
     const resolvedEffort = this.getResolvedEffort(resolvedModel);
-    const collaborationMode = this.state.sessionSettings.planMode && resolvedModel
-      ? {
-          mode: "plan" as const,
-          settings: {
-            model: resolvedModel.model,
-            reasoning_effort: resolvedEffort,
-            developer_instructions: null,
-          },
-        }
-      : undefined;
+    const collaborationMode =
+      resolvedModel && this.state.sessionSettings.planMode
+        ? {
+            mode: "plan" as const,
+            settings: {
+              model: resolvedModel.model,
+              reasoning_effort: resolvedEffort,
+              developer_instructions: null,
+            },
+          }
+        : resolvedModel && this.state.sessionSettings.fastMode
+          ? {
+              mode: "default" as const,
+              settings: {
+                model: resolvedModel.model,
+                reasoning_effort: resolvedEffort,
+                developer_instructions: null,
+              },
+            }
+          : undefined;
 
     await this.sendRequest<TurnStartResponse>("turn/start", {
       threadId,
@@ -1204,9 +1218,16 @@ export class CodexBridge extends EventEmitter {
     })) as ThreadListResponse;
 
     const nextThreadIds = new Set(response.data.map((thread) => thread.id));
+    const preservedThreadIds = new Set<string>();
+    if (this.state.activeThreadId) {
+      preservedThreadIds.add(this.state.activeThreadId);
+    }
+    for (const threadId of this.state.activeTurnIds.keys()) {
+      preservedThreadIds.add(threadId);
+    }
 
     for (const threadId of this.state.threads.keys()) {
-      if (!nextThreadIds.has(threadId)) {
+      if (!nextThreadIds.has(threadId) && !preservedThreadIds.has(threadId)) {
         this.state.threads.delete(threadId);
         this.state.timelineByThread.delete(threadId);
         this.state.streamingItemsByThread.delete(threadId);
@@ -1215,7 +1236,11 @@ export class CodexBridge extends EventEmitter {
       }
     }
 
-    if (this.state.activeThreadId && !nextThreadIds.has(this.state.activeThreadId)) {
+    if (
+      this.state.activeThreadId &&
+      !nextThreadIds.has(this.state.activeThreadId) &&
+      !preservedThreadIds.has(this.state.activeThreadId)
+    ) {
       this.state.activeThreadId = null;
     }
 
@@ -1288,6 +1313,31 @@ export class CodexBridge extends EventEmitter {
     } catch (error) {
       this.logLine(
         `Failed to canonicalize thread ${threadId} after turn completion: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  private async syncInProgressTurn(threadId: string, expectedTurnId: string): Promise<void> {
+    try {
+      const thread = await this.readThreadWithTurns(threadId);
+      const activeTurnId = this.state.activeTurnIds.get(threadId);
+      if (activeTurnId && activeTurnId !== expectedTurnId) {
+        return;
+      }
+
+      const turn = thread.turns.find((entry) => entry.id === expectedTurnId);
+      if (!turn) {
+        return;
+      }
+
+      this.hydrateThreadTimeline(thread);
+      this.state.threads.set(thread.id, stripThreadTurns(thread));
+      this.publish();
+    } catch (error) {
+      this.logLine(
+        `Failed to sync live thread ${threadId} while turn ${expectedTurnId} was in progress: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -1825,8 +1875,20 @@ export class CodexBridge extends EventEmitter {
         }
         break;
       }
-      case "item/plan/delta":
+      case "item/plan/delta": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : null;
+        const itemId = typeof params.itemId === "string" ? params.itemId : undefined;
+        const delta = typeof params.delta === "string" ? params.delta : "";
+        if (threadId && itemId) {
+          this.mutateStreamingItem(threadId, turnId, "plan", itemId, (item) => ({
+            ...item,
+            text: appendText(item.text, delta),
+          }));
+        }
         break;
+      }
       case "item/commandExecution/outputDelta": {
         const threadId =
           typeof params.threadId === "string" ? params.threadId : undefined;
@@ -1880,8 +1942,15 @@ export class CodexBridge extends EventEmitter {
         break;
       }
       case "turn/plan/updated":
-      case "turn/diff/updated":
+      case "turn/diff/updated": {
+        const threadId =
+          typeof params.threadId === "string" ? params.threadId : undefined;
+        const turnId = typeof params.turnId === "string" ? params.turnId : undefined;
+        if (threadId && turnId) {
+          void this.syncInProgressTurn(threadId, turnId);
+        }
         break;
+      }
       case "serverRequest/resolved": {
         const requestId = String(params.requestId ?? "");
         const pending = this.state.pendingRequests.get(requestId);
@@ -2004,7 +2073,27 @@ export class CodexBridge extends EventEmitter {
     const timeline = this.state.timelineByThread.get(threadId) ?? [];
     const index = timeline.findIndex((entry) => entry.id === entryId);
     if (index === -1) {
-      timeline.push(next);
+      if (next.turnId) {
+        const lastTurnEntryIndex = [...timeline]
+          .map((entry, currentIndex) => ({ entry, currentIndex }))
+          .filter(({ entry }) => entry.turnId === next.turnId)
+          .at(-1)?.currentIndex;
+
+        if (typeof lastTurnEntryIndex === "number") {
+          timeline.splice(lastTurnEntryIndex + 1, 0, next);
+        } else {
+          const turnEntryIndex = timeline.findIndex(
+            (entry) => entry.id === `turn:${next.turnId}`,
+          );
+          if (turnEntryIndex !== -1) {
+            timeline.splice(turnEntryIndex + 1, 0, next);
+          } else {
+            timeline.push(next);
+          }
+        }
+      } else {
+        timeline.push(next);
+      }
     } else {
       timeline[index] = next;
     }

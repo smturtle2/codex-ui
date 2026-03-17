@@ -3,7 +3,7 @@ import http, {
   type ServerResponse,
 } from "node:http";
 import { spawn } from "node:child_process";
-import { readdir, realpath } from "node:fs/promises";
+import { readdir, realpath, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import next from "next";
@@ -67,26 +67,37 @@ function parseCliOptions(argv: string[]): CliOptions {
   };
 }
 
-function maybeStartFunnel(port: number): void {
-  const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
-    cwd: process.cwd(),
-    stdio: "inherit",
-  });
+function startFunnel(port: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
 
-  child.on("error", (error) => {
-    console.error(`Failed to start Tailscale Funnel helper: ${error.message}`);
-  });
+    child.on("error", (error) => {
+      reject(new Error(`Failed to start Tailscale Funnel helper: ${error.message}`));
+    });
 
-  child.on("close", (code) => {
-    if (code && code !== 0) {
-      console.error(`Tailscale Funnel helper exited with code ${code}.`);
-    }
+    child.on("close", (code) => {
+      if (!code || code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(`Tailscale Funnel helper exited with code ${code}.`));
+    });
   });
 }
 
 async function resolveDirectoryPath(rawPath: string | null | undefined): Promise<string> {
   const candidate = rawPath?.trim() ? resolve(rawPath.trim()) : process.cwd();
-  return realpath(candidate);
+  const resolvedPath = await realpath(candidate);
+  const resolvedStats = await stat(resolvedPath);
+  if (!resolvedStats.isDirectory()) {
+    throw new Error(`${resolvedPath} is not a directory.`);
+  }
+
+  return resolvedPath;
 }
 
 async function listWorkspaceDirectories(
@@ -167,7 +178,19 @@ async function main(): Promise<void> {
 
       if (url.pathname === "/api/thread/start" && request.method === "POST") {
         const body = (await readJson(request)) as { cwd?: string | null } | null;
-        const snapshot = await bridge.createThread(body?.cwd ?? null);
+        let cwd: string | null = null;
+        if (body?.cwd) {
+          try {
+            cwd = await resolveDirectoryPath(body.cwd);
+          } catch (error) {
+            json(response, 400, {
+              error: error instanceof Error ? error.message : "Invalid workspace path.",
+            });
+            return;
+          }
+        }
+
+        const snapshot = await bridge.createThread(cwd);
         json(response, 200, { snapshot });
         return;
       }
@@ -242,6 +265,7 @@ async function main(): Promise<void> {
         const body = (await readJson(request)) as {
           model?: string | null;
           effort?: string | null;
+          fastMode?: boolean;
           planMode?: boolean;
         } | null;
 
@@ -253,6 +277,10 @@ async function main(): Promise<void> {
           effort:
             body && Object.prototype.hasOwnProperty.call(body, "effort")
               ? ((body.effort ?? null) as never)
+              : undefined,
+          fastMode:
+            body && Object.prototype.hasOwnProperty.call(body, "fastMode")
+              ? Boolean(body.fastMode)
               : undefined,
           planMode:
             body && Object.prototype.hasOwnProperty.call(body, "planMode")
@@ -339,8 +367,11 @@ async function main(): Promise<void> {
   console.log(`codex-ui listening on http://${host}:${port}`);
 
   if (cliOptions.funnel) {
-    maybeStartFunnel(port);
+    await startFunnel(port);
   }
 }
 
-void main();
+void main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

@@ -58,6 +58,7 @@ export type PendingServerRequest = {
 export type SessionSettings = {
   model: string | null;
   effort: ReasoningEffort | null;
+  fastMode: boolean;
   planMode: boolean;
 };
 

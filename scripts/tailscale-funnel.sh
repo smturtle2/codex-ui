@@ -52,8 +52,7 @@ print_url_hint() {
   local name
   name="$(dns_name)"
   if [[ -n "$name" ]]; then
-    echo "Expected public URL:" >&2
-    echo "https://${name}" >&2
+    echo "Public URL: https://${name}"
   fi
 }
 
@@ -124,10 +123,12 @@ case "$COMMAND" in
     tailscale funnel status
     ;;
   status)
+    print_url_hint
     tailscale funnel status
     ;;
   down)
     tailscale funnel reset
+    echo "Funnel disabled."
     ;;
   *)
     echo "Usage: $0 {up [port]|status|down}" >&2

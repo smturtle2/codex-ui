@@ -9,7 +9,7 @@
 
 실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. 데스크톱에서는 기존 thread와 새 thread workspace 설정을 나란히 두는 split launcher로 시작하고, 모바일 Home은 `기존 thread` / `새 thread` 선택 구조로 정리하며, 모든 세션 제어를 composer 안에 유지하되 모바일에서는 compact 요약으로 transcript 높이를 우선 확보하고, 언어는 별도 설정 패널로 분리하며, settings/workspace surface는 카드 대신 flat list 방식, WebSocket 스트리밍은 오래된 스냅샷을 무시하는 구조로 유지합니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. Home에서 시작해 새 thread용 workspace 선택과 기존 thread 전환을 같은 런처 안에 두고, 모바일에서는 그 흐름을 세로로 재배치하며, `Model`, `Reasoning`, `Fast`, `Plan` 제어는 모두 채팅 composer 안에 유지하고, 언어는 별도 설정 패널로 분리하며, WebSocket으로 revision 스냅샷을 스트리밍해 오래된 클라이언트 상태는 재시도 루프 대신 무시합니다.
 
 상세 변경 내역은 [RELEASE_NOTES.md](./RELEASE_NOTES.md)에 정리했습니다.
 
@@ -59,22 +59,16 @@
 
 ## 핵심 특징
 
-- split launcher 흐름: 데스크톱에서는 thread 선택과 새 thread workspace 설정을 나란히 보여주고, 모바일에서는 `기존 thread` / `새 thread` 중 하나를 바로 고르게 합니다.
-- transcript 중심 rail: 채팅 컬럼이 더 얇고 밝아져 메타 패널보다 글자가 먼저 눈에 들어옵니다.
-- 모바일 셸 다듬기: 헤더는 `Home`과 `Threads`에 집중하고, 설정/재연결 접근과 전체 세션 제어는 composer 안에서 compact하게 처리합니다.
-- 일관된 새 thread 흐름: 슬래시 명령으로 새 thread를 시작할 때도 홈 런처로 돌아가 workspace 선택 단계를 유지합니다.
-- 채팅 내 직접 이동: 헤더에서 바로 `Home`으로 돌아가고, 별도의 `Threads` drawer로 빠르게 다른 thread를 전환합니다.
-- 전용 workspace picker: 경로를 직접 입력하지 않고 디렉토리를 탐색해서 선택하며, 마지막 선택한 workspace는 아직 thread가 없어도 현재 선택으로 계속 보이고, 생성 폴더보다 실제 작업 폴더를 먼저 보여줍니다.
-- flat overlay: settings와 workspace surface를 카드 더미 대신 list row와 내부 스크롤 중심으로 정리했습니다.
-- 수동 재연결: 자동 재시도 대신 명시적 재연결 버튼을 노출해 끊김을 눈에 띄게 만들고 transcript 상태는 유지합니다.
-- 직접 세션 제어: 데스크톱은 composer에 전체 제어를 그대로 두고, 모바일은 같은 `Model`, `Reasoning`, `Fast`, `Plan` 제어를 채팅 안의 한 줄 세션 바 아래에 접어 transcript 높이를 더 확보합니다.
-- 전용 설정 패널: 언어 설정은 채팅 입력부나 세션 요약이 아니라 별도 settings surface에서 관리합니다.
-- 간결한 브리지 스냅샷: active thread의 타임라인만 방출하고 turn 데이터를 제거하는 등 메모리 부담을 줄이며 스트리밍 완료 항목을 병합해서 실시간 출력과 `thread/read`가 같은 결과를 보여줍니다.
-- 실시간 일관성: bootstrap, `thread/read`, 액션 응답, live streaming이 같은 transcript 구조를 사용하고, revision 스냅샷으로 오래된 클라이언트 응답을 무시하며, live diff/plan도 canonical thread read로 다시 맞춥니다.
-- 안전한 turn 마감: turn이 끝나면 다음 turn이 시작되기 전에 `thread/read`로 해당 thread를 다시 수화해, 실시간 출력과 저장된 transcript가 시각적으로 어긋나지 않게 맞춥니다.
-- preview 생성기: `python scripts/generate_preview_images.py`는 이제 `/?demo=1`을 열어서 deterministic preview를 만듭니다.
-- 모바일 재구성: Home은 `기존 thread` / `새 thread` 흐름을 탭으로 나누고, 채팅은 최신 출력까지 자동 스크롤되며, 헤더와 유휴 크롬을 줄여 transcript 공간을 더 확보하고, settings/workspace surface는 모바일 시트처럼 동작합니다.
-- Tailscale Funnel 플래그: `--funnel`만 붙이면 한 줄 실행으로 외부 공개까지 연결됩니다.
+- 런처 중심 시작 흐름: Home에서 workspace 선택과 thread 전환을 함께 처리하고, 모바일에서도 한 화면 안에서 세로로 자연스럽게 이어집니다.
+- transcript 중심 채팅: 메시지는 카드 없이 평평하게 유지하고, 편집된 내용은 기본 접힘 상태로 두며, 모바일 헤더와 composer 높이를 줄여 transcript를 가장 크게 확보합니다.
+- composer 안의 세션 제어: `Model`, `Reasoning`은 드롭다운으로 유지하고, `Fast`, `Plan`은 서로 보이는 독립 on/off 토글로 노출합니다.
+- 전용 설정 패널: 인터페이스 언어는 composer나 런처가 아니라 별도 settings surface에서 관리합니다.
+- 전용 workspace picker: 새 thread는 디렉토리 브라우저로 시작하고, 서버도 선택된 workspace를 검증한 뒤 thread를 생성합니다.
+- 실시간 일관성: bootstrap, `thread/read`, 수동 액션, live streaming이 같은 transcript 구조로 합쳐지고, live diff/plan은 canonical thread read를 통해 다시 맞춰집니다.
+- 빈 thread 유지: 새 thread를 만든 직후 첫 메시지를 보내기 전에도 `No active session`으로 되돌아가지 않고 현재 thread를 유지합니다.
+- 수동 재연결만 허용: websocket은 재연결 루프를 돌지 않고, 끊기면 명시적인 reconnect 액션만 노출합니다.
+- Funnel 한 줄 실행: `npm run up --funnel` 한 번으로 앱 실행, Tailscale Funnel 활성화, 외부 공개 URL 출력까지 이어집니다.
+- deterministic preview: `python scripts/generate_preview_images.py`가 `/?demo=1` 기준으로 README 스크린샷을 다시 생성합니다.
 
 ## 아키텍처
 
@@ -116,6 +110,7 @@ npm run up --funnel
 
 - `--funnel`은 `npm run dev --funnel`, `npm run start --funnel`에서도 동일하게 사용할 수 있습니다.
 - `npm run up --funnel`은 의존성 설치, 로컬 서버 실행, repo-local Funnel helper 실행까지 한 번에 처리합니다.
+- 성공하면 helper가 `Public URL: https://...` 형식으로 외부 주소를 바로 출력합니다.
 - 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
 - `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.
 - `npm run funnel:off`로 이 노드의 Funnel 설정을 초기화할 수 있습니다.

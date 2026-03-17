@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, switches mobile Home into a clean `Existing threads` / `New thread` choice, keeps every session control inside the composer (with a compact mobile summary so the transcript stays dominant), moves language into a separate settings panel, maintains flat settings/workspace surfaces, and streams updates over WebSocket while ignoring stale snapshots.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. Home opens first, keeps new-thread workspace setup and existing threads in the same launcher, stacks that flow cleanly on mobile, keeps `Model`, `Reasoning`, `Fast`, and `Plan` controls inside the chat composer, moves language into a separate settings panel, and streams revisioned snapshots over WebSocket so stale client state is ignored instead of retried in a loop.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
@@ -59,22 +59,16 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
 ## Highlights
 
-- Split launcher flow: desktop keeps thread selection and new-thread workspace setup side by side, while mobile turns Home into a direct `Existing threads` / `New thread` decision.
-- Transcript-first rail: the chat column now keeps a lighter rail so text remains dominant instead of being framed by dense system meta.
-- Mobile shell trim: the header stays focused on `Home` and `Threads`, while settings/reconnect access and the full session controls stay compact inside the composer.
-- Consistent new-thread flow: slash commands return to the launcher so workspace selection stays part of starting a new thread.
-- Direct in-chat navigation: return to `Home` from the header while keeping a separate `Threads` drawer for fast switching.
-- Workspace picker: choose directories from a dedicated browser, keep the last selected workspace visible even before a thread exists there, and prioritize real project folders over generated directories.
-- Flat overlays: settings and workspace surfaces use list-like rows and internal scrolling instead of dense card grids.
-- Manual reconnect: the socket now surfaces a reconnect action instead of looping automatically, so disconnects are explicit while preserving transcript state.
-- Direct session controls: desktop keeps full composer controls visible, while mobile keeps the same `Model`, `Reasoning`, `Fast`, and `Plan` controls in-chat behind one compact session row so the transcript stays taller.
-- Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input or session summary.
-- Lean snapshots: the bridge now emits only the active thread's timeline, stores per-thread metadata without turns, and merges streamed completion payloads so long-running sessions stay memory stable.
-- Realtime consistency: `thread/read`, bootstrap hydration, action responses, and live streaming all feed the same transcript structure, use revisioned snapshots to ignore stale client responses, and rehydrate live diff/plan updates back through canonical thread reads.
-- Safe turn finalization: once a turn completes, the bridge rehydrates that thread through `thread/read` before the next turn can drift visually from the persisted transcript.
-- Preview generator: `python scripts/generate_preview_images.py` now targets `/?demo=1`, so README screenshots stay deterministic.
-- Mobile-aware layout: Home separates existing-thread and new-thread flows into tabs, chat keeps the transcript dominant, trims idle chrome, and keeps settings/workspace surfaces phone-friendly.
-- Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
+- Launcher-first workflow: Home opens first, keeps workspace picking and thread switching together, and lets mobile stack those two jobs without hiding one behind a second screen.
+- Transcript-first chat: messages stay flat, edited content stays folded by default, and the mobile header/composer trim down so the transcript remains the largest surface.
+- In-composer session control: `Model` and `Reasoning` stay as dropdowns in the chat input area, while `Fast` and `Plan` are explicit on/off toggles instead of one inverted switch.
+- Separate settings surface: interface language lives in its own settings panel, not inside the composer or thread launcher.
+- Dedicated workspace picker: new threads start from a directory browser, and the server validates the chosen workspace before creating the thread.
+- Realtime consistency: bootstrap, `thread/read`, manual actions, and live streaming all converge into the same transcript structure, and live diff/plan updates are rehydrated through canonical thread reads.
+- Active empty thread support: starting a fresh thread no longer drops back to `No active session` before the first user turn is sent.
+- Manual reconnect only: the socket does not spin in a reconnect loop; disconnects surface a clear manual reconnect action instead.
+- One-line Funnel startup: `npm run up --funnel` starts the app, enables Tailscale Funnel, and prints the public URL directly in the terminal.
+- Deterministic previews: `python scripts/generate_preview_images.py` captures README screenshots from `/?demo=1`.
 
 ## Architecture
 
@@ -116,6 +110,7 @@ npm run up --funnel
 
 - `--funnel` also works with `npm run dev --funnel` and `npm run start --funnel`.
 - `npm run up --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
+- On success, the helper prints `Public URL: https://...` so the external address is immediately copyable.
 - If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
 - `npm run funnel:status` shows the current Funnel mapping.
 - `npm run funnel:off` resets the Funnel config for this node.

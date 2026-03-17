@@ -376,6 +376,7 @@ export function createDemoSnapshot(): BridgeSnapshot {
     sessionSettings: {
       model: "gpt-5.4",
       effort: "medium",
+      fastMode: true,
       planMode: false,
     },
   };

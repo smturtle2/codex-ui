@@ -24,6 +24,7 @@ type ComposerDockProps = {
   sessionSummary: string;
   selectedModel: string;
   selectedEffort: string;
+  fastMode: boolean;
   planMode: boolean;
   utilityActionLabel?: string | null;
   showUtilityAction?: boolean;
@@ -50,7 +51,8 @@ type ComposerDockProps = {
   onCommandPick: (commandName: string) => void;
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
-  onModeChange: (planMode: boolean) => void;
+  onFastModeChange: (enabled: boolean) => void;
+  onPlanModeChange: (enabled: boolean) => void;
   onUtilityAction?: (() => void) | null;
   onSubmit: () => void;
   onInterrupt: () => void;
@@ -121,6 +123,7 @@ export function ComposerDock({
   sessionSummary,
   selectedModel,
   selectedEffort,
+  fastMode,
   planMode,
   utilityActionLabel = null,
   showUtilityAction = false,
@@ -132,7 +135,8 @@ export function ComposerDock({
   onCommandPick,
   onModelChange,
   onEffortChange,
-  onModeChange,
+  onFastModeChange,
+  onPlanModeChange,
   onUtilityAction = null,
   onSubmit,
   onInterrupt,
@@ -227,21 +231,21 @@ export function ComposerDock({
               <span className="composer-control-label">{labels.mode}</span>
               <div className="composer-mode-group">
                 <button
-                  className={`picker-chip ${planMode ? "" : "selected"}`}
+                  className={`picker-chip ${fastMode ? "selected" : ""}`}
                   type="button"
-                  aria-pressed={!planMode}
-                  onClick={() => onModeChange(false)}
+                  aria-pressed={fastMode}
+                  onClick={() => onFastModeChange(!fastMode)}
                 >
                   <span>{labels.fast}</span>
                   <span className="composer-mode-state">
-                    {planMode ? labels.off : labels.on}
+                    {fastMode ? labels.on : labels.off}
                   </span>
                 </button>
                 <button
                   className={`picker-chip ${planMode ? "selected" : ""}`}
                   type="button"
                   aria-pressed={planMode}
-                  onClick={() => onModeChange(true)}
+                  onClick={() => onPlanModeChange(!planMode)}
                 >
                   <span>{labels.plan}</span>
                   <span className="composer-mode-state">

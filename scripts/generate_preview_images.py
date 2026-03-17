@@ -15,8 +15,9 @@ OUTPUT_DIR = Path(__file__).resolve().parent.parent / "docs"
 
 
 def wait_for_shell(page: Page) -> None:
-    page.wait_for_load_state("networkidle")
-    page.wait_for_timeout(700)
+    page.wait_for_load_state("load")
+    page.wait_for_selector(".tui-page")
+    page.wait_for_timeout(900)
 
 
 def open_demo(page: Page) -> None:
@@ -70,15 +71,11 @@ def capture_mobile(context: BrowserContext) -> None:
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-settings.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("tab", name=re.compile(r"(New thread|새 thread)")).click()
-    wait_for_shell(page)
     page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-workspace.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("tab", name=re.compile(r"(Existing threads|기존 thread)")).click()
-    wait_for_shell(page)
     page.locator(".home-thread-row").first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-chat.png"), full_page=True)

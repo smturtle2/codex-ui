@@ -50,7 +50,7 @@ import {
   createDemoWorkspaceListing,
   updateDemoSessionSettings,
 } from "@/lib/demo";
-import type { BridgeSnapshot, WorkspaceListing } from "@/lib/shared";
+import type { BridgeSnapshot, SessionSettings, WorkspaceListing } from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
 
 type ApprovalChoice = {
@@ -62,7 +62,6 @@ type ApprovalChoice = {
 
 type ConnectionState = "connecting" | "live" | "offline";
 type ViewMode = "home" | "chat";
-type HomePanel = "threads" | "new";
 
 const WORKSPACE_STORAGE_KEY = "codex-ui-workspace";
 
@@ -139,7 +138,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
   const [browserLanguage, setBrowserLanguage] = useState("en");
   const [isPhoneLayout, setIsPhoneLayout] = useState(false);
-  const [homePanel, setHomePanel] = useState<HomePanel>("threads");
   const [threadSearch, setThreadSearch] = useState("");
   const [threadSort, setThreadSort] = useState<ThreadDrawerSort>("updated");
   const [workspaceDraft, setWorkspaceDraft] = useState("");
@@ -322,8 +320,57 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       return null;
     }
 
-    return snapshot.threadList.find((thread) => thread.id === snapshot.activeThreadId) ?? null;
-  }, [snapshot]);
+    const existingSummary =
+      snapshot.threadList.find((thread) => thread.id === snapshot.activeThreadId) ?? null;
+    if (existingSummary) {
+      return existingSummary;
+    }
+
+    const activeThread = snapshot.threads.find((thread) => thread.id === snapshot.activeThreadId);
+    if (!activeThread) {
+      return null;
+    }
+
+    const sourceLabel =
+      typeof activeThread.source === "string"
+        ? activeThread.source === "cli"
+          ? "CLI"
+          : activeThread.source === "vscode"
+            ? "VS Code"
+            : activeThread.source === "appServer"
+              ? "App Server"
+              : activeThread.source === "exec"
+                ? "Exec"
+                : activeThread.source
+        : activeThread.source.subAgent
+          ? `Sub-agent ${activeThread.source.subAgent}`
+          : "Sub-agent";
+
+    return {
+      id: activeThread.id,
+      title:
+        activeThread.name?.trim() ||
+        `${formatWorkspacePathLabel(activeThread.cwd)} · ${new Date(
+          activeThread.updatedAt * 1000,
+        ).toLocaleDateString(locale)}`,
+      workspaceLabel: formatWorkspacePathLabel(activeThread.cwd),
+      workspacePath: activeThread.cwd,
+      branch: activeThread.gitInfo?.branch ?? null,
+      statusLabel:
+        activeThread.status.type === "active"
+          ? activeThread.status.activeFlags.length > 0
+            ? `active · ${activeThread.status.activeFlags.join(", ")}`
+            : "active"
+          : activeThread.status.type === "systemError"
+            ? "system error"
+            : null,
+      sourceLabel,
+      createdAt: activeThread.createdAt,
+      updatedAt: activeThread.updatedAt,
+      isActive: true,
+      searchText: "",
+    };
+  }, [locale, snapshot]);
 
   const activeTimeline = useMemo(() => {
     if (!snapshot?.activeThreadId) {
@@ -374,17 +421,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? filteredThreads
       : [activeThreadSummary, ...filteredThreads];
   }, [activeThreadSummary, filteredThreads]);
-
-  useEffect(() => {
-    if (
-      viewMode === "home" &&
-      isPhoneLayout &&
-      homePanel === "threads" &&
-      (snapshot?.threadList.length ?? 0) === 0
-    ) {
-      setHomePanel("new");
-    }
-  }, [homePanel, isPhoneLayout, snapshot?.threadList.length, viewMode]);
 
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
@@ -632,17 +668,18 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
   }
 
-  function openHome(nextPanel: HomePanel = "threads") {
+  function openHome() {
     setThreadDrawerOpen(false);
     setSurface(null);
     setWorkspaceDraft(preferredWorkspacePath);
-    setHomePanel(nextPanel);
     setViewMode("home");
-    if (nextPanel === "threads") {
-      window.setTimeout(() => {
-        homeSearchRef.current?.focus();
-      }, 0);
-    }
+    window.setTimeout(() => {
+      if (isPhoneLayout) {
+        return;
+      }
+
+      homeSearchRef.current?.focus();
+    }, 0);
   }
 
   async function loadWorkspaceListing(path?: string | null) {
@@ -761,10 +798,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     switch (command.action) {
       case "new":
       case "clear":
-        openHome("new");
+        openHome();
         break;
       case "resume":
-        openHome("threads");
+        openHome();
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -857,12 +894,15 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     );
   }
 
-  async function handleModelChange(model: string, effort: string | null) {
+  async function handleSessionSettingsChange(settings: Partial<SessionSettings>) {
     if (demoMode) {
       applyDemoSnapshot((current) =>
         updateDemoSessionSettings(current, {
-          model,
-          effort: effort as BridgeSnapshot["sessionSettings"]["effort"],
+          ...settings,
+          effort:
+            typeof settings.effort === "undefined"
+              ? undefined
+              : (settings.effort as BridgeSnapshot["sessionSettings"]["effort"]),
         }),
       );
       focusComposerSoon();
@@ -870,7 +910,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     await syncSnapshotFromResult(
-      () => callApi("/api/session/settings", { model, effort }),
+      () => callApi("/api/session/settings", settings),
       copy.actions.updatingSessionSettings,
     );
     focusComposerSoon();
@@ -889,7 +929,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? preferredEffort
       : nextModel.defaultReasoningEffort;
 
-    await handleModelChange(nextModel.model, nextEffort);
+    await handleSessionSettingsChange({
+      model: nextModel.model,
+      effort: nextEffort as SessionSettings["effort"],
+    });
   }
 
   async function handleComposerEffortChange(effort: string) {
@@ -897,7 +940,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       return;
     }
 
-    await handleModelChange(currentModel.model, effort);
+    await handleSessionSettingsChange({
+      model: currentModel.model,
+      effort: effort as SessionSettings["effort"],
+    });
   }
 
   function handleLanguageChange(language: UiLanguage) {
@@ -909,33 +955,40 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     focusComposerSoon();
   }
 
-  async function handleSessionModeChange(planMode: boolean) {
-    if ((snapshot?.sessionSettings.planMode ?? false) === planMode && !demoMode) {
+  async function handleFastModeChange(enabled: boolean) {
+    const currentFastMode = snapshot?.sessionSettings.fastMode ?? true;
+    const currentPlanMode = snapshot?.sessionSettings.planMode ?? false;
+    const nextSettings: Partial<SessionSettings> = {
+      fastMode: enabled,
+      planMode: enabled ? false : currentPlanMode,
+    };
+
+    if (
+      currentFastMode === nextSettings.fastMode &&
+      currentPlanMode === nextSettings.planMode
+    ) {
       return;
     }
 
-    if (demoMode) {
-      if ((snapshot?.sessionSettings.planMode ?? false) === planMode) {
-        return;
-      }
+    await handleSessionSettingsChange(nextSettings);
+  }
 
-      applyDemoSnapshot((current) =>
-        updateDemoSessionSettings(current, {
-          planMode,
-        }),
-      );
-      focusComposerSoon();
+  async function handlePlanModeChange(enabled: boolean) {
+    const currentFastMode = snapshot?.sessionSettings.fastMode ?? true;
+    const currentPlanMode = snapshot?.sessionSettings.planMode ?? false;
+    const nextSettings: Partial<SessionSettings> = {
+      fastMode: enabled ? false : currentFastMode,
+      planMode: enabled,
+    };
+
+    if (
+      currentFastMode === nextSettings.fastMode &&
+      currentPlanMode === nextSettings.planMode
+    ) {
       return;
     }
 
-    await syncSnapshotFromResult(
-      () =>
-        callApi("/api/session/settings", {
-          planMode,
-        }),
-      copy.actions.updatingSessionSettings,
-    );
-    focusComposerSoon();
+    await handleSessionSettingsChange(nextSettings);
   }
 
   async function handleServerRequestResponse(requestId: string, result: unknown) {
@@ -996,6 +1049,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             : { label: copy.header.ready, tone: "ready" as const };
   const selectedModelValue = currentModel?.model ?? "";
   const selectedEffortValue = currentEffort ?? currentModel?.defaultReasoningEffort ?? "";
+  const selectedFastMode = snapshot?.sessionSettings.fastMode ?? true;
   const selectedPlanMode = snapshot?.sessionSettings.planMode ?? false;
   const selectedLanguageValue = uiLanguage;
   const sessionModelOptions = (snapshot?.models ?? []).map((model) => ({
@@ -1015,18 +1069,18 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     sessionEffortOptions.find((option) => option.value === selectedEffortValue)?.label ??
     selectedEffortValue ??
     copy.common.unavailable;
-  const selectedModeLabel = selectedPlanMode ? copy.composer.plan : copy.composer.fast;
   const sessionSummary = [
     selectedModelLabel,
     selectedEffortLabel,
-    selectedModeLabel,
+    `${copy.composer.fast} ${selectedFastMode ? copy.composer.on : copy.composer.off}`,
+    `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
   ]
     .filter(Boolean)
     .join(" / ");
   const composerSessionSummary = [
     selectedModelLabel,
     selectedEffortLabel,
-    `${copy.composer.fast} ${selectedPlanMode ? copy.composer.off : copy.composer.on}`,
+    `${copy.composer.fast} ${selectedFastMode ? copy.composer.on : copy.composer.off}`,
     `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
   ]
     .filter(Boolean)
@@ -1452,6 +1506,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             threadsTab: copy.home.threadsTab,
             createTab: copy.home.createTab,
             currentThread: copy.home.currentThread,
+            recentThreads: copy.home.recentThreads,
             threadList: copy.home.threadList,
             createTitle: copy.home.createTitle,
             createIntro: copy.home.createIntro,
@@ -1478,7 +1533,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           filteredThreads={visibleHomeThreads}
           workspaceDraft={workspaceDraft}
           isPhoneLayout={isPhoneLayout}
-          activePanel={homePanel}
           statusLabel={headerStatus.label}
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
@@ -1487,7 +1541,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               document.activeElement instanceof HTMLElement ? document.activeElement : null,
             );
           }}
-          onPanelChange={setHomePanel}
           onSearchChange={setThreadSearch}
           onSortChange={setThreadSort}
           onUseDefaultWorkspace={() => {
@@ -1525,7 +1578,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             auxActionLabel={
               connectionState === "offline" ? copy.header.reconnect : copy.header.settings
             }
-            showAuxAction={!isPhoneLayout || connectionState === "offline"}
+            showAuxAction
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
               openHome();
@@ -1581,15 +1634,12 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             sessionSummary={composerSessionSummary}
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
+            fastMode={selectedFastMode}
             planMode={selectedPlanMode}
             utilityActionLabel={
-              isPhoneLayout
-                ? connectionState === "offline"
-                  ? copy.header.reconnect
-                  : copy.header.settings
-                : null
+              connectionState === "offline" ? copy.header.reconnect : null
             }
-            showUtilityAction={isPhoneLayout}
+            showUtilityAction={isPhoneLayout && connectionState === "offline"}
             modelOptions={sessionModelOptions}
             effortOptions={sessionEffortOptions}
             labels={{
@@ -1621,8 +1671,11 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             onEffortChange={(value) => {
               void handleComposerEffortChange(value);
             }}
-            onModeChange={(planMode) => {
-              void handleSessionModeChange(planMode);
+            onFastModeChange={(enabled) => {
+              void handleFastModeChange(enabled);
+            }}
+            onPlanModeChange={(enabled) => {
+              void handlePlanModeChange(enabled);
             }}
             onUtilityAction={() => {
               if (connectionState === "offline") {
@@ -1676,7 +1729,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           onClose={() => closeThreadDrawer()}
           onCreateThread={() => {
             setThreadDrawerOpen(false);
-            openHome("new");
+            openHome();
           }}
           onResumeThread={(threadId) => {
             void handleOpenThread(threadId);
@@ -1758,7 +1811,9 @@ ${copy.statusPanel.connection}: ${connectionState === "live" ? copy.statusPanel.
 ${copy.statusPanel.activeThread}: ${activeThreadSummary?.title ?? copy.common.none}
 ${copy.statusPanel.model}: ${currentModel?.displayName ?? currentModel?.model ?? "default"}
 ${copy.statusPanel.reasoning}: ${currentEffort ?? "default"}
-${copy.statusPanel.mode}: ${selectedModeLabel}
+${copy.statusPanel.mode}: ${selectedFastMode ? copy.statusPanel.fastOn : copy.statusPanel.fastOff} / ${selectedPlanMode ? copy.statusPanel.planOn : copy.statusPanel.planOff}
+${copy.composer.fast}: ${selectedFastMode ? copy.common.on : copy.common.off}
+${copy.composer.plan}: ${selectedPlanMode ? copy.common.on : copy.common.off}
 ${copy.statusPanel.uiLanguage}: ${languageOptions.find((option) => option.value === selectedLanguageValue)?.label ?? selectedLanguageValue}
 ${copy.statusPanel.pendingRequests}: ${snapshot.pendingRequests.length}
 ${copy.statusPanel.runtime}: ${runtime}
