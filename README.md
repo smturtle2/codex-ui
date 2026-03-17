@@ -112,6 +112,8 @@ npm run up --funnel
 - `npm run up --funnel` installs dependencies, starts the local server, and then runs the repo-local Funnel helper against `http://127.0.0.1:3000`.
 - On success, the helper prints `Public URL: https://...` so the external address is immediately copyable.
 - If Funnel is not enabled for the current tailnet node yet, the helper prints the exact enable URL.
+- If you see `Access denied: serve config denied`, the tailnet approval is already done but the local user cannot update Tailscale serve config yet. Run `sudo tailscale set --operator=$USER` once, or run `sudo tailscale funnel --bg --yes 3000` directly.
+- When Funnel setup fails, the local app keeps running at `http://127.0.0.1:3000`; only the public exposure step failed.
 - `npm run funnel:status` shows the current Funnel mapping.
 - `npm run funnel:off` resets the Funnel config for this node.
 

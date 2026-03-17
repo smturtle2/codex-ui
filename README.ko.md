@@ -112,6 +112,8 @@ npm run up --funnel
 - `npm run up --funnel`은 의존성 설치, 로컬 서버 실행, repo-local Funnel helper 실행까지 한 번에 처리합니다.
 - 성공하면 helper가 `Public URL: https://...` 형식으로 외부 주소를 바로 출력합니다.
 - 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
+- `Access denied: serve config denied`가 보이면 tailnet 승인 문제는 끝났고, 현재 로컬 사용자에게 Tailscale serve config를 바꿀 권한이 없는 상태입니다. `sudo tailscale set --operator=$USER`를 한 번 실행하거나, `sudo tailscale funnel --bg --yes 3000`을 직접 실행하세요.
+- Funnel 설정이 실패해도 로컬 앱은 `http://127.0.0.1:3000`에서 계속 실행되고, 외부 공개 단계만 실패합니다.
 - `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.
 - `npm run funnel:off`로 이 노드의 Funnel 설정을 초기화할 수 있습니다.
 
