@@ -2,225 +2,109 @@
 
 from __future__ import annotations
 
-import argparse
 import os
-import signal
-import subprocess
+import re
 import sys
-import time
-import urllib.error
-import urllib.request
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
-from playwright.sync_api import Page, sync_playwright
-
-
-ROOT = Path(__file__).resolve().parents[1]
-DOCS_DIR = ROOT / "docs"
-DEFAULT_URL = "http://127.0.0.1:3000"
-LANGUAGE_STORAGE_KEY = "codex-ui-language"
+from playwright.sync_api import BrowserContext, Page, sync_playwright
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Capture README preview screenshots for Codex UI.",
-    )
-    parser.add_argument(
-        "--url",
-        default=DEFAULT_URL,
-        help=f"Base URL for the running app (default: {DEFAULT_URL}).",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default=str(DOCS_DIR),
-        help="Directory to write screenshots into.",
-    )
-    parser.add_argument(
-        "--no-server",
-        action="store_true",
-        help="Do not start `npm run start` automatically when the app is not running.",
-    )
-    parser.add_argument(
-        "--timeout",
-        type=float,
-        default=90.0,
-        help="Seconds to wait for the app to become reachable.",
-    )
-    return parser.parse_args()
+BASE_URL = os.environ.get("CODEX_UI_BASE_URL", "http://127.0.0.1:3000")
+OUTPUT_DIR = Path(__file__).resolve().parent.parent / "docs"
 
 
-def server_is_live(url: str) -> bool:
-    try:
-        with urllib.request.urlopen(url, timeout=2) as response:
-            return 200 <= response.status < 500
-    except (urllib.error.URLError, TimeoutError, ValueError):
-        return False
+def wait_for_shell(page: Page) -> None:
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(700)
 
 
-def wait_for_server(url: str, timeout: float, process: subprocess.Popen[str] | None) -> None:
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        if server_is_live(url):
-            return
-
-        if process is not None and process.poll() is not None:
-            raise RuntimeError("`npm run start` exited before the app became reachable.")
-
-        time.sleep(1)
-
-    raise RuntimeError(f"Timed out waiting for {url}.")
+def open_demo(page: Page) -> None:
+    page.goto(f"{BASE_URL}/?demo=1", wait_until="domcontentloaded")
+    wait_for_shell(page)
 
 
-@contextmanager
-def ensure_server(url: str, timeout: float, no_server: bool) -> Iterator[None]:
-    process: subprocess.Popen[str] | None = None
-
-    if not server_is_live(url):
-        if no_server:
-            raise RuntimeError(f"{url} is not reachable. Start the app or omit --no-server.")
-
-        process = subprocess.Popen(
-            ["npm", "run", "start"],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
-        wait_for_server(url, timeout, process)
-
-    try:
-        yield
-    finally:
-        if process is None or process.poll() is not None:
-            return
-
-        if os.name == "nt":
-            process.send_signal(signal.CTRL_BREAK_EVENT)  # type: ignore[attr-defined]
-        else:
-            process.terminate()
-
-        try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
+def close_overlay_if_open(page: Page) -> None:
+    close_button = page.get_by_role("button", name=re.compile(r"^(Close|닫기)$"))
+    if close_button.count() > 0 and close_button.first.is_visible():
+        close_button.first.click()
+        wait_for_shell(page)
 
 
-def prepare_page(page: Page, url: str) -> None:
-    page.add_init_script(
-        f"window.localStorage.setItem('{LANGUAGE_STORAGE_KEY}', 'system');"
-    )
-    preview_url = f"{url.rstrip('/')}/?demo=1"
-    page.goto(preview_url, wait_until="load")
-    page.wait_for_timeout(900)
+def ensure_output_dir() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def close_surface(page: Page) -> None:
-    close_button = page.locator(".surface-dialog .plain-action").first
-    if close_button.count():
-        close_button.click()
-        page.wait_for_timeout(200)
+def capture_desktop(context: BrowserContext) -> None:
+    page = context.new_page()
+    page.set_viewport_size({"width": 1440, "height": 1080})
+
+    open_demo(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-home.png"), full_page=True)
+
+    page.get_by_role("button", name=re.compile(r"^(Settings|설정)$")).first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-settings.png"), full_page=True)
+    close_overlay_if_open(page)
+
+    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-workspace.png"), full_page=True)
+    close_overlay_if_open(page)
+
+    page.locator(".home-thread-row").first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-desktop.png"), full_page=True)
+    page.close()
 
 
-def select_home_panel(page: Page, panel: str) -> None:
-    panel_buttons = page.locator(".home-mobile-nav button")
-    if panel_buttons.count() < 2:
-        return
+def capture_mobile(context: BrowserContext) -> None:
+    page = context.new_page()
+    page.set_viewport_size({"width": 430, "height": 932})
 
-    target_index = 0 if panel == "threads" else 1
-    target_button = panel_buttons.nth(target_index)
-    if target_button.get_attribute("aria-selected") == "true":
-        return
+    open_demo(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-home.png"), full_page=True)
 
-    target_button.click()
-    page.wait_for_timeout(300)
+    page.get_by_role("button", name=re.compile(r"^(Settings|설정)$")).first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-settings.png"), full_page=True)
+    close_overlay_if_open(page)
 
+    page.get_by_role("tab", name=re.compile(r"(New thread|새 thread)")).click()
+    wait_for_shell(page)
+    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-workspace.png"), full_page=True)
+    close_overlay_if_open(page)
 
-def open_chat_from_home(page: Page) -> None:
-    thread_rows = page.locator(".home-thread-row")
-    if thread_rows.count() > 0:
-        thread_rows.first.click()
-    else:
-        page.locator(".action-button").first.click()
-
-    page.wait_for_timeout(900)
-    transcript = page.locator(".transcript-scroll").first
-    if transcript.count():
-        transcript.evaluate("(node) => { node.scrollTop = 0; }")
-        page.wait_for_timeout(120)
-
-
-def capture_desktop(page: Page, output_dir: Path) -> None:
-    page.screenshot(path=str(output_dir / "preview-home.png"), full_page=True)
-
-    page.locator(".home-header-tools .plain-action").first.click()
-    page.wait_for_timeout(300)
-    page.screenshot(path=str(output_dir / "preview-settings.png"), full_page=True)
-    close_surface(page)
-
-    page.locator(".home-launcher-actions .plain-action").first.click()
-    page.wait_for_timeout(300)
-    page.screenshot(path=str(output_dir / "preview-workspace.png"), full_page=True)
-    close_surface(page)
-
-    open_chat_from_home(page)
-    page.screenshot(path=str(output_dir / "preview-desktop.png"), full_page=True)
-
-
-def capture_mobile(page: Page, output_dir: Path) -> None:
-    select_home_panel(page, "threads")
-    page.screenshot(path=str(output_dir / "preview-mobile-home.png"), full_page=True)
-
-    page.locator(".home-header-tools .plain-action").first.click()
-    page.wait_for_timeout(300)
-    page.screenshot(path=str(output_dir / "preview-mobile-settings.png"), full_page=True)
-    close_surface(page)
-
-    select_home_panel(page, "new")
-    page.locator(".home-launcher-actions .plain-action").first.click()
-    page.wait_for_timeout(300)
-    page.screenshot(path=str(output_dir / "preview-mobile-workspace.png"), full_page=True)
-    close_surface(page)
-
-    select_home_panel(page, "threads")
-    open_chat_from_home(page)
-    page.screenshot(path=str(output_dir / "preview-mobile-chat.png"), full_page=True)
+    page.get_by_role("tab", name=re.compile(r"(Existing threads|기존 thread)")).click()
+    wait_for_shell(page)
+    page.locator(".home-thread-row").first.click()
+    wait_for_shell(page)
+    page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-chat.png"), full_page=True)
+    page.close()
 
 
 def main() -> int:
-    args = parse_args()
-    output_dir = Path(args.output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
+    ensure_output_dir()
 
-    with ensure_server(args.url, args.timeout, args.no_server):
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-
-            desktop = browser.new_page(
-                viewport={"width": 1440, "height": 1024},
-                color_scheme="light",
-            )
-            prepare_page(desktop, args.url)
-            capture_desktop(desktop, output_dir)
-
-            mobile = browser.new_page(
-                viewport={"width": 393, "height": 852},
-                is_mobile=True,
-                has_touch=True,
-                color_scheme="light",
-            )
-            prepare_page(mobile, args.url)
-            capture_mobile(mobile, output_dir)
-
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(locale="en-US")
+        try:
+            capture_desktop(context)
+            capture_mobile(context)
+        finally:
+            context.close()
             browser.close()
 
+    print(f"Preview images written to {OUTPUT_DIR}")
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as error:
-        print(str(error), file=sys.stderr)
+    except Exception as error:  # pragma: no cover - CLI failure path
+        print(f"Failed to generate preview images: {error}", file=sys.stderr)
         raise SystemExit(1)

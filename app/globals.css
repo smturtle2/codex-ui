@@ -17,6 +17,7 @@
   --label-column: 4.1rem;
   --radius: 0.45rem;
   --font-sans:
+    var(--font-app-sans),
     "IBM Plex Sans KR",
     "Pretendard Variable",
     "Pretendard",
@@ -26,6 +27,7 @@
     "Malgun Gothic",
     sans-serif;
   --font-mono:
+    var(--font-app-mono),
     "IBM Plex Mono",
     "Iosevka Term",
     "Cascadia Mono",
@@ -311,8 +313,8 @@ pre {
 }
 
 .home-main-grid {
-  grid-template-columns: minmax(0, 1.45fr) minmax(21rem, 0.92fr);
-  gap: 0 2rem;
+  grid-template-columns: minmax(0, 1.7fr) minmax(18rem, 0.88fr);
+  gap: 0 1.7rem;
   align-items: start;
 }
 
@@ -609,29 +611,12 @@ pre {
 
 .history-list {
   position: relative;
-  width: min(100%, var(--measure));
+  width: min(100%, 62rem);
   margin: 0 auto;
   display: grid;
-  gap: 1.15rem;
+  gap: 0.95rem;
   align-content: start;
-  padding: 0 0.8rem 2.2rem;
-}
-
-.history-list::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: calc(var(--label-column) - 0.85rem);
-  width: 1px;
-  background: linear-gradient(
-    180deg,
-    transparent 0,
-    var(--line-soft) 6%,
-    var(--line-soft) 94%,
-    transparent 100%
-  );
-  pointer-events: none;
+  padding: 0 0.35rem 2.4rem;
 }
 
 .history-turn-divider {
@@ -657,27 +642,28 @@ pre {
 .history-message-group,
 .history-event {
   display: grid;
-  grid-template-columns: var(--label-column) minmax(0, 1fr);
-  gap: 0.45rem 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
   align-items: start;
 }
 
 .history-message-group-head,
 .history-event-head {
-  display: grid;
-  gap: 0.18rem;
-  align-content: start;
-  padding-top: 0.12rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .history-message-stack {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 
 .history-message-line {
-  font-size: 1.02rem;
-  line-height: 1.84;
+  font-size: 1.01rem;
+  line-height: 1.8;
   letter-spacing: -0.01em;
 }
 
@@ -690,7 +676,7 @@ pre {
 }
 
 .history-event {
-  padding-top: 0.85rem;
+  padding-top: 0.7rem;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -709,7 +695,7 @@ pre {
 
 .history-event-summaryline {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.8rem;
 }
@@ -777,8 +763,8 @@ pre {
 
 .composer-frame {
   display: grid;
-  gap: 0.75rem;
-  padding-top: 0.72rem;
+  gap: 0.55rem;
+  padding-top: 0.58rem;
   border-top: 1px solid var(--line-strong);
 }
 
@@ -789,6 +775,13 @@ pre {
 .composer-mobile-session,
 .composer-mobile-session-copy {
   display: grid;
+}
+
+.composer-mobile-topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: stretch;
 }
 
 .composer-mobile-session-copy {
@@ -812,6 +805,10 @@ pre {
   padding-inline: 0.75rem;
 }
 
+.composer-mobile-utility {
+  white-space: nowrap;
+}
+
 .composer-mobile-session-toggle.expanded {
   background: var(--surface-soft);
 }
@@ -828,7 +825,7 @@ pre {
 .composer-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 0.5rem;
 }
 
 .composer-select-field {
@@ -910,7 +907,7 @@ pre {
 .composer-input-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.8rem;
+  gap: 0.65rem;
   align-items: end;
 }
 
@@ -958,7 +955,7 @@ pre {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.75rem 1rem;
+  gap: 0.55rem 0.9rem;
   flex-wrap: wrap;
 }
 
@@ -1058,9 +1055,10 @@ pre {
 }
 
 .settings-panel {
-  grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr);
-  gap: 1rem 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
   align-content: start;
+  max-width: 24rem;
 }
 
 .settings-section {
@@ -1070,13 +1068,8 @@ pre {
 
 .settings-section-interface {
   align-content: start;
-  padding-right: 2rem;
-  border-right: 1px solid var(--line);
-}
-
-.settings-section-session {
-  grid-column: 2;
-  align-content: start;
+  padding-right: 0;
+  border-right: 0;
 }
 
 .settings-section-head {
@@ -1414,7 +1407,8 @@ pre {
 .toast {
   position: fixed;
   left: 50%;
-  bottom: max(1rem, env(safe-area-inset-bottom));
+  top: max(1rem, env(safe-area-inset-top));
+  bottom: auto;
   z-index: 40;
   transform: translateX(-50%);
   max-width: min(32rem, calc(100vw - 2rem));
@@ -1439,20 +1433,12 @@ pre {
   }
 
   .home-launcher-panel {
-    order: -1;
     padding-left: 0;
     border-left: 0;
   }
 
   .settings-section-interface {
     padding-right: 0;
-    padding-bottom: 1rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .settings-section-session {
-    grid-column: auto;
   }
 
   .workspace-picker-current {
@@ -1481,7 +1467,7 @@ pre {
 
   .shell-header-actions {
     grid-column: 1 / -1;
-    justify-content: space-between;
+    justify-content: flex-end;
   }
 
   .composer-input-row {
@@ -1598,14 +1584,13 @@ pre {
   }
 
   .shell-header-rail {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr);
     gap: 0.55rem;
-    align-items: center;
+    align-items: start;
   }
 
   .shell-session {
-    grid-column: auto;
-    order: 0;
+    grid-column: 2;
     min-width: 0;
   }
 
@@ -1618,10 +1603,10 @@ pre {
   }
 
   .shell-header-actions {
-    justify-content: flex-end;
+    grid-column: 1 / -1;
+    justify-content: space-between;
     gap: 0.35rem;
-    flex-wrap: nowrap;
-    grid-column: auto;
+    flex-wrap: wrap;
   }
 
   .shell-status-line {
@@ -1637,12 +1622,9 @@ pre {
   }
 
   .history-list {
-    padding-inline: 0;
+    width: 100%;
+    padding-inline: 0.2rem;
     gap: 1rem;
-  }
-
-  .history-list::before {
-    display: none;
   }
 
   .history-message-group,
@@ -1675,6 +1657,10 @@ pre {
     gap: 0.65rem;
   }
 
+  .composer-mobile-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
   .composer-controls {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1687,7 +1673,7 @@ pre {
 
   .composer-mode-field {
     grid-column: 1 / -1;
-    min-width: 13rem;
+    min-width: 0;
   }
 
   .composer-mode-group {
@@ -1734,6 +1720,10 @@ pre {
     gap: 0.12rem;
   }
 
+  .phone-only-status {
+    justify-content: flex-start;
+  }
+
   .composer-inline-status {
     font-size: 0.72rem;
   }
@@ -1765,23 +1755,11 @@ pre {
 
   .settings-panel {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 0;
   }
 
   .settings-section-interface {
     padding-right: 0;
-    padding-bottom: 0.9rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .settings-section-session {
-    grid-column: auto;
-  }
-
-  .settings-fact-row {
-    grid-template-columns: 1fr;
-    gap: 0.2rem;
   }
 
   .workspace-picker {

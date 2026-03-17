@@ -7,19 +7,12 @@ type SettingsOption = {
   label: string;
 };
 
-type SettingsFact = {
-  label: string;
-  value: string;
-};
-
 type SettingsPanelProps = {
   selectedLanguage: UiLanguage;
   languageOptions: SettingsOption[];
-  facts: SettingsFact[];
   labels: {
     interfaceTitle: string;
     language: string;
-    sessionTitle: string;
     applyHint: string;
   };
   onLanguageChange: (language: UiLanguage) => void;
@@ -28,7 +21,6 @@ type SettingsPanelProps = {
 export function SettingsPanel({
   selectedLanguage,
   languageOptions,
-  facts,
   labels,
   onLanguageChange,
 }: SettingsPanelProps) {
@@ -60,21 +52,6 @@ export function SettingsPanel({
             </span>
           </span>
         </label>
-      </section>
-
-      <section className="settings-section settings-section-session">
-        <div className="settings-section-head">
-          <span className="home-section-label">{labels.sessionTitle}</span>
-        </div>
-
-        <div className="settings-fact-list">
-          {facts.map((fact) => (
-            <div key={fact.label} className="settings-fact-row">
-              <span className="settings-fact-label">{fact.label}</span>
-              <strong className="settings-fact-value">{fact.value}</strong>
-            </div>
-          ))}
-        </div>
       </section>
     </div>
   );

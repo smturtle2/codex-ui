@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-03-17
+
+### Documentation and stability refresh
+
+- Documented the chat-first monochrome rewrite that keeps the transcript rail light, trims the mobile header down to `Home/Threads`, and moves settings plus reconnect access into the composer summary on phone layouts.
+- Added a manual WebSocket reconnect action so disconnects remain visible while preserving the existing transcript instead of rerunning a background loop.
+- Noted the leaner bridge snapshot path that now emits only the active thread timeline, stores metadata without full `turns`, and merges streamed completion payloads to keep long-running sessions stable.
+- Recorded that `python scripts/generate_preview_images.py` runs against `/?demo=1` so README screenshots stay deterministic across runs.
+
 ## 2026-03-16
 
 ### Snapshot parity and mobile transcript pass

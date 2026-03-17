@@ -91,6 +91,16 @@ type InternalState = {
   sessionSettings: SessionSettings;
 };
 
+const STREAMING_NOTIFICATION_METHODS = new Set([
+  "item/agentMessage/delta",
+  "item/reasoning/summaryPartAdded",
+  "item/reasoning/textDelta",
+  "item/reasoning/summaryTextDelta",
+  "item/plan/delta",
+  "item/commandExecution/outputDelta",
+  "item/fileChange/outputDelta",
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -158,6 +168,17 @@ function formatWorkspaceLabel(cwd: string): string {
   }
 
   return `.../${parts.slice(-3).join("/")}`;
+}
+
+function stripThreadTurns(thread: Thread): Thread {
+  if (thread.turns.length === 0) {
+    return thread;
+  }
+
+  return {
+    ...thread,
+    turns: [],
+  };
 }
 
 function formatThreadListTimestamp(unixSeconds: number): string {
@@ -325,6 +346,80 @@ function buildReasoningBody(item: Record<string, unknown>): string {
     ...(((item.summary as string[]) ?? []).map((line) => `• ${line}`)),
     ...(((item.content as string[]) ?? []).map((line) => line)),
   ]);
+}
+
+function mergeItemChangeRecords(
+  existingValue: unknown,
+  completedValue: unknown,
+): unknown {
+  if (!Array.isArray(existingValue) || !Array.isArray(completedValue)) {
+    return typeof completedValue === "undefined" ? existingValue : completedValue;
+  }
+
+  const nextLength = Math.max(existingValue.length, completedValue.length);
+  const merged: unknown[] = [];
+
+  for (let index = 0; index < nextLength; index += 1) {
+    const existingEntry = isRecord(existingValue[index]) ? existingValue[index] : null;
+    const completedEntry = isRecord(completedValue[index]) ? completedValue[index] : null;
+
+    if (!existingEntry || !completedEntry) {
+      merged.push(completedEntry ?? existingEntry);
+      continue;
+    }
+
+    merged.push({
+      ...existingEntry,
+      ...completedEntry,
+      diff:
+        typeof completedEntry.diff === "string"
+          ? completedEntry.diff
+          : existingEntry.diff,
+      kind:
+        typeof completedEntry.kind === "undefined"
+          ? existingEntry.kind
+          : completedEntry.kind,
+    });
+  }
+
+  return merged;
+}
+
+function mergeStreamingCompletionItem(
+  currentValue: Record<string, unknown> | undefined,
+  completedValue: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!currentValue) {
+    return completedValue;
+  }
+
+  const merged: Record<string, unknown> = {
+    ...currentValue,
+    ...completedValue,
+  };
+
+  if (typeof completedValue.text === "undefined" && typeof currentValue.text === "string") {
+    merged.text = currentValue.text;
+  }
+
+  if (
+    typeof completedValue.aggregatedOutput === "undefined" &&
+    typeof currentValue.aggregatedOutput === "string"
+  ) {
+    merged.aggregatedOutput = currentValue.aggregatedOutput;
+  }
+
+  if (typeof completedValue.summary === "undefined" && Array.isArray(currentValue.summary)) {
+    merged.summary = currentValue.summary;
+  }
+
+  if (typeof completedValue.content === "undefined" && Array.isArray(currentValue.content)) {
+    merged.content = currentValue.content;
+  }
+
+  merged.changes = mergeItemChangeRecords(currentValue.changes, completedValue.changes);
+
+  return merged;
 }
 
 function ensureTextAtIndex(
@@ -721,8 +816,7 @@ export class CodexBridge extends EventEmitter {
   private child: ChildProcessWithoutNullStreams | null = null;
   private requestSeq = 1;
   private readonly pendingClientRequests = new Map<string, PendingClientRequest>();
-  private readonly canonicalRefreshTimers = new Map<string, NodeJS.Timeout>();
-  private readonly canonicalRefreshInFlight = new Set<string>();
+  private publishTimer: NodeJS.Timeout | null = null;
   private readonly state: InternalState = {
     snapshotRevision: 0,
     phase: "starting",
@@ -754,11 +848,10 @@ export class CodexBridge extends EventEmitter {
   }
 
   async stop(): Promise<void> {
-    for (const timer of this.canonicalRefreshTimers.values()) {
-      clearTimeout(timer);
+    if (this.publishTimer) {
+      clearTimeout(this.publishTimer);
+      this.publishTimer = null;
     }
-    this.canonicalRefreshTimers.clear();
-    this.canonicalRefreshInFlight.clear();
 
     if (!this.child) {
       return;
@@ -778,12 +871,12 @@ export class CodexBridge extends EventEmitter {
     );
     const defaultWorkspacePath = process.cwd();
     const timelineByThread: Record<string, TimelineEntry[]> = {};
+    const activeThreadId = this.state.activeThreadId;
 
-    for (const [threadId, timeline] of this.state.timelineByThread.entries()) {
-      timelineByThread[threadId] = timeline;
+    if (activeThreadId) {
+      timelineByThread[activeThreadId] = this.state.timelineByThread.get(activeThreadId) ?? [];
     }
 
-    const activeThreadId = this.state.activeThreadId;
     const activeTurnId = activeThreadId
       ? this.state.activeTurnIds.get(activeThreadId) ?? null
       : null;
@@ -832,7 +925,7 @@ export class CodexBridge extends EventEmitter {
     })) as ThreadStartResponse;
 
     this.state.activeThreadId = response.thread.id;
-    this.state.threads.set(response.thread.id, response.thread);
+    this.state.threads.set(response.thread.id, stripThreadTurns(response.thread));
     this.state.timelineByThread.set(response.thread.id, []);
     this.state.streamingItemsByThread.set(response.thread.id, new Map());
     await this.refreshThreads();
@@ -1055,46 +1148,29 @@ export class CodexBridge extends EventEmitter {
     this.publish();
   }
 
-  private publish(): void {
+  private flushPublish(): void {
     this.state.snapshotRevision += 1;
     this.emit("snapshot", this.getSnapshot());
   }
 
-  private scheduleCanonicalRefresh(threadId: string, delayMs = 180): void {
-    const existing = this.canonicalRefreshTimers.get(threadId);
-    if (existing) {
-      clearTimeout(existing);
-    }
-
-    const timer = setTimeout(() => {
-      this.canonicalRefreshTimers.delete(threadId);
-      void this.refreshThreadFromHistory(threadId);
-    }, delayMs);
-
-    this.canonicalRefreshTimers.set(threadId, timer);
-  }
-
-  private async refreshThreadFromHistory(threadId: string): Promise<void> {
-    if (this.canonicalRefreshInFlight.has(threadId)) {
-      this.scheduleCanonicalRefresh(threadId);
+  private publish(immediate = true): void {
+    if (immediate) {
+      if (this.publishTimer) {
+        clearTimeout(this.publishTimer);
+        this.publishTimer = null;
+      }
+      this.flushPublish();
       return;
     }
 
-    this.canonicalRefreshInFlight.add(threadId);
-    try {
-      const thread = await this.readThreadWithTurns(threadId);
-      this.state.threads.set(thread.id, thread);
-      this.hydrateThreadTimeline(thread);
-      this.publish();
-    } catch (error) {
-      this.logLine(
-        `Failed to refresh live thread ${threadId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    } finally {
-      this.canonicalRefreshInFlight.delete(threadId);
+    if (this.publishTimer) {
+      return;
     }
+
+    this.publishTimer = setTimeout(() => {
+      this.publishTimer = null;
+      this.flushPublish();
+    }, 48);
   }
 
   private logLine(line: string): void {
@@ -1127,8 +1203,24 @@ export class CodexBridge extends EventEmitter {
       sortKey: "updated_at",
     })) as ThreadListResponse;
 
+    const nextThreadIds = new Set(response.data.map((thread) => thread.id));
+
+    for (const threadId of this.state.threads.keys()) {
+      if (!nextThreadIds.has(threadId)) {
+        this.state.threads.delete(threadId);
+        this.state.timelineByThread.delete(threadId);
+        this.state.streamingItemsByThread.delete(threadId);
+        this.state.activeTurnIds.delete(threadId);
+        this.state.activeTurnStartedAt.delete(threadId);
+      }
+    }
+
+    if (this.state.activeThreadId && !nextThreadIds.has(this.state.activeThreadId)) {
+      this.state.activeThreadId = null;
+    }
+
     for (const thread of response.data) {
-      this.state.threads.set(thread.id, thread);
+      this.state.threads.set(thread.id, stripThreadTurns(thread));
       if (!this.state.timelineByThread.has(thread.id)) {
         this.state.timelineByThread.set(thread.id, []);
       }
@@ -1168,9 +1260,10 @@ export class CodexBridge extends EventEmitter {
 
   private async fetchAndHydrateThread(threadId: string): Promise<Thread> {
     const thread = await this.readThreadWithTurns(threadId);
-    this.state.threads.set(thread.id, thread);
     this.hydrateThreadTimeline(thread);
-    return thread;
+    const leanThread = stripThreadTurns(thread);
+    this.state.threads.set(thread.id, leanThread);
+    return leanThread;
   }
 
   private async canonicalizeCompletedTurn(
@@ -1189,8 +1282,8 @@ export class CodexBridge extends EventEmitter {
         return;
       }
 
-      this.state.threads.set(thread.id, thread);
       this.hydrateThreadTimeline(thread);
+      this.state.threads.set(thread.id, stripThreadTurns(thread));
       this.publish();
     } catch (error) {
       this.logLine(
@@ -1543,7 +1636,7 @@ export class CodexBridge extends EventEmitter {
     switch (method) {
       case "thread/started": {
         const thread = params.thread as Thread;
-        this.state.threads.set(thread.id, thread);
+        this.state.threads.set(thread.id, stripThreadTurns(thread));
         if (!this.state.timelineByThread.has(thread.id)) {
           this.state.timelineByThread.set(thread.id, []);
         }
@@ -1649,19 +1742,22 @@ export class CodexBridge extends EventEmitter {
         if (threadId && item) {
           const itemType = typeof item.type === "string" ? item.type : "unknown";
           const itemId = typeof item.id === "string" ? item.id : `item-${Date.now()}`;
+          const entryId = resolveTimelineEntryId(itemType, itemId, turnId);
+          const streamedItem = this.getStreamingItemsForThread(threadId).get(entryId)?.item;
+          const mergedItem = mergeStreamingCompletionItem(streamedItem, item);
           const existingEntry = this.findTimelineEntry(
             threadId,
-            resolveTimelineEntryId(itemType, itemId, turnId),
+            entryId,
           );
           const completionStatus =
-            typeof item.status === "string"
-              ? timelineStatusFromItemStatus(item.status, "completed")
+            typeof mergedItem.status === "string"
+              ? timelineStatusFromItemStatus(mergedItem.status, "completed")
               : existingEntry?.status ?? "completed";
-          this.upsertStreamingTimelineEntry(threadId, turnId, item, completionStatus);
+          this.upsertStreamingTimelineEntry(threadId, turnId, mergedItem, completionStatus);
           const entry = timelineEntryFromTurnItem(
             threadId,
             turnId,
-            item,
+            mergedItem,
             completionStatus,
           );
           this.clearStreamingItem(threadId, entry.id);
@@ -1729,14 +1825,8 @@ export class CodexBridge extends EventEmitter {
         }
         break;
       }
-      case "item/plan/delta": {
-        const threadId =
-          typeof params.threadId === "string" ? params.threadId : undefined;
-        if (threadId) {
-          this.scheduleCanonicalRefresh(threadId);
-        }
+      case "item/plan/delta":
         break;
-      }
       case "item/commandExecution/outputDelta": {
         const threadId =
           typeof params.threadId === "string" ? params.threadId : undefined;
@@ -1786,26 +1876,12 @@ export class CodexBridge extends EventEmitter {
               changes: nextChanges,
             };
           });
-          this.scheduleCanonicalRefresh(threadId);
         }
         break;
       }
-      case "turn/plan/updated": {
-        const threadId =
-          typeof params.threadId === "string" ? params.threadId : undefined;
-        if (threadId) {
-          this.scheduleCanonicalRefresh(threadId);
-        }
+      case "turn/plan/updated":
+      case "turn/diff/updated":
         break;
-      }
-      case "turn/diff/updated": {
-        const threadId =
-          typeof params.threadId === "string" ? params.threadId : undefined;
-        if (threadId) {
-          this.scheduleCanonicalRefresh(threadId);
-        }
-        break;
-      }
       case "serverRequest/resolved": {
         const requestId = String(params.requestId ?? "");
         const pending = this.state.pendingRequests.get(requestId);
@@ -1827,49 +1903,14 @@ export class CodexBridge extends EventEmitter {
         break;
       }
       case "error": {
-        const threadId =
-          typeof params.threadId === "string"
-            ? params.threadId
-            : this.state.activeThreadId ?? "global";
-        this.appendTimelineEntry(threadId, {
-          id: `error:${now}`,
-          threadId,
-          turnId: null,
-          kind: "system",
-          title: "Server error",
-          body: stringifyUnknown(params),
-          tone: "danger",
-          status: "error",
-          rawMethod: method,
-          updatedAt: now,
-        });
         this.state.lastError = stringifyUnknown(params);
         break;
       }
-      default: {
-        const threadId =
-          typeof params.threadId === "string"
-            ? params.threadId
-            : this.state.activeThreadId;
-        if (threadId) {
-          this.appendTimelineEntry(threadId, {
-            id: `${method}:${now}`,
-            threadId,
-            turnId:
-              typeof params.turnId === "string" ? params.turnId : null,
-            kind: "system",
-            title: method,
-            body: stringifyUnknown(params),
-            tone: "muted",
-            status: "completed",
-            rawMethod: method,
-            updatedAt: now,
-          });
-        }
-      }
+      default:
+        break;
     }
 
-    this.publish();
+    this.publish(!STREAMING_NOTIFICATION_METHODS.has(method));
   }
 
   private getStreamingItemsForThread(

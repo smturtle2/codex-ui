@@ -25,6 +25,8 @@ type ComposerDockProps = {
   selectedModel: string;
   selectedEffort: string;
   planMode: boolean;
+  utilityActionLabel?: string | null;
+  showUtilityAction?: boolean;
   modelOptions: SessionOption[];
   effortOptions: SessionOption[];
   labels: {
@@ -49,6 +51,7 @@ type ComposerDockProps = {
   onModelChange: (value: string) => void;
   onEffortChange: (value: string) => void;
   onModeChange: (planMode: boolean) => void;
+  onUtilityAction?: (() => void) | null;
   onSubmit: () => void;
   onInterrupt: () => void;
 };
@@ -119,6 +122,8 @@ export function ComposerDock({
   selectedModel,
   selectedEffort,
   planMode,
+  utilityActionLabel = null,
+  showUtilityAction = false,
   modelOptions,
   effortOptions,
   labels,
@@ -128,6 +133,7 @@ export function ComposerDock({
   onModelChange,
   onEffortChange,
   onModeChange,
+  onUtilityAction = null,
   onSubmit,
   onInterrupt,
 }: ComposerDockProps) {
@@ -162,26 +168,38 @@ export function ComposerDock({
 
       <div className="composer-frame">
         {isPhoneLayout ? (
-          <button
-            className={`plain-action composer-mobile-session-toggle ${
-              mobileSessionExpanded ? "expanded" : ""
-            }`}
-            type="button"
-            aria-expanded={mobileSessionExpanded}
-            onClick={() => {
-              setMobileSessionExpanded((current) => !current);
-            }}
-          >
-            <span className="composer-mobile-session-copy">
-              <span className="composer-control-label">{labels.session}</span>
-              <span className="composer-mobile-session-summary" title={sessionSummary}>
-                {sessionSummary}
+          <div className="composer-mobile-topbar">
+            <button
+              className={`plain-action composer-mobile-session-toggle ${
+                mobileSessionExpanded ? "expanded" : ""
+              }`}
+              type="button"
+              aria-expanded={mobileSessionExpanded}
+              onClick={() => {
+                setMobileSessionExpanded((current) => !current);
+              }}
+            >
+              <span className="composer-mobile-session-copy">
+                <span className="composer-control-label">{labels.session}</span>
+                <span className="composer-mobile-session-summary" title={sessionSummary}>
+                  {sessionSummary}
+                </span>
               </span>
-            </span>
-            <span className="composer-mobile-session-toggle-text">
-              {mobileSessionExpanded ? labels.hideSettings : labels.showSettings}
-            </span>
-          </button>
+              <span className="composer-mobile-session-toggle-text">
+                {mobileSessionExpanded ? labels.hideSettings : labels.showSettings}
+              </span>
+            </button>
+
+            {showUtilityAction && utilityActionLabel && onUtilityAction ? (
+              <button
+                className="plain-action composer-mobile-utility"
+                type="button"
+                onClick={onUtilityAction}
+              >
+                {utilityActionLabel}
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         {showSessionControls ? (
@@ -264,12 +282,20 @@ export function ComposerDock({
         </div>
 
         {showToolbar ? (
-          <div className="composer-toolbar">
-            <span className="composer-inline-status" aria-live="polite">
-              {statusText}
-            </span>
-            <span className="composer-helper">{helperText}</span>
-          </div>
+          isPhoneLayout ? (
+            <div className="composer-toolbar phone-only-status">
+              <span className="composer-inline-status" aria-live="polite">
+                {statusText}
+              </span>
+            </div>
+          ) : (
+            <div className="composer-toolbar">
+              <span className="composer-inline-status" aria-live="polite">
+                {statusText}
+              </span>
+              <span className="composer-helper">{helperText}</span>
+            </div>
+          )
         ) : null}
       </div>
     </section>

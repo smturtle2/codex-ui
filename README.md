@@ -9,7 +9,7 @@
 
 Monochrome, transcript-first local UI for the real `codex app-server`.
 
-`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, switches mobile Home into a clean `Existing threads` / `New thread` choice, leaves `Model`, `Reasoning`, and explicit `Fast on/off` plus `Plan on/off` controls inside the composer, collapses those session controls behind one compact mobile row by default so the transcript stays dominant, moves language into a separate settings panel, keeps settings/workspace surfaces flat instead of card-heavy, and streams updates over WebSocket without letting older HTTP snapshots overwrite newer live state.
+`codex-ui` stays close to the terminal workflow instead of turning Codex into a dashboard. It opens on a split launcher that keeps existing threads and new-thread workspace setup side by side on desktop, switches mobile Home into a clean `Existing threads` / `New thread` choice, keeps every session control inside the composer (with a compact mobile summary so the transcript stays dominant), moves language into a separate settings panel, maintains flat settings/workspace surfaces, and streams updates over WebSocket while ignoring stale snapshots.
 
 Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 
@@ -60,19 +60,21 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 ## Highlights
 
 - Split launcher flow: desktop keeps thread selection and new-thread workspace setup side by side, while mobile turns Home into a direct `Existing threads` / `New thread` decision.
+- Transcript-first rail: the chat column now keeps a lighter rail so text remains dominant instead of being framed by dense system meta.
+- Mobile shell trim: the header stays focused on `Home` and `Threads`, while settings/reconnect access and the full session controls stay compact inside the composer.
 - Consistent new-thread flow: slash commands return to the launcher so workspace selection stays part of starting a new thread.
 - Direct in-chat navigation: return to `Home` from the header while keeping a separate `Threads` drawer for fast switching.
-- Mobile home tabs: narrow screens separate thread selection from new-thread setup instead of stacking both sections into one long first screen.
 - Workspace picker: choose directories from a dedicated browser, keep the last selected workspace visible even before a thread exists there, and prioritize real project folders over generated directories.
 - Flat overlays: settings and workspace surfaces use list-like rows and internal scrolling instead of dense card grids.
-- Transcript-first shell: the chat area stays dominant, messages stay flat, and turns are separated by a slim visual rule instead of literal text.
+- Manual reconnect: the socket now surfaces a reconnect action instead of looping automatically, so disconnects are explicit while preserving transcript state.
 - Direct session controls: desktop keeps full composer controls visible, while mobile keeps the same `Model`, `Reasoning`, `Fast`, and `Plan` controls in-chat behind one compact session row so the transcript stays taller.
 - Separate settings panel: interface language lives in a dedicated settings surface instead of the chat input or session summary.
+- Lean snapshots: the bridge now emits only the active thread's timeline, stores per-thread metadata without turns, and merges streamed completion payloads so long-running sessions stay memory stable.
 - Realtime consistency: `thread/read`, bootstrap hydration, action responses, and live streaming all feed the same transcript structure, use revisioned snapshots to ignore stale client responses, and rehydrate live diff/plan updates back through canonical thread reads.
 - Safe turn finalization: once a turn completes, the bridge rehydrates that thread through `thread/read` before the next turn can drift visually from the persisted transcript.
+- Preview generator: `python scripts/generate_preview_images.py` now targets `/?demo=1`, so README screenshots stay deterministic.
 - Mobile-aware layout: Home separates existing-thread and new-thread flows into tabs, chat keeps the transcript dominant, trims idle chrome, and keeps settings/workspace surfaces phone-friendly.
 - Tailscale Funnel flag: expose the local UI on the public internet with a single command by adding `--funnel`.
-- Deterministic previews: README screenshots come from a built-in demo state instead of live local thread content.
 
 ## Architecture
 

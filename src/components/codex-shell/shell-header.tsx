@@ -12,14 +12,15 @@ type ShellHeaderProps = {
   isPhoneLayout?: boolean;
   homeLabel: string;
   threadsLabel: string;
-  settingsLabel: string;
   statusLabel: string;
   statusTone: HeaderStatusTone;
   showStatusLine?: boolean;
+  auxActionLabel?: string | null;
+  showAuxAction?: boolean;
   homeButtonRef: RefObject<HTMLButtonElement | null>;
   onHomeClick: () => void;
   onThreadsClick: () => void;
-  onSettingsClick: () => void;
+  onAuxAction?: (() => void) | null;
 };
 
 export function ShellHeader({
@@ -30,14 +31,15 @@ export function ShellHeader({
   isPhoneLayout = false,
   homeLabel,
   threadsLabel,
-  settingsLabel,
   statusLabel,
   statusTone,
   showStatusLine = true,
+  auxActionLabel = null,
+  showAuxAction = true,
   homeButtonRef,
   onHomeClick,
   onThreadsClick,
-  onSettingsClick,
+  onAuxAction = null,
 }: ShellHeaderProps) {
   return (
     <header className="shell-header">
@@ -64,9 +66,11 @@ export function ShellHeader({
             <span>{threadsLabel}</span>
             <span className="sidebar-trigger-count">{threadCount}</span>
           </button>
-          <button className="plain-action" type="button" onClick={onSettingsClick}>
-            {settingsLabel}
-          </button>
+          {showAuxAction && auxActionLabel && onAuxAction ? (
+            <button className="plain-action" type="button" onClick={onAuxAction}>
+              {auxActionLabel}
+            </button>
+          ) : null}
         </div>
       </div>
     </header>

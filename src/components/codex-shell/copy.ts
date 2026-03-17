@@ -18,12 +18,13 @@ const UI_COPY = {
     header: {
       home: "Home",
       settings: "Settings",
+      reconnect: "Reconnect",
       threads: "Threads",
       ready: "ready",
       working: "working",
       pendingRequest: "pending request",
       connecting: "connecting",
-      reconnecting: "reconnecting",
+      offline: "offline",
       error: "error",
     },
     composer: {
@@ -45,8 +46,8 @@ const UI_COPY = {
       readyPlan: "Ready · plan",
       working: "Working",
       connecting: "Connecting",
-      reconnecting: "Reconnecting",
-      helperReconnect: "WebSocket reconnects automatically.",
+      offline: "Offline",
+      helperOffline: "Connection closed. Reconnect manually.",
       helperSlash:
         "Arrow keys move. Enter runs. Tab completes. Esc hides.",
       helperStreaming: "Streaming live. Diffs stay folded until opened.",
@@ -294,12 +295,13 @@ const UI_COPY = {
     header: {
       home: "Home",
       settings: "설정",
+      reconnect: "재연결",
       threads: "스레드",
       ready: "준비됨",
       working: "작업 중",
       pendingRequest: "응답 대기",
       connecting: "연결 중",
-      reconnecting: "재연결 중",
+      offline: "오프라인",
       error: "오류",
     },
     composer: {
@@ -321,8 +323,8 @@ const UI_COPY = {
       readyPlan: "준비됨 · plan",
       working: "작업 중",
       connecting: "연결 중",
-      reconnecting: "재연결 중",
-      helperReconnect: "WebSocket이 자동으로 재연결됩니다.",
+      offline: "오프라인",
+      helperOffline: "연결이 끊겼습니다. 직접 재연결하세요.",
       helperSlash:
         "방향키로 이동하고 Enter로 실행합니다. Tab으로 완성하고 Esc로 닫습니다.",
       helperStreaming: "실시간 스트리밍 중입니다. diff는 펼칠 때까지 접혀 있습니다.",

@@ -60,7 +60,7 @@ type ApprovalChoice = {
   isCancel?: boolean;
 };
 
-type ConnectionState = "connecting" | "live" | "reconnecting";
+type ConnectionState = "connecting" | "live" | "offline";
 type ViewMode = "home" | "chat";
 type HomePanel = "threads" | "new";
 
@@ -155,6 +155,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [toast, setToast] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
+  const [socketVersion, setSocketVersion] = useState(0);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
@@ -212,76 +213,47 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     let mounted = true;
-    let reconnectTimer: number | null = null;
     let websocket: WebSocket | null = null;
-    let reconnectAttempts = 0;
+    setConnectionState("connecting");
+    void refreshBootstrap(true);
 
-    const clearReconnectTimer = () => {
-      if (reconnectTimer === null) {
-        return;
-      }
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    websocket = new WebSocket(`${protocol}://${window.location.host}/ws`);
 
-      window.clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    };
-
-    const connect = () => {
+    websocket.onopen = () => {
       if (!mounted) {
         return;
       }
 
-      clearReconnectTimer();
-      setConnectionState(reconnectAttempts === 0 ? "connecting" : "reconnecting");
-
-      const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-      websocket = new WebSocket(`${protocol}://${window.location.host}/ws`);
-
-      websocket.onopen = () => {
-        if (!mounted) {
-          return;
-        }
-
-        reconnectAttempts = 0;
-        setConnectionState("live");
-      };
-
-      websocket.onmessage = (event) => {
-        const payload = JSON.parse(event.data) as {
-          type: "snapshot";
-          snapshot: BridgeSnapshot;
-        };
-
-        applySnapshot(payload.snapshot);
-      };
-
-      websocket.onerror = () => {
-        // Let the subsequent close event drive reconnect scheduling.
-      };
-
-      websocket.onclose = () => {
-        if (!mounted) {
-          return;
-        }
-
-        setConnectionState("reconnecting");
-        const delay = Math.min(1000 * 2 ** reconnectAttempts, 8000);
-        reconnectAttempts += 1;
-        clearReconnectTimer();
-        reconnectTimer = window.setTimeout(() => {
-          connect();
-        }, delay);
-      };
+      setConnectionState("live");
     };
 
-    void refreshBootstrap(true);
-    connect();
+    websocket.onmessage = (event) => {
+      const payload = JSON.parse(event.data) as {
+        type: "snapshot";
+        snapshot: BridgeSnapshot;
+      };
+
+      applySnapshot(payload.snapshot);
+    };
+
+    websocket.onerror = () => {
+      // Let the close event own the final connection state.
+    };
+
+    websocket.onclose = () => {
+      if (!mounted) {
+        return;
+      }
+
+      setConnectionState("offline");
+    };
 
     return () => {
       mounted = false;
-      clearReconnectTimer();
       websocket?.close();
     };
-  }, [demoMode, refreshBootstrap]);
+  }, [demoMode, socketVersion]);
 
   useEffect(() => {
     setBrowserLanguage(window.navigator.language || "en");
@@ -344,14 +316,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       window.clearTimeout(timeout);
     };
   }, [toast]);
-
-  const activeThread = useMemo(() => {
-    if (!snapshot?.activeThreadId) {
-      return null;
-    }
-
-    return snapshot.threads.find((thread) => thread.id === snapshot.activeThreadId) ?? null;
-  }, [snapshot]);
 
   const activeThreadSummary = useMemo(() => {
     if (!snapshot?.activeThreadId) {
@@ -602,6 +566,20 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     rememberSurfaceOrigin(origin);
     setThreadDrawerOpen(false);
     setSurface(nextSurface);
+  }
+
+  function handleOpenSettings(origin?: HTMLElement | null) {
+    openSurface("settings", origin);
+  }
+
+  function handleManualReconnect() {
+    if (demoMode) {
+      return;
+    }
+
+    setToast(null);
+    setConnectionState("connecting");
+    setSocketVersion((current) => current + 1);
   }
 
   function focusComposerSoon(forceMobile = false) {
@@ -1003,15 +981,11 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? "Home에서 thread를 열거나 새로 시작하세요."
       : "Open a thread from Home or start a new one.";
   const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
-  const headerStatus = connectionState !== "live"
-    ? {
-        label:
-          connectionState === "connecting"
-            ? copy.header.connecting
-            : copy.header.reconnecting,
-        tone: "starting" as const,
-      }
-    : snapshot?.lastError
+  const headerStatus = connectionState === "connecting"
+    ? { label: copy.header.connecting, tone: "starting" as const }
+    : connectionState === "offline"
+      ? { label: copy.header.offline, tone: "error" as const }
+      : snapshot?.lastError
       ? { label: copy.header.error, tone: "error" as const }
       : pendingRequest
         ? { label: copy.header.pendingRequest, tone: "pending" as const }
@@ -1041,9 +1015,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     sessionEffortOptions.find((option) => option.value === selectedEffortValue)?.label ??
     selectedEffortValue ??
     copy.common.unavailable;
-  const selectedLanguageLabel =
-    languageOptions.find((option) => option.value === selectedLanguageValue)?.label ??
-    selectedLanguageValue;
   const selectedModeLabel = selectedPlanMode ? copy.composer.plan : copy.composer.fast;
   const sessionSummary = [
     selectedModelLabel,
@@ -1081,43 +1052,19 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         option.path === (draftPath || preferredWorkspacePath || snapshot?.defaultWorkspacePath),
     }));
   }, [preferredWorkspacePath, snapshot?.defaultWorkspacePath, snapshot?.workspaceOptions, workspaceDraft]);
-  const settingsFacts = [
-    {
-      label: copy.statusPanel.connection,
-      value: connectionState === "live" ? copy.statusPanel.live : headerStatus.label,
-    },
-    {
-      label: copy.statusPanel.activeThread,
-      value: activeThreadSummary?.title ?? copy.common.none,
-    },
-    {
-      label: copy.statusPanel.model,
-      value: currentModel?.displayName ?? currentModel?.model ?? "default",
-    },
-    {
-      label: copy.statusPanel.reasoning,
-      value: currentEffort ?? "default",
-    },
-    {
-      label: copy.statusPanel.mode,
-      value: selectedModeLabel,
-    },
-    {
-      label: copy.statusPanel.uiLanguage,
-      value: selectedLanguageLabel,
-    },
-  ];
-  const composerHelper = connectionState !== "live"
-    ? copy.composer.helperReconnect
+  const composerHelper = connectionState === "connecting"
+    ? copy.composer.connecting
+    : connectionState === "offline"
+      ? copy.composer.helperOffline
     : visibleCommands.length
       ? copy.composer.helperSlash
       : snapshot?.activeTurnId
         ? copy.composer.helperStreaming
         : copy.composer.helperIdle;
-  const composerStatus = connectionState !== "live"
-    ? connectionState === "connecting"
-      ? copy.composer.connecting
-      : copy.composer.reconnecting
+  const composerStatus = connectionState === "connecting"
+    ? copy.composer.connecting
+    : connectionState === "offline"
+      ? copy.composer.offline
     : snapshot?.activeTurnId
       ? copy.composer.working
       : pendingRequest
@@ -1536,8 +1483,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           statusTone={headerStatus.tone}
           searchInputRef={homeSearchRef}
           onOpenSettings={() => {
-            openSurface(
-              "settings",
+            handleOpenSettings(
               document.activeElement instanceof HTMLElement ? document.activeElement : null,
             );
           }}
@@ -1573,10 +1519,13 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             isPhoneLayout={isPhoneLayout}
             homeLabel={copy.header.home}
             threadsLabel={copy.header.threads}
-            settingsLabel={copy.header.settings}
             statusLabel={headerStatus.label}
             statusTone={headerStatus.tone}
             showStatusLine={!hidePhoneIdleChrome}
+            auxActionLabel={
+              connectionState === "offline" ? copy.header.reconnect : copy.header.settings
+            }
+            showAuxAction={!isPhoneLayout || connectionState === "offline"}
             homeButtonRef={homeButtonRef}
             onHomeClick={() => {
               openHome();
@@ -1586,9 +1535,13 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
                 document.activeElement instanceof HTMLElement ? document.activeElement : null,
               );
             }}
-            onSettingsClick={() => {
-              openSurface(
-                "settings",
+            onAuxAction={() => {
+              if (connectionState === "offline") {
+                handleManualReconnect();
+                return;
+              }
+
+              handleOpenSettings(
                 document.activeElement instanceof HTMLElement ? document.activeElement : null,
               );
             }}
@@ -1601,10 +1554,12 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
               locale={locale}
               copy={copy.transcript}
               emptyTitle={
-                activeThread ? copy.transcript.noTranscriptYet : copy.transcript.noActiveSession
+                activeThreadSummary
+                  ? copy.transcript.noTranscriptYet
+                  : copy.transcript.noActiveSession
               }
               emptyBody={
-                activeThread
+                activeThreadSummary
                   ? copy.transcript.sendFirstTurn
                   : copy.transcript.typeMessageOrOpenThreadDrawer
               }
@@ -1627,6 +1582,14 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             selectedModel={selectedModelValue}
             selectedEffort={selectedEffortValue}
             planMode={selectedPlanMode}
+            utilityActionLabel={
+              isPhoneLayout
+                ? connectionState === "offline"
+                  ? copy.header.reconnect
+                  : copy.header.settings
+                : null
+            }
+            showUtilityAction={isPhoneLayout}
             modelOptions={sessionModelOptions}
             effortOptions={sessionEffortOptions}
             labels={{
@@ -1660,6 +1623,16 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             }}
             onModeChange={(planMode) => {
               void handleSessionModeChange(planMode);
+            }}
+            onUtilityAction={() => {
+              if (connectionState === "offline") {
+                handleManualReconnect();
+                return;
+              }
+
+              handleOpenSettings(
+                document.activeElement instanceof HTMLElement ? document.activeElement : null,
+              );
             }}
             onSubmit={() => {
               void handleSubmit();
@@ -1758,11 +1731,9 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           <SettingsPanel
             selectedLanguage={selectedLanguageValue}
             languageOptions={languageOptions}
-            facts={settingsFacts}
             labels={{
               interfaceTitle: copy.settingsPanel.interfaceTitle,
               language: copy.settingsPanel.language,
-              sessionTitle: copy.settingsPanel.sessionTitle,
               applyHint: copy.settingsPanel.applyHint,
             }}
             onLanguageChange={handleLanguageChange}
