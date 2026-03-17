@@ -67,25 +67,24 @@ function parseCliOptions(argv: string[]): CliOptions {
   };
 }
 
-function startFunnel(port: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
-      cwd: process.cwd(),
-      stdio: "inherit",
-    });
+function maybeStartFunnel(port: number): void {
+  const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
+    cwd: process.cwd(),
+    stdio: "inherit",
+  });
 
-    child.on("error", (error) => {
-      reject(new Error(`Failed to start Tailscale Funnel helper: ${error.message}`));
-    });
+  child.on("error", (error) => {
+    console.error(`Failed to start Tailscale Funnel helper: ${error.message}`);
+    console.error(`Local app is still available at http://127.0.0.1:${port}`);
+  });
 
-    child.on("close", (code) => {
-      if (!code || code === 0) {
-        resolve();
-        return;
-      }
+  child.on("close", (code) => {
+    if (!code || code === 0) {
+      return;
+    }
 
-      reject(new Error(`Tailscale Funnel helper exited with code ${code}.`));
-    });
+    console.error(`Tailscale Funnel helper exited with code ${code}.`);
+    console.error(`Local app is still available at http://127.0.0.1:${port}`);
   });
 }
 
@@ -367,7 +366,7 @@ async function main(): Promise<void> {
   console.log(`codex-ui listening on http://${host}:${port}`);
 
   if (cliOptions.funnel) {
-    await startFunnel(port);
+    maybeStartFunnel(port);
   }
 }
 

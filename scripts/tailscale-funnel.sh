@@ -110,7 +110,9 @@ case "$COMMAND" in
       :
     else
       status=$?
-      if [[ "$status" -ne 2 ]] && tailscale funnel status 2>&1 | grep -q "No serve config"; then
+      if [[ "$status" -eq 2 ]]; then
+        print_enable_hint
+      elif tailscale funnel status 2>&1 | grep -q "No serve config"; then
         print_enable_hint
       fi
       exit 1
