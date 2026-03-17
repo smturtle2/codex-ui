@@ -48,6 +48,13 @@ print_enable_hint() {
   fi
 }
 
+print_operator_hint() {
+  echo "Tailscale serve/funnel permission is denied for the current user." >&2
+  echo "Run one of these commands:" >&2
+  echo "sudo tailscale set --operator=$USER" >&2
+  echo "sudo tailscale funnel --bg --yes ${PORT}" >&2
+}
+
 print_url_hint() {
   local name
   name="$(dns_name)"
@@ -93,6 +100,8 @@ emit(sys.stderr, proc.stderr)
 combined = f"{proc.stdout}\n{proc.stderr}"
 if "Funnel is not enabled on your tailnet." in combined:
     sys.exit(2)
+if "Access denied: serve config denied" in combined:
+    sys.exit(3)
 
 if proc.returncode != 0:
     sys.exit(proc.returncode)
@@ -112,6 +121,8 @@ case "$COMMAND" in
       status=$?
       if [[ "$status" -eq 2 ]]; then
         print_enable_hint
+      elif [[ "$status" -eq 3 ]]; then
+        print_operator_hint
       elif tailscale funnel status 2>&1 | grep -q "No serve config"; then
         print_enable_hint
       fi
