@@ -9,12 +9,7 @@ import process from "node:process";
 import next from "next";
 import { WebSocketServer } from "ws";
 
-import type { BridgeSnapshot } from "../src/lib/shared";
-import type { TerminalSettings } from "../src/lib/windows-terminal";
-import { stringifyWindowsTerminalSettings } from "../src/lib/windows-terminal";
-
 import { CodexBridge } from "./codex-bridge";
-import { readTerminalSettings, resetTerminalSettings, writeTerminalSettings } from "./settings-store";
 
 function json(
   response: ServerResponse,
@@ -24,17 +19,6 @@ function json(
   response.statusCode = statusCode;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
   response.end(JSON.stringify(payload));
-}
-
-function sendSnapshot(
-  response: ServerResponse,
-  snapshot: BridgeSnapshot,
-  statusCode = 200,
-): void {
-  json(response, statusCode, {
-    type: "snapshot",
-    snapshot,
-  });
 }
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
@@ -187,7 +171,7 @@ async function main(): Promise<void> {
     try {
       if (url.pathname === "/api/bootstrap" && request.method === "GET") {
         const snapshot = await bridge.refreshBootstrapData();
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -206,7 +190,7 @@ async function main(): Promise<void> {
         }
 
         const snapshot = await bridge.createThread(cwd);
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -218,7 +202,7 @@ async function main(): Promise<void> {
         }
 
         const snapshot = await bridge.resumeThread(body.threadId);
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -230,7 +214,7 @@ async function main(): Promise<void> {
         }
 
         const snapshot = await bridge.forkThread(body.threadId);
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -242,62 +226,13 @@ async function main(): Promise<void> {
         }
 
         const snapshot = await bridge.readThread(body.threadId);
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
       if (url.pathname === "/api/workspace/list" && request.method === "GET") {
         const listing = await listWorkspaceDirectories(url.searchParams.get("path"));
         json(response, 200, listing);
-        return;
-      }
-
-      if (url.pathname === "/api/terminal/settings" && request.method === "GET") {
-        const payload = await readTerminalSettings(process.cwd());
-        json(response, 200, payload);
-        return;
-      }
-
-      if (url.pathname === "/api/terminal/settings" && request.method === "POST") {
-        const body = (await readJson(request)) as { settings?: TerminalSettings; reset?: boolean } | null;
-        const payload = body?.reset
-          ? await writeTerminalSettings(resetTerminalSettings(process.cwd()), process.cwd())
-          : await writeTerminalSettings(body?.settings ?? {}, process.cwd());
-        json(response, 200, payload);
-        return;
-      }
-
-      if (url.pathname === "/api/config/read" && request.method === "GET") {
-        const payload = await readTerminalSettings(process.cwd());
-        json(response, 200, {
-          path: payload.path,
-          settings: stringifyWindowsTerminalSettings(payload.settings),
-        });
-        return;
-      }
-
-      if (url.pathname === "/api/config/write" && request.method === "POST") {
-        const body = (await readJson(request)) as { settings?: string } | null;
-        if (!body?.settings || typeof body.settings !== "string") {
-          json(response, 400, { error: "settings is required." });
-          return;
-        }
-
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(body.settings);
-        } catch (error) {
-          json(response, 400, {
-            error: error instanceof Error ? error.message : "Invalid settings JSON.",
-          });
-          return;
-        }
-
-        const payload = await writeTerminalSettings(parsed, process.cwd());
-        json(response, 200, {
-          path: payload.path,
-          settings: stringifyWindowsTerminalSettings(payload.settings),
-        });
         return;
       }
 
@@ -309,19 +244,19 @@ async function main(): Promise<void> {
         }
 
         const snapshot = await bridge.sendUserTurn(body.text);
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
       if (url.pathname === "/api/turn/interrupt" && request.method === "POST") {
         const snapshot = await bridge.interruptActiveTurn();
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
       if (url.pathname === "/api/review/start" && request.method === "POST") {
         const snapshot = await bridge.startReview();
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -351,7 +286,7 @@ async function main(): Promise<void> {
               ? Boolean(body.planMode)
               : undefined,
         });
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 
@@ -370,7 +305,7 @@ async function main(): Promise<void> {
           body.requestId,
           body.result ?? {},
         );
-        sendSnapshot(response, snapshot);
+        json(response, 200, { snapshot });
         return;
       }
 

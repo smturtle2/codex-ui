@@ -4,11 +4,5 @@ npm-debug.log*
 tsconfig.tsbuildinfo
 .playwright-cli/
 output/
-out/
-target/
 docs/*.html
-scripts/__pycache__/
-!docs/preview-desktop.html
-!docs/preview-mobile.html
-!runtime-assets/out/
-!runtime-assets/out/**
+scripts/generate_preview_images.py

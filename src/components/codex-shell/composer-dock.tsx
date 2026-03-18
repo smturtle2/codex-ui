@@ -148,8 +148,6 @@ export function ComposerDock({
   }, [isPhoneLayout]);
 
   const showSessionControls = !isPhoneLayout || mobileSessionExpanded;
-  const showCompactSessionTrigger =
-    isPhoneLayout && !showToolbar && !mobileSessionExpanded;
 
   return (
     <section className="composer-dock">
@@ -173,29 +171,7 @@ export function ComposerDock({
       ) : null}
 
       <div className="composer-frame">
-        {showCompactSessionTrigger ? (
-          <div className="composer-compact-row">
-            <button
-              className="plain-action composer-compact-trigger"
-              type="button"
-              onClick={() => {
-                setMobileSessionExpanded(true);
-              }}
-            >
-              {labels.session}
-            </button>
-
-            {showUtilityAction && utilityActionLabel && onUtilityAction ? (
-              <button
-                className="plain-action composer-mobile-utility"
-                type="button"
-                onClick={onUtilityAction}
-              >
-                {utilityActionLabel}
-              </button>
-            ) : null}
-          </div>
-        ) : isPhoneLayout ? (
+        {isPhoneLayout ? (
           <div className="composer-mobile-topbar">
             <button
               className={`plain-action composer-mobile-session-toggle ${

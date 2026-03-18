@@ -1,15 +1,15 @@
-# WebPty
+# Codex UI
 
 [English](./README.md) | [한국어](./README.ko.md)
 
-![Rust](https://img.shields.io/badge/Runtime-Rust-111111?logo=rust&labelColor=ffffff)
-![Next.js](https://img.shields.io/badge/Frontend-Next.js%2016-111111?logo=nextdotjs&labelColor=ffffff)
-![Theme](https://img.shields.io/badge/Theme-Windows%2011%20Terminal-111111?labelColor=ffffff)
-![Config](https://img.shields.io/badge/Config-Windows%20Terminal%20JSON-111111?labelColor=ffffff)
+![Next.js](https://img.shields.io/badge/Next.js-16-111111?logo=nextdotjs&labelColor=ffffff)
+![WebSocket](https://img.shields.io/badge/Transport-WebSocket-111111?labelColor=ffffff)
+![UI](https://img.shields.io/badge/Theme-Black%20%26%20White-111111?labelColor=ffffff)
+![Workflow](https://img.shields.io/badge/Workflow-Transcript%20First-111111?labelColor=ffffff)
 
-`webpty`는 Rust 런타임, 우측 좁은 탭 레일, 전체 화면 검은 터미널 본체, Windows Terminal 호환 `settings.json` 편집을 갖춘 Codex 셸입니다.
+실제 `codex app-server`를 위한 흑백 transcript 중심 로컬 UI입니다.
 
-기본 UI는 평평한 흑백으로 고정됩니다. 터미널 본체는 검은색, 우측 탭은 흰색, 상단 바는 없고, 기본 폰트는 `Cascadia Mono`입니다. 설정은 우측 Settings 탭에서 열고, Windows Terminal 형태의 JSON 파일로 저장합니다.
+`codex-ui`는 Codex를 대시보드처럼 과하게 포장하지 않고, 터미널에 가까운 흐름을 브라우저로 옮깁니다. Home에서 시작해 새 thread용 workspace 선택과 기존 thread 전환을 같은 런처 안에 두고, 모바일에서는 그 흐름을 세로로 재배치하며, `Model`, `Reasoning`, `Fast`, `Plan` 제어는 모두 채팅 composer 안에 유지하고, 언어는 별도 설정 패널로 분리하며, WebSocket으로 revision 스냅샷을 스트리밍해 오래된 클라이언트 상태는 재시도 루프 대신 무시합니다.
 
 상세 변경 내역은 [RELEASE_NOTES.md](./RELEASE_NOTES.md)에 정리했습니다.
 
@@ -19,20 +19,20 @@
 
 <table>
   <tr>
-    <td align="center"><strong>Shell</strong></td>
+    <td align="center"><strong>Home</strong></td>
     <td align="center"><strong>Settings</strong></td>
   </tr>
   <tr>
-    <td><img src="./docs/preview-home.png" alt="Shell preview" width="100%" /></td>
+    <td><img src="./docs/preview-home.png" alt="Home preview" width="100%" /></td>
     <td><img src="./docs/preview-settings.png" alt="Settings preview" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>Workspace</strong></td>
-    <td align="center"><strong>Threads</strong></td>
+    <td align="center"><strong>Workspace Picker</strong></td>
+    <td align="center"><strong>Desktop Chat</strong></td>
   </tr>
   <tr>
-    <td><img src="./docs/preview-workspace.png" alt="Workspace preview" width="100%" /></td>
-    <td><img src="./docs/preview-desktop.png" alt="Threads preview" width="100%" /></td>
+    <td><img src="./docs/preview-workspace.png" alt="Workspace picker preview" width="100%" /></td>
+    <td><img src="./docs/preview-desktop.png" alt="Desktop chat preview" width="100%" /></td>
   </tr>
 </table>
 
@@ -40,118 +40,97 @@
 
 <table>
   <tr>
-    <td align="center"><strong>Shell</strong></td>
+    <td align="center"><strong>Home</strong></td>
     <td align="center"><strong>Settings</strong></td>
   </tr>
   <tr>
-    <td><img src="./docs/preview-mobile-home.png" alt="Mobile shell preview" width="100%" /></td>
+    <td><img src="./docs/preview-mobile-home.png" alt="Mobile home preview" width="100%" /></td>
     <td><img src="./docs/preview-mobile-settings.png" alt="Mobile settings preview" width="100%" /></td>
   </tr>
   <tr>
-    <td align="center"><strong>Workspace</strong></td>
-    <td align="center"><strong>Threads</strong></td>
+    <td align="center"><strong>Workspace Picker</strong></td>
+    <td align="center"><strong>Chat</strong></td>
   </tr>
   <tr>
-    <td><img src="./docs/preview-mobile-workspace.png" alt="Mobile workspace preview" width="100%" /></td>
-    <td><img src="./docs/preview-mobile-chat.png" alt="Mobile threads preview" width="100%" /></td>
+    <td><img src="./docs/preview-mobile-workspace.png" alt="Mobile workspace picker preview" width="100%" /></td>
+    <td><img src="./docs/preview-mobile-chat.png" alt="Mobile chat preview" width="100%" /></td>
   </tr>
 </table>
 
 ## 핵심 특징
 
-- Rust 엔트리포인트: 기본 실행 경로는 `webpty up`입니다.
-- Windows Terminal 스타일 셸: 상단 바 없이 전체 화면 transcript와 우측 좁은 탭 레일을 사용합니다.
-- Windows Terminal JSON 설정: `defaultProfile`, `profiles`, `schemes`, `theme`, `themes` 구조를 Settings 탭에서 다룹니다.
-- 더 안전한 설정 round-trip: 우측 Settings 패널에서 `settings.json`을 수정하고 저장해도, WebPTY가 직접 다루지 않는 Windows Terminal 키를 최대한 보존합니다.
-- 기본 시각 규약: 검은 터미널 본체, 흰 탭 레일, 평평한 보더, `Cascadia Mono`.
-- Tailscale Funnel: `webpty up --funnel` 한 줄로 외부 공개를 시도합니다.
-- 워크스페이스 중심 thread 시작: 새 thread는 여전히 디렉토리 브라우징과 검증을 거친 뒤 시작합니다.
-- 번들 런타임 자산: 전역 설치 시 정적 프런트엔드와 컴파일된 bridge worker를 함께 내장해서 repo checkout이나 추가 `npm install` 없이 `webpty up`을 실행할 수 있습니다.
+- 런처 중심 시작 흐름: Home에서 workspace 선택과 thread 전환을 함께 처리하고, 모바일에서도 한 화면 안에서 세로로 자연스럽게 이어집니다.
+- transcript 중심 채팅: 메시지는 카드 없이 평평하게 유지하고, 편집된 내용은 기본 접힘 상태로 두며, 모바일 헤더와 composer 높이를 줄여 transcript를 가장 크게 확보합니다.
+- composer 안의 세션 제어: `Model`, `Reasoning`은 드롭다운으로 유지하고, `Fast`, `Plan`은 서로 보이는 독립 on/off 토글로 노출합니다.
+- 전용 설정 패널: 인터페이스 언어는 composer나 런처가 아니라 별도 settings surface에서 관리합니다.
+- 전용 workspace picker: 새 thread는 디렉토리 브라우저로 시작하고, 서버도 선택된 workspace를 검증한 뒤 thread를 생성합니다.
+- 실시간 일관성: bootstrap, `thread/read`, 수동 액션, live streaming이 같은 transcript 구조로 합쳐지고, live diff/plan은 canonical thread read를 통해 다시 맞춰집니다.
+- 빈 thread 유지: 새 thread를 만든 직후 첫 메시지를 보내기 전에도 `No active session`으로 되돌아가지 않고 현재 thread를 유지합니다.
+- 수동 재연결만 허용: websocket은 재연결 루프를 돌지 않고, 끊기면 명시적인 reconnect 액션만 노출합니다.
+- Funnel 한 줄 실행: `npm run up --funnel` 한 번으로 앱 실행, Tailscale Funnel 활성화, 외부 공개 URL 출력까지 이어집니다.
+- deterministic preview: `python scripts/generate_preview_images.py`가 `/?demo=1` 기준으로 README 스크린샷을 다시 생성합니다.
 
 ## 아키텍처
 
 ```text
 Browser UI
-  ├─ static Next.js export (out/)
-  ├─ HTTP actions (/api/*)
-  └─ WebSocket snapshots (/ws)
+  ├─ Next.js app router shell
+  ├─ WebSocket snapshot stream (/ws)
+  └─ HTTP actions (/api/*)
 
-Rust runtime
-  ├─ webpty up
-  ├─ 번들/정적 frontend 서빙
-  ├─ Funnel 시작 처리
-  └─ /api/*, /ws 를 로컬 bridge worker로 프록시
-
-Bridge worker
-  ├─ repo 모드: server/legacy-bridge.ts
-  ├─ 설치 모드: bundled legacy-bridge.js
-  └─ server/codex-bridge.ts / compiled codex-bridge.js
-       ├─ codex app-server stdio JSON-RPC
-       └─ thread, turn, approval, live delta 스냅샷 정규화
+Local bridge
+  ├─ server/index.ts
+  └─ server/codex-bridge.ts
+       ├─ codex app-server over stdio JSON-RPC
+       └─ bootstrap, thread/read, live delta를 함께 쓰는 정규화 계층
 ```
 
 ## 요구사항
 
-- Rust toolchain (`cargo`)
 - Node.js 20+
 - `PATH`에 있는 `codex`
 - 로그인된 로컬 Codex 세션
-- `--funnel` 사용 시 `tailscale`
-
-## 글로벌 설치
-
-한 줄로 전역 설치:
-
-```bash
-cargo install --git https://github.com/smturtle2/codex-ui webpty
-```
-
-설치된 바이너리에는 `runtime-assets/` 기반 정적 프런트엔드와 컴파일된 bridge worker가 포함되므로, `cargo install` 이후에 별도로 `npm install`을 다시 실행할 필요가 없습니다.
-
-로컬 clone에서 바로 설치하려면:
-
-```bash
-cargo install --path .
-```
+- `--funnel` 사용 시: `tailscale`, `bash`, `python`, `curl`
 
 ## 빠른 시작
 
 ```bash
-webpty up
+npm run up
 ```
 
 브라우저에서 `http://127.0.0.1:3000`을 열면 됩니다.
 
 ## 외부 접속
 
-Tailscale Funnel로 로컬 셸을 외부에 공개:
+Tailscale Funnel로 로컬 UI를 한 줄로 외부에 공개할 수 있습니다.
 
 ```bash
-webpty up --funnel
+npm run up --funnel
 ```
 
-- Funnel이 성공하면 런타임이 외부 URL을 출력합니다.
-- Funnel이 실패해도 로컬 셸은 계속 살아 있고 공개 단계만 실패합니다.
-- 현재 노드에 Funnel이 아직 켜져 있지 않으면 `webpty`가 enable URL을 출력합니다.
-- 로컬 사용자가 serve config를 바꿀 권한이 없으면 `sudo tailscale set --operator=$USER`를 한 번 실행하거나, 권한 있는 사용자로 Funnel을 실행하세요.
+- `--funnel`은 `npm run dev --funnel`, `npm run start --funnel`에서도 동일하게 사용할 수 있습니다.
+- `npm run up --funnel`은 의존성 설치, 로컬 서버 실행, repo-local Funnel helper 실행까지 한 번에 처리합니다.
+- 성공하면 helper가 `Public URL: https://...` 형식으로 외부 주소를 바로 출력합니다.
+- 현재 tailnet 노드에 Funnel이 아직 활성화되지 않았다면 helper가 바로 enable URL을 출력합니다.
+- `Access denied: serve config denied`가 보이면 tailnet 승인 문제는 끝났고, 현재 로컬 사용자에게 Tailscale serve config를 바꿀 권한이 없는 상태입니다. `sudo tailscale set --operator=$USER`를 한 번 실행하거나, `sudo tailscale funnel --bg --yes 3000`을 직접 실행하세요.
+- Funnel 설정이 실패해도 로컬 앱은 `http://127.0.0.1:3000`에서 계속 실행되고, 외부 공개 단계만 실패합니다.
+- `npm run funnel:status`로 현재 Funnel 매핑을 확인할 수 있습니다.
+- `npm run funnel:off`로 이 노드의 Funnel 설정을 초기화할 수 있습니다.
 
-참고:
+참고 문서:
 - [Tailscale Funnel docs](https://tailscale.com/kb/1223/tailscale-funnel/)
 - [Tailscale CLI funnel reference](https://tailscale.com/docs/reference/tailscale-cli/funnel)
 
 ## 개발
 
 ```bash
-npm run test
 npm run typecheck
-npm run check
 npm run build
-npm run refresh:runtime-assets
-cargo check
-cargo run -- up --port 3000
+npm run check
+python -m pip install playwright
+python -m playwright install chromium
 python scripts/generate_preview_images.py
 ```
 
-`npm run build`는 프런트를 `out/`으로 export합니다. `npm run refresh:runtime-assets`는 전역 설치용으로 Rust 바이너리가 추출할 번들 자산을 갱신합니다. `npm run check`는 typecheck, Windows Terminal 설정 테스트, production build를 한 번에 검증합니다.
-
-`python scripts/generate_preview_images.py`는 `/?demo=1` 기준으로 `docs/` 스크린샷을 갱신합니다.
+`python scripts/generate_preview_images.py`를 실행하면 README에 쓰는 데스크톱/모바일 스크린샷 세트를 다시 생성합니다.
+이 스크립트는 `/?demo=1`을 열기 때문에 실제 로컬 transcript 내용에 영향받지 않고 같은 preview 자산을 다시 만들 수 있습니다.

@@ -28,10 +28,7 @@ def open_demo(page: Page) -> None:
 def close_overlay_if_open(page: Page) -> None:
     close_button = page.get_by_role("button", name=re.compile(r"^(Close|닫기)$"))
     if close_button.count() > 0 and close_button.first.is_visible():
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(250)
-        if close_button.first.is_visible():
-            close_button.first.evaluate("(element) => element.click()")
+        close_button.first.click()
         wait_for_shell(page)
 
 
@@ -51,12 +48,12 @@ def capture_desktop(context: BrowserContext) -> None:
     page.screenshot(path=str(OUTPUT_DIR / "preview-settings.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"^(Workspace|워크스페이스)$")).first.click()
+    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-workspace.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"^(Threads|스레드)")).first.click()
+    page.locator(".home-thread-row").first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-desktop.png"), full_page=True)
     page.close()
@@ -74,12 +71,12 @@ def capture_mobile(context: BrowserContext) -> None:
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-settings.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"^(Workspace|워크스페이스)$")).first.click()
+    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-workspace.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"^(Threads|스레드)")).first.click()
+    page.locator(".home-thread-row").first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-chat.png"), full_page=True)
     page.close()
