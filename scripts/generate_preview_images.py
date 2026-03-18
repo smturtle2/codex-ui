@@ -48,12 +48,12 @@ def capture_desktop(context: BrowserContext) -> None:
     page.screenshot(path=str(OUTPUT_DIR / "preview-settings.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
+    page.get_by_role("button", name=re.compile(r"^(Workspace|워크스페이스)$")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-workspace.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.locator(".home-thread-row").first.click()
+    page.get_by_role("button", name=re.compile(r"^(Threads|스레드)")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-desktop.png"), full_page=True)
     page.close()
@@ -71,12 +71,12 @@ def capture_mobile(context: BrowserContext) -> None:
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-settings.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.get_by_role("button", name=re.compile(r"(Choose directory|디렉토리 선택)")).first.click()
+    page.get_by_role("button", name=re.compile(r"^(Workspace|워크스페이스)$")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-workspace.png"), full_page=True)
     close_overlay_if_open(page)
 
-    page.locator(".home-thread-row").first.click()
+    page.get_by_role("button", name=re.compile(r"^(Threads|스레드)")).first.click()
     wait_for_shell(page)
     page.screenshot(path=str(OUTPUT_DIR / "preview-mobile-chat.png"), full_page=True)
     page.close()

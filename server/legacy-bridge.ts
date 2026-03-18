@@ -2,11 +2,9 @@ import http, {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
-import { spawn } from "node:child_process";
 import { readdir, realpath, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
-import next from "next";
 import { WebSocketServer } from "ws";
 
 import type { BridgeSnapshot } from "../src/lib/shared";
@@ -67,43 +65,6 @@ const DEEMPHASIZED_WORKSPACE_DIRECTORIES = new Set([
   "output",
 ]);
 
-type CliOptions = {
-  funnel: boolean;
-};
-
-function hasFlag(name: string, argv: string[]): boolean {
-  const normalized = name.replace(/^-+/, "");
-  const envValue = process.env[`npm_config_${normalized}`];
-  return argv.includes(`--${normalized}`) || (envValue !== undefined && envValue !== "false");
-}
-
-function parseCliOptions(argv: string[]): CliOptions {
-  return {
-    funnel: hasFlag("funnel", argv),
-  };
-}
-
-function maybeStartFunnel(port: number): void {
-  const child = spawn("bash", ["./scripts/tailscale-funnel.sh", "up", String(port)], {
-    cwd: process.cwd(),
-    stdio: "inherit",
-  });
-
-  child.on("error", (error) => {
-    console.error(`Failed to start Tailscale Funnel helper: ${error.message}`);
-    console.error(`Local app is still available at http://127.0.0.1:${port}`);
-  });
-
-  child.on("close", (code) => {
-    if (!code || code === 0) {
-      return;
-    }
-
-    console.error(`Tailscale Funnel helper exited with code ${code}.`);
-    console.error(`Local app is still available at http://127.0.0.1:${port}`);
-  });
-}
-
 async function resolveDirectoryPath(rawPath: string | null | undefined): Promise<string> {
   const candidate = rawPath?.trim() ? resolve(rawPath.trim()) : process.cwd();
   const resolvedPath = await realpath(candidate);
@@ -135,6 +96,7 @@ async function listWorkspaceDirectories(
 
     return 1;
   };
+
   const directories = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => ({
@@ -164,27 +126,21 @@ async function listWorkspaceDirectories(
 }
 
 async function main(): Promise<void> {
-  const cliOptions = parseCliOptions(process.argv.slice(2));
-  const port = Number(process.env.PORT ?? "3000");
+  const port = Number(process.env.PORT ?? "33121");
   const host = process.env.HOST ?? "127.0.0.1";
-  const dev = process.env.NODE_ENV !== "production";
 
   const bridge = new CodexBridge();
   await bridge.start();
-
-  const app = next({
-    dev,
-    hostname: host,
-    port,
-  });
-
-  await app.prepare();
-  const handle = app.getRequestHandler();
 
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", `http://${host}:${port}`);
 
     try {
+      if (url.pathname === "/healthz" && request.method === "GET") {
+        json(response, 200, { ok: true });
+        return;
+      }
+
       if (url.pathname === "/api/bootstrap" && request.method === "GET") {
         const snapshot = await bridge.refreshBootstrapData();
         sendSnapshot(response, snapshot);
@@ -374,7 +330,7 @@ async function main(): Promise<void> {
         return;
       }
 
-      await handle(request, response);
+      json(response, 404, { error: "Not found." });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unexpected server error.";
@@ -421,18 +377,22 @@ async function main(): Promise<void> {
     });
   });
 
+  const shutdown = async () => {
+    await bridge.stop();
+    wss.close();
+    server.close(() => {
+      process.exit(0);
+    });
+  };
+
   process.on("SIGINT", () => {
-    void bridge.stop().finally(() => process.exit(0));
+    void shutdown();
   });
   process.on("SIGTERM", () => {
-    void bridge.stop().finally(() => process.exit(0));
+    void shutdown();
   });
 
-  console.log(`codex-ui listening on http://${host}:${port}`);
-
-  if (cliOptions.funnel) {
-    maybeStartFunnel(port);
-  }
+  console.log(`legacy bridge listening on http://${host}:${port}`);
 }
 
 void main().catch((error) => {

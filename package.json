@@ -10,6 +10,7 @@
   "scripts": {
     "up": "node ./scripts/up.mjs",
     "dev": "node --import tsx server/index.ts",
+    "legacy-bridge": "node --import tsx server/legacy-bridge.ts",
     "build": "node ./node_modules/next/dist/bin/next build",
     "start": "NODE_ENV=production node --import tsx server/index.ts",
     "funnel": "bash ./scripts/tailscale-funnel.sh up 3000",

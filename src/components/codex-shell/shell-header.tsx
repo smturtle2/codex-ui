@@ -10,6 +10,7 @@ type ShellHeaderProps = {
   sessionMeta: string;
   sessionMetaTitle?: string | null;
   isPhoneLayout?: boolean;
+  compactChrome?: boolean;
   homeLabel: string;
   threadsLabel: string;
   statusLabel: string;
@@ -29,6 +30,7 @@ export function ShellHeader({
   sessionMeta,
   sessionMetaTitle = null,
   isPhoneLayout = false,
+  compactChrome = false,
   homeLabel,
   threadsLabel,
   statusLabel,
@@ -42,7 +44,7 @@ export function ShellHeader({
   onAuxAction = null,
 }: ShellHeaderProps) {
   return (
-    <header className="shell-header">
+    <header className={`shell-header ${compactChrome ? "compact" : ""}`}>
       <div className="shell-header-rail">
         <button
           ref={homeButtonRef}

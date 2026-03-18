@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 
@@ -21,10 +22,9 @@ import {
   type UiLanguage,
 } from "@/components/codex-shell/copy";
 import { ComposerDock } from "@/components/codex-shell/composer-dock";
-import { HomeScreen } from "@/components/codex-shell/home-screen";
 import { SettingsPanel } from "@/components/codex-shell/settings-panel";
-import { ShellHeader } from "@/components/codex-shell/shell-header";
 import { SurfaceDialog } from "@/components/codex-shell/surface-dialog";
+import { TabRail } from "@/components/codex-shell/tab-rail";
 import { ThreadDrawer } from "@/components/codex-shell/thread-drawer";
 import { TranscriptPane } from "@/components/codex-shell/transcript-pane";
 import { WorkspacePicker } from "@/components/codex-shell/workspace-picker";
@@ -50,8 +50,20 @@ import {
   createDemoWorkspaceListing,
   updateDemoSessionSettings,
 } from "@/lib/demo";
-import type { BridgeSnapshot, SessionSettings, WorkspaceListing } from "@/lib/shared";
+import type {
+  BridgeSnapshot,
+  SessionSettings,
+  SnapshotEnvelope,
+  WorkspaceListing,
+} from "@/lib/shared";
 import { BUILTIN_COMMANDS } from "@/lib/shared";
+import {
+  getDefaultWindowsTerminalSettingsText,
+  parseWindowsTerminalSettingsText,
+  stringifyWindowsTerminalSettings,
+  updateDefaultProfile,
+  updateThemeName,
+} from "@/lib/windows-terminal";
 
 type ApprovalChoice = {
   key: string;
@@ -61,9 +73,8 @@ type ApprovalChoice = {
 };
 
 type ConnectionState = "connecting" | "live" | "offline";
-type ViewMode = "home" | "chat";
-
 const WORKSPACE_STORAGE_KEY = "codex-ui-workspace";
+const TERMINAL_SETTINGS_STORAGE_KEY = "webpty-terminal-settings";
 
 type CodexShellProps = {
   demoMode?: boolean;
@@ -132,7 +143,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [connectionState, setConnectionState] = useState<ConnectionState>(
     demoMode ? "live" : "connecting",
   );
-  const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [surface, setSurface] = useState<SurfaceKind | null>(null);
   const [composer, setComposer] = useState("");
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>("system");
@@ -154,15 +164,21 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [threadDrawerOpen, setThreadDrawerOpen] = useState(false);
   const [socketVersion, setSocketVersion] = useState(0);
+  const [terminalSettingsText, setTerminalSettingsText] = useState(() =>
+    getDefaultWindowsTerminalSettingsText(),
+  );
+  const [terminalSettingsSavedText, setTerminalSettingsSavedText] = useState(() =>
+    getDefaultWindowsTerminalSettingsText(),
+  );
+  const [terminalSettingsBusy, setTerminalSettingsBusy] = useState(false);
+  const [terminalSettingsLoaded, setTerminalSettingsLoaded] = useState(false);
 
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const composerModelSelectRef = useRef<HTMLSelectElement | null>(null);
-  const homeSearchRef = useRef<HTMLInputElement | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
   const overlayPanelRef = useRef<HTMLDivElement | null>(null);
   const threadDrawerRef = useRef<HTMLDivElement | null>(null);
   const approvalDialogRef = useRef<HTMLDivElement | null>(null);
-  const homeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousActiveThreadIdRef = useRef<string | null>(null);
   const previousTimelineLengthRef = useRef(0);
   const transcriptPinnedRef = useRef(true);
@@ -175,6 +191,33 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     [browserLanguage, uiLanguage],
   );
   const copy = useMemo(() => getUiCopy(locale), [locale]);
+  const parsedTerminalSettings = useMemo(
+    () => parseWindowsTerminalSettingsText(terminalSettingsText),
+    [terminalSettingsText],
+  );
+  const terminalAppearance = parsedTerminalSettings.appearance;
+  const terminalShellStyle = useMemo<CSSProperties>(
+    () =>
+      ({
+        "--terminal-font-family": `"${terminalAppearance.fontFace}", "Cascadia Mono", monospace`,
+        "--terminal-bg": terminalAppearance.background,
+        "--terminal-fg": terminalAppearance.foreground,
+        "--terminal-cursor": terminalAppearance.cursorColor,
+        "--terminal-panel-bg": terminalAppearance.panelBackground,
+        "--terminal-panel-fg": terminalAppearance.panelForeground,
+        "--terminal-line": terminalAppearance.lineColor,
+        "--terminal-line-soft": terminalAppearance.softLineColor,
+        "--terminal-muted": terminalAppearance.muted,
+        "--terminal-selection": terminalAppearance.selection,
+        "--terminal-rail-bg": terminalAppearance.tabRowBackground,
+        "--terminal-rail-fg": terminalAppearance.tabRowForeground,
+        "--terminal-tab-active-bg": terminalAppearance.tabActiveBackground,
+        "--terminal-tab-active-fg": terminalAppearance.tabActiveForeground,
+        "--terminal-tab-inactive-bg": terminalAppearance.tabInactiveBackground,
+        "--terminal-tab-inactive-fg": terminalAppearance.tabInactiveForeground,
+      }) as CSSProperties,
+    [terminalAppearance],
+  );
 
   const applySnapshot = useEffectEvent((nextSnapshot: BridgeSnapshot) => {
     startTransition(() => {
@@ -194,7 +237,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
   const refreshBootstrap = useEffectEvent(async (showToastOnError: boolean) => {
     try {
-      const payload = await callApi<{ snapshot: BridgeSnapshot }>("/api/bootstrap");
+      const payload = await callApi<SnapshotEnvelope>("/api/bootstrap");
       applySnapshot(payload.snapshot);
     } catch (error) {
       if (!showToastOnError) {
@@ -227,10 +270,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     };
 
     websocket.onmessage = (event) => {
-      const payload = JSON.parse(event.data) as {
-        type: "snapshot";
-        snapshot: BridgeSnapshot;
-      };
+      const payload = JSON.parse(event.data) as SnapshotEnvelope;
 
       applySnapshot(payload.snapshot);
     };
@@ -292,14 +332,48 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   }, [workspaceDraft]);
 
   useEffect(() => {
-    document.documentElement.lang = locale;
-  }, [locale]);
+    let mounted = true;
+
+    const applySettingsText = (nextText: string) => {
+      if (!mounted) {
+        return;
+      }
+
+      setTerminalSettingsText(nextText);
+      setTerminalSettingsSavedText(nextText);
+      setTerminalSettingsLoaded(true);
+    };
+
+    const localFallback =
+      window.localStorage.getItem(TERMINAL_SETTINGS_STORAGE_KEY) ??
+      getDefaultWindowsTerminalSettingsText();
+
+    if (demoMode) {
+      applySettingsText(localFallback);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    void (async () => {
+      try {
+        const payload = await callApi<{ settings?: string | null }>("/api/config/read");
+        const nextText = payload.settings?.trim() || localFallback;
+        applySettingsText(nextText);
+        window.localStorage.setItem(TERMINAL_SETTINGS_STORAGE_KEY, nextText);
+      } catch {
+        applySettingsText(localFallback);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [demoMode]);
 
   useEffect(() => {
-    if (viewMode !== "chat" && threadDrawerOpen) {
-      setThreadDrawerOpen(false);
-    }
-  }, [threadDrawerOpen, viewMode]);
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     if (!toast) {
@@ -412,16 +486,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     });
   }, [deferredThreadSearch, snapshot, threadSort]);
 
-  const visibleHomeThreads = useMemo(() => {
-    if (!activeThreadSummary) {
-      return filteredThreads;
-    }
-
-    return filteredThreads.some((thread) => thread.id === activeThreadSummary.id)
-      ? filteredThreads
-      : [activeThreadSummary, ...filteredThreads];
-  }, [activeThreadSummary, filteredThreads]);
-
   const pendingRequest = useMemo(() => {
     if (!snapshot?.pendingRequests.length) {
       return null;
@@ -475,11 +539,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           return;
         }
 
-        if (viewMode === "home") {
-          homeSearchRef.current?.focus();
-          return;
-        }
-
         if (isPhoneLayout) {
           return;
         }
@@ -489,7 +548,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
 
     previousPendingRequestIdRef.current = currentPendingRequestId;
-  }, [isPhoneLayout, pendingRequest?.id, surface, viewMode]);
+  }, [isPhoneLayout, pendingRequest?.id, surface]);
 
   const visibleCommands = !commandMenuDismissed && composer.trimStart().startsWith("/")
     ? filterCommands(composer.trimStart(), locale)
@@ -560,10 +619,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   ]);
 
   useEffect(() => {
-    if (viewMode !== "chat") {
-      return;
-    }
-
     const container = transcriptScrollRef.current;
     if (!container) {
       return;
@@ -577,7 +632,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     return () => {
       window.cancelAnimationFrame(raf);
     };
-  }, [viewMode, snapshot?.activeThreadId]);
+  }, [snapshot?.activeThreadId]);
 
   useEffect(() => {
     const textarea = composerRef.current;
@@ -636,11 +691,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         return;
       }
 
-      if (viewMode === "home") {
-        homeSearchRef.current?.focus();
-        return;
-      }
-
       if (isPhoneLayout) {
         return;
       }
@@ -668,18 +718,31 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     }
   }
 
-  function openHome() {
-    setThreadDrawerOpen(false);
-    setSurface(null);
-    setWorkspaceDraft(preferredWorkspacePath);
-    setViewMode("home");
-    window.setTimeout(() => {
-      if (isPhoneLayout) {
+  function handleSelectRailTab(tabId: "threads" | SurfaceKind) {
+    if (tabId === "threads") {
+      if (threadDrawerOpen) {
+        closeThreadDrawer(false);
         return;
       }
 
-      homeSearchRef.current?.focus();
-    }, 0);
+      setSurface(null);
+      openThreadDrawer(document.activeElement instanceof HTMLElement ? document.activeElement : null);
+      return;
+    }
+
+    if (surface === tabId) {
+      closeSurface(false);
+      return;
+    }
+
+    if (tabId === "workspace") {
+      void handleOpenWorkspacePicker(
+        document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      );
+      return;
+    }
+
+    openSurface(tabId, document.activeElement instanceof HTMLElement ? document.activeElement : null);
   }
 
   async function loadWorkspaceListing(path?: string | null) {
@@ -716,7 +779,7 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   }
 
   async function syncSnapshotFromResult(
-    runner: () => Promise<{ snapshot: BridgeSnapshot }>,
+    runner: () => Promise<SnapshotEnvelope>,
     busyLabel: string,
   ) {
     try {
@@ -745,7 +808,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         setSurface(null);
       }
 
-      setViewMode("chat");
       setComposer("");
       focusComposerSoon();
       return;
@@ -763,7 +825,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       setSurface(null);
     }
 
-    setViewMode("chat");
     setComposer("");
     focusComposerSoon();
   }
@@ -797,11 +858,17 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
     switch (command.action) {
       case "new":
+        void handleOpenWorkspacePicker(
+          document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        );
+        break;
       case "clear":
-        openHome();
+        void handleOpenWorkspacePicker(
+          document.activeElement instanceof HTMLElement ? document.activeElement : null,
+        );
         break;
       case "resume":
-        openHome();
+        openThreadDrawer(document.activeElement instanceof HTMLElement ? document.activeElement : null);
         break;
       case "fork":
         if (!snapshot?.activeThreadId) {
@@ -849,7 +916,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     if (demoMode) {
       applyDemoSnapshot((current) => activateDemoThread(current, threadId));
       setThreadDrawerOpen(false);
-      setViewMode("chat");
       focusComposerSoon();
       return;
     }
@@ -859,7 +925,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       copy.actions.resumingThread,
     );
     setThreadDrawerOpen(false);
-    setViewMode("chat");
     focusComposerSoon();
   }
 
@@ -875,7 +940,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
         copy.actions.loadingThread,
       );
       setThreadDrawerOpen(false);
-      setViewMode("chat");
       focusComposerSoon();
       return;
     }
@@ -948,11 +1012,56 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
 
   function handleLanguageChange(language: UiLanguage) {
     setUiLanguage(language);
-    if (viewMode !== "chat") {
+    focusComposerSoon();
+  }
+
+  function handleTerminalProfileChange(profileId: string) {
+    if (parsedTerminalSettings.error) {
       return;
     }
 
-    focusComposerSoon();
+    const nextSettings = updateDefaultProfile(parsedTerminalSettings.settings, profileId);
+    setTerminalSettingsText(stringifyWindowsTerminalSettings(nextSettings));
+  }
+
+  function handleTerminalThemeChange(themeName: string) {
+    if (parsedTerminalSettings.error) {
+      return;
+    }
+
+    const nextSettings = updateThemeName(parsedTerminalSettings.settings, themeName);
+    setTerminalSettingsText(stringifyWindowsTerminalSettings(nextSettings));
+  }
+
+  async function handleSaveTerminalSettings() {
+    const nextText = terminalSettingsText.trim() || getDefaultWindowsTerminalSettingsText();
+    if (parsedTerminalSettings.error) {
+      setToast(parsedTerminalSettings.error);
+      return;
+    }
+
+    window.localStorage.setItem(TERMINAL_SETTINGS_STORAGE_KEY, nextText);
+    setTerminalSettingsBusy(true);
+
+    try {
+      if (!demoMode) {
+        await callApi("/api/config/write", {
+          settings: nextText,
+        });
+      }
+
+      setTerminalSettingsSavedText(nextText);
+      setTerminalSettingsText(nextText);
+      setToast(copy.settingsPanel.savedToast);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : copy.common.bootstrapError);
+    } finally {
+      setTerminalSettingsBusy(false);
+    }
+  }
+
+  function handleResetTerminalSettings() {
+    setTerminalSettingsText(getDefaultWindowsTerminalSettingsText());
   }
 
   async function handleFastModeChange(enabled: boolean) {
@@ -1021,19 +1130,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       ? ((pendingRequest?.params as { command?: string }).command ?? null)
       : null;
   const activeOverlay = surface;
-  const sessionTitle = activeThreadSummary?.title ?? (locale === "ko" ? "새 세션" : "New session");
-  const sessionMeta = activeThreadSummary
-    ? [
-        activeThreadSummary.workspaceLabel,
-        activeThreadSummary.branch,
-        activeThreadSummary.statusLabel,
-      ]
-        .filter(Boolean)
-        .join(" · ")
-    : locale === "ko"
-      ? "Home에서 thread를 열거나 새로 시작하세요."
-      : "Open a thread from Home or start a new one.";
-  const sessionMetaTitle = activeThreadSummary?.workspacePath ?? activeThreadSummary?.title ?? null;
   const headerStatus = connectionState === "connecting"
     ? { label: copy.header.connecting, tone: "starting" as const }
     : connectionState === "offline"
@@ -1069,14 +1165,6 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     sessionEffortOptions.find((option) => option.value === selectedEffortValue)?.label ??
     selectedEffortValue ??
     copy.common.unavailable;
-  const sessionSummary = [
-    selectedModelLabel,
-    selectedEffortLabel,
-    `${copy.composer.fast} ${selectedFastMode ? copy.composer.on : copy.composer.off}`,
-    `${copy.composer.plan} ${selectedPlanMode ? copy.composer.on : copy.composer.off}`,
-  ]
-    .filter(Boolean)
-    .join(" / ");
   const composerSessionSummary = [
     selectedModelLabel,
     selectedEffortLabel,
@@ -1135,6 +1223,42 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
     !snapshot?.activeTurnId &&
     !pendingRequest &&
     !busyAction;
+  const railActiveTab = threadDrawerOpen ? "threads" : activeOverlay;
+  const railTabs = [
+    {
+      id: "threads",
+      label: copy.header.threads,
+      title: copy.header.threads,
+      active: railActiveTab === "threads",
+      badge: snapshot?.threadList.length ? String(snapshot.threadList.length) : null,
+    },
+    {
+      id: "workspace",
+      label: copy.home.workspace,
+      title: copy.workspacePicker.title,
+      active: railActiveTab === "workspace",
+      badge: null,
+    },
+    {
+      id: "settings",
+      label: copy.header.settings,
+      title: copy.surface.settingsTitle,
+      active: railActiveTab === "settings",
+      badge: parsedTerminalSettings.error ? "!" : null,
+    },
+    {
+      id: "status",
+      label: locale === "ko" ? "상태" : "Status",
+      title: copy.surface.statusTitle,
+      active: railActiveTab === "status",
+      badge: pendingRequest ? String(snapshot?.pendingRequests.length ?? 1) : null,
+    },
+  ];
+  const terminalSettingsSaveDisabled =
+    !terminalSettingsLoaded ||
+    terminalSettingsBusy ||
+    parsedTerminalSettings.error !== null ||
+    terminalSettingsText.trim() === terminalSettingsSavedText.trim();
 
   const approvalChoices = useMemo<ApprovalChoice[]>(() => {
     if (!pendingRequest) {
@@ -1361,17 +1485,12 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
       return;
     }
 
-    if (viewMode === "chat") {
-      if (isPhoneLayout) {
-        return;
-      }
-
-      composerRef.current?.focus();
+    if (isPhoneLayout) {
       return;
     }
 
-    homeSearchRef.current?.focus();
-  }, [isPhoneLayout, pendingRequest, surface, threadDrawerOpen, viewMode]);
+    composerRef.current?.focus();
+  }, [isPhoneLayout, pendingRequest, surface, threadDrawerOpen]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1494,113 +1613,10 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
   };
 
   return (
-    <main className="tui-page">
-      {viewMode === "home" ? (
-        <HomeScreen
-          locale={locale}
-          copy={{
-            eyebrow: copy.home.eyebrow,
-            title: copy.home.title,
-            intro: copy.home.intro,
-            settings: copy.home.settings,
-            threadsTab: copy.home.threadsTab,
-            createTab: copy.home.createTab,
-            currentThread: copy.home.currentThread,
-            recentThreads: copy.home.recentThreads,
-            threadList: copy.home.threadList,
-            createTitle: copy.home.createTitle,
-            createIntro: copy.home.createIntro,
-            workspace: copy.home.workspace,
-            workspaceSelected: copy.home.workspaceSelected,
-            browseWorkspace: copy.home.browseWorkspace,
-            currentWorkspace: copy.home.currentWorkspace,
-            startThread: copy.home.startThread,
-            search: copy.home.search,
-            searchPlaceholder: copy.home.searchPlaceholder,
-            sortThreads: copy.home.sortThreads,
-            noThreads: copy.home.noThreads,
-            noOtherThreads: copy.home.noOtherThreads,
-            noMatchingThreads: copy.home.noMatchingThreads,
-            sessionLabel: copy.home.sessionLabel,
-            openThread: copy.home.openThread,
-            updatedSort: copy.home.updatedSort,
-            createdSort: copy.home.createdSort,
-          }}
-          sessionSummary={sessionSummary}
-          search={threadSearch}
-          sort={threadSort}
-          activeThread={activeThreadSummary}
-          filteredThreads={visibleHomeThreads}
-          workspaceDraft={workspaceDraft}
-          isPhoneLayout={isPhoneLayout}
-          statusLabel={headerStatus.label}
-          statusTone={headerStatus.tone}
-          searchInputRef={homeSearchRef}
-          onOpenSettings={() => {
-            handleOpenSettings(
-              document.activeElement instanceof HTMLElement ? document.activeElement : null,
-            );
-          }}
-          onSearchChange={setThreadSearch}
-          onSortChange={setThreadSort}
-          onUseDefaultWorkspace={() => {
-            setWorkspaceDraft(currentWorkspacePath);
-          }}
-          onOpenWorkspacePicker={() => {
-            void handleOpenWorkspacePicker(
-              document.activeElement instanceof HTMLElement ? document.activeElement : null,
-            );
-          }}
-          onCreateThread={() => {
-            void handleCreateThread({
-              workspacePath: workspaceDraft,
-            });
-          }}
-          onOpenThread={(threadId) => {
-            void handleOpenThread(threadId);
-          }}
-        />
-      ) : null}
-
-      {viewMode === "chat" ? (
-        <section className="tui-shell">
-          <ShellHeader
-            threadCount={snapshot?.threadList.length ?? 0}
-            sessionTitle={sessionTitle}
-            sessionMeta={sessionMeta}
-            sessionMetaTitle={sessionMetaTitle}
-            isPhoneLayout={isPhoneLayout}
-            homeLabel={copy.header.home}
-            threadsLabel={copy.header.threads}
-            statusLabel={headerStatus.label}
-            statusTone={headerStatus.tone}
-            showStatusLine={!hidePhoneIdleChrome}
-            auxActionLabel={
-              connectionState === "offline" ? copy.header.reconnect : copy.header.settings
-            }
-            showAuxAction
-            homeButtonRef={homeButtonRef}
-            onHomeClick={() => {
-              openHome();
-            }}
-            onThreadsClick={() => {
-              openThreadDrawer(
-                document.activeElement instanceof HTMLElement ? document.activeElement : null,
-              );
-            }}
-            onAuxAction={() => {
-              if (connectionState === "offline") {
-                handleManualReconnect();
-                return;
-              }
-
-              handleOpenSettings(
-                document.activeElement instanceof HTMLElement ? document.activeElement : null,
-              );
-            }}
-          />
-
-          <section className="transcript-surface">
+    <main className="tui-page terminal-page" style={terminalShellStyle}>
+      <section className="tui-shell terminal-shell">
+        <section className="terminal-stage">
+          <section className="transcript-surface terminal-transcript">
             <TranscriptPane
               scrollRef={transcriptScrollRef}
               timeline={activeTimeline}
@@ -1619,85 +1635,102 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
             />
           </section>
 
-          <ComposerDock
-            composer={composer}
-            visibleCommands={visibleCommands}
-            selectedCommandIndex={selectedCommandIndex}
-            composerRef={composerRef}
-            modelSelectRef={composerModelSelectRef}
-            helperText={composerHelper}
-            statusText={composerStatus}
-            canSubmit={Boolean(composer.trim())}
-            activeTurn={Boolean(snapshot?.activeTurnId)}
-            showToolbar={!hidePhoneIdleChrome}
-            isPhoneLayout={isPhoneLayout}
-            sessionSummary={composerSessionSummary}
-            selectedModel={selectedModelValue}
-            selectedEffort={selectedEffortValue}
-            fastMode={selectedFastMode}
-            planMode={selectedPlanMode}
-            utilityActionLabel={
-              connectionState === "offline" ? copy.header.reconnect : null
-            }
-            showUtilityAction={isPhoneLayout && connectionState === "offline"}
-            modelOptions={sessionModelOptions}
-            effortOptions={sessionEffortOptions}
-            labels={{
-              model: copy.composer.model,
-              reasoning: copy.composer.reasoning,
-              mode: copy.composer.mode,
-              fast: copy.composer.fast,
-              plan: copy.composer.plan,
-              on: copy.composer.on,
-              off: copy.composer.off,
-              session: copy.composer.session,
-              showSettings: copy.composer.showSettings,
-              hideSettings: copy.composer.hideSettings,
-              placeholder: copy.composer.placeholder,
-              interrupt: copy.composer.interrupt,
-              send: copy.composer.send,
-              unavailable: copy.common.unavailable,
-            }}
-            onComposerChange={handleComposerChange}
-            onComposerKeyDown={handleComposerKeyDown}
-            onCommandPick={(commandName) => {
-              setComposer(`/${commandName}`);
-              setCommandMenuDismissed(false);
-              focusComposerSoon(true);
-            }}
-            onModelChange={(value) => {
-              void handleComposerModelChange(value);
-            }}
-            onEffortChange={(value) => {
-              void handleComposerEffortChange(value);
-            }}
-            onFastModeChange={(enabled) => {
-              void handleFastModeChange(enabled);
-            }}
-            onPlanModeChange={(enabled) => {
-              void handlePlanModeChange(enabled);
-            }}
-            onUtilityAction={() => {
-              if (connectionState === "offline") {
-                handleManualReconnect();
-                return;
+          <div className="terminal-footer">
+            <div className="terminal-footer-meta">
+              <span className="terminal-footer-title">
+                {activeThreadSummary?.title ?? terminalAppearance.profileName}
+              </span>
+              <span>{formatWorkspacePathLabel(currentWorkspacePath)}</span>
+              <span>{headerStatus.label}</span>
+            </div>
+
+            <ComposerDock
+              composer={composer}
+              visibleCommands={visibleCommands}
+              selectedCommandIndex={selectedCommandIndex}
+              composerRef={composerRef}
+              modelSelectRef={composerModelSelectRef}
+              helperText={composerHelper}
+              statusText={composerStatus}
+              canSubmit={Boolean(composer.trim())}
+              activeTurn={Boolean(snapshot?.activeTurnId)}
+              showToolbar={!hidePhoneIdleChrome}
+              isPhoneLayout={isPhoneLayout}
+              sessionSummary={composerSessionSummary}
+              selectedModel={selectedModelValue}
+              selectedEffort={selectedEffortValue}
+              fastMode={selectedFastMode}
+              planMode={selectedPlanMode}
+              utilityActionLabel={
+                connectionState === "offline" ? copy.header.reconnect : null
               }
+              showUtilityAction={isPhoneLayout && connectionState === "offline"}
+              modelOptions={sessionModelOptions}
+              effortOptions={sessionEffortOptions}
+              labels={{
+                model: copy.composer.model,
+                reasoning: copy.composer.reasoning,
+                mode: copy.composer.mode,
+                fast: copy.composer.fast,
+                plan: copy.composer.plan,
+                on: copy.composer.on,
+                off: copy.composer.off,
+                session: copy.composer.session,
+                showSettings: copy.composer.showSettings,
+                hideSettings: copy.composer.hideSettings,
+                placeholder: copy.composer.placeholder,
+                interrupt: copy.composer.interrupt,
+                send: copy.composer.send,
+                unavailable: copy.common.unavailable,
+              }}
+              onComposerChange={handleComposerChange}
+              onComposerKeyDown={handleComposerKeyDown}
+              onCommandPick={(commandName) => {
+                setComposer(`/${commandName}`);
+                setCommandMenuDismissed(false);
+                focusComposerSoon(true);
+              }}
+              onModelChange={(value) => {
+                void handleComposerModelChange(value);
+              }}
+              onEffortChange={(value) => {
+                void handleComposerEffortChange(value);
+              }}
+              onFastModeChange={(enabled) => {
+                void handleFastModeChange(enabled);
+              }}
+              onPlanModeChange={(enabled) => {
+                void handlePlanModeChange(enabled);
+              }}
+              onUtilityAction={() => {
+                if (connectionState === "offline") {
+                  handleManualReconnect();
+                  return;
+                }
 
-              handleOpenSettings(
-                document.activeElement instanceof HTMLElement ? document.activeElement : null,
-              );
-            }}
-            onSubmit={() => {
-              void handleSubmit();
-            }}
-            onInterrupt={() => {
-              void handleInterrupt();
-            }}
-          />
+                handleOpenSettings(
+                  document.activeElement instanceof HTMLElement ? document.activeElement : null,
+                );
+              }}
+              onSubmit={() => {
+                void handleSubmit();
+              }}
+              onInterrupt={() => {
+                void handleInterrupt();
+              }}
+            />
+          </div>
         </section>
-      ) : null}
 
-      {threadDrawerOpen && viewMode === "chat" ? (
+        <TabRail
+          tabs={railTabs}
+          onSelect={(id) => {
+            handleSelectRailTab(id as "threads" | SurfaceKind);
+          }}
+        />
+      </section>
+
+      {threadDrawerOpen ? (
         <ThreadDrawer
           ref={threadDrawerRef}
           locale={locale}
@@ -1729,7 +1762,9 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           onClose={() => closeThreadDrawer()}
           onCreateThread={() => {
             setThreadDrawerOpen(false);
-            openHome();
+            void handleOpenWorkspacePicker(
+              document.activeElement instanceof HTMLElement ? document.activeElement : null,
+            );
           }}
           onResumeThread={(threadId) => {
             void handleOpenThread(threadId);
@@ -1784,12 +1819,40 @@ export function CodexShell({ demoMode = false }: CodexShellProps) {
           <SettingsPanel
             selectedLanguage={selectedLanguageValue}
             languageOptions={languageOptions}
+            selectedProfile={terminalAppearance.profileId}
+            profileOptions={terminalAppearance.availableProfiles.map((profile) => ({
+              value: profile.id,
+              label: profile.label,
+            }))}
+            selectedTheme={terminalAppearance.themeName}
+            themeOptions={terminalAppearance.availableThemes.map((theme) => ({
+              value: theme.id,
+              label: theme.label,
+            }))}
+            settingsJson={terminalSettingsText}
+            settingsError={parsedTerminalSettings.error}
+            saveDisabled={terminalSettingsSaveDisabled}
             labels={{
               interfaceTitle: copy.settingsPanel.interfaceTitle,
               language: copy.settingsPanel.language,
               applyHint: copy.settingsPanel.applyHint,
+              profileTitle: copy.settingsPanel.profileTitle,
+              profile: copy.settingsPanel.profile,
+              theme: copy.settingsPanel.theme,
+              configTitle: copy.settingsPanel.configTitle,
+              configHint: copy.settingsPanel.configHint,
+              rawJson: copy.settingsPanel.rawJson,
+              save: copy.settingsPanel.save,
+              reset: copy.settingsPanel.reset,
             }}
             onLanguageChange={handleLanguageChange}
+            onProfileChange={handleTerminalProfileChange}
+            onThemeChange={handleTerminalThemeChange}
+            onSettingsJsonChange={setTerminalSettingsText}
+            onSave={() => {
+              void handleSaveTerminalSettings();
+            }}
+            onReset={handleResetTerminalSettings}
           />
         </SurfaceDialog>
       ) : null}

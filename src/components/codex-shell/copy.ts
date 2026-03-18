@@ -173,8 +173,8 @@ const UI_COPY = {
       overlay: "Overlay",
       settingsTitle: "Settings",
       settingsSubtitle:
-        "Language lives here. Session controls stay in the composer.",
-      settingsFooter: "Changes apply immediately. Esc closes this overlay.",
+        "Edit Windows Terminal-compatible profile and theme JSON here.",
+      settingsFooter: "Save writes the current settings.json draft. Esc closes this overlay.",
       statusTitle: "Status",
       statusFooter: "Esc closes this overlay.",
       shortcutsTitle: "Shortcuts",
@@ -251,6 +251,15 @@ const UI_COPY = {
       sessionTitle: "Session snapshot",
       shortcutsTitle: "Shortcuts",
       applyHint: "Applies immediately.",
+      profileTitle: "Windows Terminal",
+      profile: "Profile",
+      theme: "Theme",
+      configTitle: "settings.json",
+      configHint: "Compatible with Windows Terminal profile and theme JSON.",
+      rawJson: "Raw JSON",
+      save: "Save",
+      reset: "Reset",
+      savedToast: "Terminal settings saved.",
     },
     shortcutsPanel: {
       lines: [
@@ -455,8 +464,8 @@ const UI_COPY = {
       overlay: "오버레이",
       settingsTitle: "설정",
       settingsSubtitle:
-        "언어 설정은 여기에서 관리하고, 세션 제어는 composer에 남깁니다.",
-      settingsFooter: "변경 사항은 즉시 적용됩니다. Esc 키로 닫습니다.",
+        "Windows Terminal 호환 프로필/테마 JSON을 여기에서 편집합니다.",
+      settingsFooter: "저장을 누르면 현재 settings.json 초안을 기록합니다. Esc 키로 닫습니다.",
       statusTitle: "상태",
       statusFooter: "Esc 키로 이 오버레이를 닫습니다.",
       shortcutsTitle: "단축키",
@@ -534,6 +543,15 @@ const UI_COPY = {
       sessionTitle: "세션 상태",
       shortcutsTitle: "단축키",
       applyHint: "즉시 적용됩니다.",
+      profileTitle: "Windows Terminal",
+      profile: "프로필",
+      theme: "테마",
+      configTitle: "settings.json",
+      configHint: "Windows Terminal 프로필/테마 JSON 형식과 호환됩니다.",
+      rawJson: "원본 JSON",
+      save: "저장",
+      reset: "초기화",
+      savedToast: "터미널 설정을 저장했습니다.",
     },
     shortcutsPanel: {
       lines: [
