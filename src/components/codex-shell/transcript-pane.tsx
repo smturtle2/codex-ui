@@ -48,14 +48,6 @@ function isVisibleEntry(entry: TimelineEntry): boolean {
     return true;
   }
 
-  if (
-    entry.kind === "command" ||
-    entry.kind === "tool" ||
-    entry.kind === "review"
-  ) {
-    return true;
-  }
-
   if (entry.kind === "approval") {
     return entry.status === "pending" || entry.status === "error";
   }

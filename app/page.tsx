@@ -1,11 +1,16 @@
-import { Suspense } from "react";
+import { CodexShell } from "@/components/codex-shell";
 
-import { CodexShellPageClient } from "@/components/codex-shell-page-client";
+type HomePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function HomePage() {
-  return (
-    <Suspense fallback={null}>
-      <CodexShellPageClient />
-    </Suspense>
-  );
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const demoValue = params.demo;
+  const demoMode =
+    demoValue === "1" ||
+    demoValue === "true" ||
+    (Array.isArray(demoValue) && demoValue.includes("1"));
+
+  return <CodexShell demoMode={demoMode} />;
 }
