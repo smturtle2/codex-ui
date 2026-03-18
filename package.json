@@ -12,12 +12,14 @@
     "dev": "node --import tsx server/index.ts",
     "legacy-bridge": "node --import tsx server/legacy-bridge.ts",
     "build": "node ./node_modules/next/dist/bin/next build",
+    "refresh:runtime-assets": "node ./scripts/refresh-runtime-assets.mjs",
     "start": "NODE_ENV=production node --import tsx server/index.ts",
     "funnel": "bash ./scripts/tailscale-funnel.sh up 3000",
     "funnel:status": "bash ./scripts/tailscale-funnel.sh status",
     "funnel:off": "bash ./scripts/tailscale-funnel.sh down",
+    "test": "node --import tsx --test src/lib/windows-terminal.test.ts",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
-    "check": "npm run typecheck && npm run build"
+    "check": "npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
     "next": "16.1.6",

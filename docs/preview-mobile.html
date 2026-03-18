@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebPty Mobile Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #efefef;
+        font-family: "Cascadia Mono", "Cascadia Code", monospace;
+      }
+
+      .phone {
+        width: min(430px, 100vw);
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto auto;
+        background: #000000;
+      }
+
+      .transcript {
+        padding: 20px 18px 12px;
+        color: #f5f5f5;
+      }
+
+      .line {
+        margin: 0 0 14px;
+        font-size: 14px;
+        line-height: 1.8;
+      }
+
+      .muted {
+        color: #a4a4a4;
+      }
+
+      .divider {
+        height: 1px;
+        background: #1d1d1d;
+        margin: 14px 0;
+      }
+
+      .composer {
+        border-top: 1px solid #1d1d1d;
+        padding: 14px 16px 16px;
+        color: #8e8e8e;
+      }
+
+      .composer-box {
+        margin-top: 10px;
+        min-height: 72px;
+        border: 1px solid #232323;
+        padding: 12px 14px;
+      }
+
+      .rail {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        border-top: 1px solid #d9d9d9;
+        background: #fafafa;
+      }
+
+      .tab {
+        min-height: 60px;
+        border: 0;
+        border-right: 1px solid #e4e4e4;
+        background: #ffffff;
+        color: #111111;
+        font: inherit;
+        display: grid;
+        place-items: center;
+        gap: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        font-size: 10px;
+      }
+
+      .tab:last-child {
+        border-right: 0;
+      }
+
+      .tab.active {
+        box-shadow: inset 0 3px 0 #111111;
+      }
+
+      .sheet {
+        background: #ffffff;
+        color: #111111;
+        border-top: 1px solid #d9d9d9;
+        padding: 16px 16px 18px;
+        font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif;
+      }
+
+      .sheet strong {
+        display: block;
+        font-size: 17px;
+        line-height: 1.25;
+      }
+
+      .sheet span {
+        display: block;
+        margin-top: 6px;
+        color: #616161;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .field {
+        margin-top: 14px;
+        padding: 11px 12px;
+        min-height: 44px;
+        border: 1px solid #d2d2d2;
+        background: #ffffff;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="phone">
+      <section class="transcript">
+        <p class="line muted">$ codex keep the mobile shell terminal-first</p>
+        <p class="line">The transcript stays black and edge to edge. Panels slide above it only when a right-side tab is active.</p>
+        <div class="divider"></div>
+        <p class="line muted">$ codex make settings reachable from the rail</p>
+        <p class="line">Settings opens from the rail and keeps the same JSON compatibility work as desktop.</p>
+      </section>
+
+      <section class="composer">
+        <div>Codex / ready / Cascadia Mono</div>
+        <div class="composer-box">Message Codex</div>
+      </section>
+
+      <nav class="rail" aria-label="Mobile tab rail">
+        <button class="tab" type="button"><span>Threads</span><span>26</span></button>
+        <button class="tab" type="button"><span>Workspace</span><span>&middot;</span></button>
+        <button class="tab active" type="button"><span>Settings</span><span>&middot;</span></button>
+        <button class="tab" type="button"><span>Status</span><span>1</span></button>
+      </nav>
+
+      <aside class="sheet">
+        <strong>Settings</strong>
+        <span>Profiles, themes, and raw settings.json stay on the right-side workflow even on mobile.</span>
+        <div class="field">Theme: webpty-flat</div>
+        <div class="field">Profile: WebPTY</div>
+      </aside>
+    </main>
+  </body>
+</html>

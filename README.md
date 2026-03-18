@@ -62,10 +62,11 @@ Release notes live in [RELEASE_NOTES.md](./RELEASE_NOTES.md).
 - Rust entrypoint: `webpty up` is the primary runtime and external HTTP surface.
 - Windows Terminal-style layout: full-screen transcript, no top bar, narrow right-side tab rail.
 - Windows Terminal JSON settings: compatible `defaultProfile`, `profiles`, `schemes`, `theme`, and `themes` flow through the Settings tab.
+- Safer settings round-trips: unknown Windows Terminal keys are preserved when `settings.json` is edited and saved from the right-side Settings panel.
 - Default visual contract: black terminal surface, white rail tabs, flat borders, `Cascadia Mono`.
 - Tailscale Funnel: `webpty up --funnel` starts the app and tries to publish it immediately.
 - Workspace-first thread flow: new threads still validate and browse directories before starting.
-- Static frontend export: the Next.js shell builds to `out/` so the Rust runtime can serve it directly.
+- Bundled runtime assets: release installs embed the static frontend and a compiled bridge worker, so `webpty up` does not depend on a repo checkout or a post-install `npm install`.
 
 ## Architecture
 
@@ -77,13 +78,14 @@ Browser UI
 
 Rust runtime
   ├─ webpty up
-  ├─ serves static frontend
+  ├─ serves bundled/static frontend
   ├─ owns Funnel startup
-  └─ proxies /api/* and /ws to the local legacy bridge
+  └─ proxies /api/* and /ws to the local bridge worker
 
-Legacy bridge
-  ├─ server/legacy-bridge.ts
-  └─ server/codex-bridge.ts
+Bridge worker
+  ├─ repo mode: server/legacy-bridge.ts
+  ├─ install mode: bundled legacy-bridge.js
+  └─ server/codex-bridge.ts / compiled codex-bridge.js
        ├─ codex app-server over stdio JSON-RPC
        └─ snapshot normalization for threads, turns, approvals, and live deltas
 ```
@@ -103,6 +105,8 @@ Install globally in one command:
 ```bash
 cargo install --git https://github.com/smturtle2/codex-ui webpty
 ```
+
+The installed binary carries the exported frontend and the compiled bridge worker in `runtime-assets/`, so you do not need to run `npm install` after `cargo install`.
 
 If you are working from a local clone, this is equivalent:
 
@@ -138,13 +142,16 @@ Reference:
 ## Development
 
 ```bash
+npm run test
 npm run typecheck
+npm run check
 npm run build
+npm run refresh:runtime-assets
 cargo check
 cargo run -- up --port 3000
 python scripts/generate_preview_images.py
 ```
 
-`npm run build` exports the frontend to `out/`. `cargo run -- up` serves that export through the Rust runtime.
+`npm run build` exports the frontend to `out/`. `npm run refresh:runtime-assets` refreshes the bundled install-time assets that the Rust binary extracts for global installs. `npm run check` runs typecheck, the Windows Terminal settings tests, and the production build together.
 
 `python scripts/generate_preview_images.py` refreshes the screenshots in `docs/` from `/?demo=1`.

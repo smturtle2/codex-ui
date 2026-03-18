@@ -6,6 +6,14 @@ export type TerminalCloseButtonVisibility =
   | "never"
   | "activeOnly";
 
+export type TerminalAppearanceReference = {
+  light?: string;
+  dark?: string;
+  [key: string]: unknown;
+};
+
+export type TerminalThemeReference = string | TerminalAppearanceReference;
+
 export type TerminalColorScheme = {
   name: string;
   background?: string;
@@ -28,6 +36,7 @@ export type TerminalColorScheme = {
   brightWhite?: string;
   cursorColor?: string;
   selectionBackground?: string;
+  [key: string]: unknown;
 };
 
 export type TerminalTheme = {
@@ -35,22 +44,27 @@ export type TerminalTheme = {
   window?: {
     applicationTheme?: TerminalApplicationTheme;
     useMica?: boolean;
+    [key: string]: unknown;
   };
   tabRow?: {
     background?: string;
     unfocusedBackground?: string;
+    [key: string]: unknown;
   };
   tab?: {
     background?: string;
     unfocusedBackground?: string;
     showCloseButton?: TerminalCloseButtonVisibility;
+    [key: string]: unknown;
   };
+  [key: string]: unknown;
 };
 
 export type TerminalProfileFont = {
   face?: string;
   size?: number;
   weight?: string | number;
+  [key: string]: unknown;
 };
 
 export type TerminalProfile = {
@@ -58,19 +72,20 @@ export type TerminalProfile = {
   name: string;
   commandline?: string;
   startingDirectory?: string;
-  colorScheme?: string;
+  colorScheme?: string | TerminalAppearanceReference;
   tabTitle?: string;
   tabColor?: string;
   hidden?: boolean;
   font?: TerminalProfileFont;
   opacity?: number;
   useAcrylic?: boolean;
+  [key: string]: unknown;
 };
 
 export type TerminalSettings = {
   $schema?: string;
   defaultProfile?: string;
-  theme?: string;
+  theme?: TerminalThemeReference;
   alwaysShowTabs?: boolean;
   showTabsInTitlebar?: boolean;
   useAcrylicInTabRow?: boolean;
@@ -78,9 +93,11 @@ export type TerminalSettings = {
   profiles?: {
     defaults?: Partial<TerminalProfile>;
     list?: TerminalProfile[];
+    [key: string]: unknown;
   };
   schemes?: TerminalColorScheme[];
   themes?: TerminalTheme[];
+  [key: string]: unknown;
 };
 
 export type TerminalSettingsEnvelope = {
@@ -141,6 +158,8 @@ const DEFAULT_SCHEMA =
 const DEFAULT_SCHEME_NAME = "WebPTY Black";
 const DEFAULT_THEME_NAME = "webpty-flat";
 const DEFAULT_PROFILE_GUID = "{8d8d43d2-8d34-4f7a-9f31-c0c611e4a3b2}";
+const BUILTIN_THEME_NAMES = new Set(["system", "light", "dark"]);
+const AUTO_THEME_PREFIX = "__auto__:";
 
 const DEFAULT_SCHEME: TerminalColorScheme = {
   name: DEFAULT_SCHEME_NAME,
@@ -183,6 +202,57 @@ const DEFAULT_THEME: TerminalTheme = {
   },
 };
 
+const BUILTIN_THEMES: Record<string, TerminalTheme> = {
+  system: {
+    name: "system",
+    window: {
+      applicationTheme: "system",
+      useMica: false,
+    },
+    tabRow: {
+      background: "#ffffff",
+      unfocusedBackground: "#f3f3f3",
+    },
+    tab: {
+      background: "#ffffff",
+      unfocusedBackground: "#f3f3f3",
+      showCloseButton: "hover",
+    },
+  },
+  light: {
+    name: "light",
+    window: {
+      applicationTheme: "light",
+      useMica: false,
+    },
+    tabRow: {
+      background: "#ffffff",
+      unfocusedBackground: "#f3f3f3",
+    },
+    tab: {
+      background: "#ffffff",
+      unfocusedBackground: "#f3f3f3",
+      showCloseButton: "hover",
+    },
+  },
+  dark: {
+    name: "dark",
+    window: {
+      applicationTheme: "dark",
+      useMica: false,
+    },
+    tabRow: {
+      background: "#111111",
+      unfocusedBackground: "#0b0b0b",
+    },
+    tab: {
+      background: "#171717",
+      unfocusedBackground: "#101010",
+      showCloseButton: "hover",
+    },
+  },
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -203,25 +273,79 @@ function pickNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+function normalizeAppearanceReference(
+  value: unknown,
+  fallback?: string | TerminalAppearanceReference,
+): string | TerminalAppearanceReference | undefined {
+  if (isString(value)) {
+    return value;
+  }
+
+  if (!isRecord(value)) {
+    return fallback
+      ? typeof fallback === "string"
+        ? fallback
+        : { ...fallback }
+      : fallback;
+  }
+
+  const reference: TerminalAppearanceReference = {
+    ...value,
+    light: pickString(value.light),
+    dark: pickString(value.dark),
+  };
+
+  if (!reference.light) {
+    delete reference.light;
+  }
+  if (!reference.dark) {
+    delete reference.dark;
+  }
+
+  if (!reference.light && !reference.dark) {
+    return fallback
+      ? typeof fallback === "string"
+        ? fallback
+        : { ...fallback }
+      : fallback;
+  }
+
+  return reference;
+}
+
+function appearanceReferenceToName(
+  value: string | TerminalAppearanceReference | undefined,
+  fallback: string,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value && typeof value === "object") {
+    return value.dark ?? value.light ?? fallback;
+  }
+
+  return fallback;
+}
+
 function normalizeFont(value: unknown, fallback?: TerminalProfileFont): TerminalProfileFont | undefined {
   if (!isRecord(value)) {
-    return fallback;
+    return fallback ? { ...fallback } : fallback;
   }
 
-  const font: TerminalProfileFont = {};
-  if (isString(value.face)) {
-    font.face = value.face;
-  }
+  const font: TerminalProfileFont = {
+    ...value,
+  };
   const size = pickNumber(value.size);
-  if (typeof size !== "undefined") {
-    font.size = size;
-  }
-  if (typeof value.weight === "string" || typeof value.weight === "number") {
-    font.weight = value.weight;
-  }
+  font.face = pickString(value.face);
+  font.size = size;
+  font.weight =
+    typeof value.weight === "string" || typeof value.weight === "number"
+      ? value.weight
+      : undefined;
 
-  if (Object.keys(font).length === 0) {
-    return fallback;
+  if (!font.face && typeof font.size === "undefined" && typeof font.weight === "undefined") {
+    return fallback ? { ...fallback } : fallback;
   }
 
   return font;
@@ -236,18 +360,19 @@ function normalizeProfile(
   }
 
   return {
-    guid: pickString(value.guid, fallback.guid),
+    ...value,
+    guid: pickString(value.guid),
     name: pickString(value.name, fallback.name) ?? fallback.name,
-    commandline: pickString(value.commandline, fallback.commandline),
-    startingDirectory: pickString(value.startingDirectory, fallback.startingDirectory),
-    colorScheme: pickString(value.colorScheme, fallback.colorScheme),
-    tabTitle: pickString(value.tabTitle, fallback.tabTitle),
-    tabColor: pickString(value.tabColor, fallback.tabColor),
-    hidden: typeof value.hidden === "boolean" ? value.hidden : fallback.hidden,
-    font: normalizeFont(value.font, fallback.font),
-    opacity: pickNumber(value.opacity) ?? fallback.opacity,
+    commandline: pickString(value.commandline),
+    startingDirectory: pickString(value.startingDirectory),
+    colorScheme: normalizeAppearanceReference(value.colorScheme),
+    tabTitle: pickString(value.tabTitle),
+    tabColor: pickString(value.tabColor),
+    hidden: typeof value.hidden === "boolean" ? value.hidden : undefined,
+    font: normalizeFont(value.font),
+    opacity: pickNumber(value.opacity),
     useAcrylic:
-      typeof value.useAcrylic === "boolean" ? value.useAcrylic : fallback.useAcrylic,
+      typeof value.useAcrylic === "boolean" ? value.useAcrylic : undefined,
   };
 }
 
@@ -260,19 +385,20 @@ function normalizeProfilePatch(
   }
 
   return {
-    guid: pickString(value.guid, fallback.guid),
-    name: pickString(value.name, fallback.name),
-    commandline: pickString(value.commandline, fallback.commandline),
-    startingDirectory: pickString(value.startingDirectory, fallback.startingDirectory),
-    colorScheme: pickString(value.colorScheme, fallback.colorScheme),
-    tabTitle: pickString(value.tabTitle, fallback.tabTitle),
-    tabColor: pickString(value.tabColor, fallback.tabColor),
+    ...value,
+    guid: pickString(value.guid),
+    name: pickString(value.name),
+    commandline: pickString(value.commandline),
+    startingDirectory: pickString(value.startingDirectory),
+    colorScheme: normalizeAppearanceReference(value.colorScheme),
+    tabTitle: pickString(value.tabTitle),
+    tabColor: pickString(value.tabColor),
     hidden:
-      typeof value.hidden === "boolean" ? value.hidden : fallback.hidden,
-    font: normalizeFont(value.font, fallback.font),
-    opacity: pickNumber(value.opacity) ?? fallback.opacity,
+      typeof value.hidden === "boolean" ? value.hidden : undefined,
+    font: normalizeFont(value.font),
+    opacity: pickNumber(value.opacity),
     useAcrylic:
-      typeof value.useAcrylic === "boolean" ? value.useAcrylic : fallback.useAcrylic,
+      typeof value.useAcrylic === "boolean" ? value.useAcrylic : undefined,
   };
 }
 
@@ -281,7 +407,10 @@ function normalizeScheme(value: unknown): TerminalColorScheme | null {
     return null;
   }
 
-  const scheme: TerminalColorScheme = { name: value.name };
+  const scheme: TerminalColorScheme = {
+    ...value,
+    name: value.name,
+  };
   const keys: Array<keyof Omit<TerminalColorScheme, "name">> = [
     "background",
     "foreground",
@@ -306,12 +435,59 @@ function normalizeScheme(value: unknown): TerminalColorScheme | null {
   ];
 
   for (const key of keys) {
-    if (isString(value[key])) {
-      scheme[key] = value[key];
-    }
+    scheme[key] = isString(value[key]) ? value[key] : undefined;
   }
 
   return scheme;
+}
+
+function normalizeThemeWindow(value: unknown): TerminalTheme["window"] | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    ...value,
+    applicationTheme:
+      value.applicationTheme === "system" ||
+      value.applicationTheme === "dark" ||
+      value.applicationTheme === "light"
+        ? value.applicationTheme
+        : undefined,
+    useMica:
+      typeof value.useMica === "boolean" ? value.useMica : undefined,
+  };
+}
+
+function normalizeThemeTabRow(value: unknown): TerminalTheme["tabRow"] | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    ...value,
+    background: pickString(value.background),
+    unfocusedBackground: pickString(value.unfocusedBackground),
+  };
+}
+
+function normalizeThemeTab(value: unknown): TerminalTheme["tab"] | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    ...value,
+    background: pickString(value.background),
+    unfocusedBackground: pickString(value.unfocusedBackground),
+    showCloseButton:
+      value.showCloseButton === "always" ||
+      value.showCloseButton === "hover" ||
+      value.showCloseButton === "never" ||
+      value.showCloseButton === "activeOnly"
+        ? value.showCloseButton
+        : undefined,
+  };
 }
 
 function normalizeTheme(value: unknown): TerminalTheme | null {
@@ -319,40 +495,13 @@ function normalizeTheme(value: unknown): TerminalTheme | null {
     return null;
   }
 
-  const theme: TerminalTheme = { name: value.name };
-  if (isRecord(value.window)) {
-    theme.window = {
-      applicationTheme:
-        value.window.applicationTheme === "system" ||
-        value.window.applicationTheme === "dark" ||
-        value.window.applicationTheme === "light"
-          ? value.window.applicationTheme
-          : undefined,
-      useMica:
-        typeof value.window.useMica === "boolean" ? value.window.useMica : undefined,
-    };
-  }
-  if (isRecord(value.tabRow)) {
-    theme.tabRow = {
-      background: pickString(value.tabRow.background),
-      unfocusedBackground: pickString(value.tabRow.unfocusedBackground),
-    };
-  }
-  if (isRecord(value.tab)) {
-    theme.tab = {
-      background: pickString(value.tab.background),
-      unfocusedBackground: pickString(value.tab.unfocusedBackground),
-      showCloseButton:
-        value.tab.showCloseButton === "always" ||
-        value.tab.showCloseButton === "hover" ||
-        value.tab.showCloseButton === "never" ||
-        value.tab.showCloseButton === "activeOnly"
-          ? value.tab.showCloseButton
-          : undefined,
-    };
-  }
-
-  return theme;
+  return {
+    ...value,
+    name: value.name,
+    window: normalizeThemeWindow(value.window),
+    tabRow: normalizeThemeTabRow(value.tabRow),
+    tab: normalizeThemeTab(value.tab),
+  };
 }
 
 function mergeProfile(
@@ -421,6 +570,58 @@ export function createDefaultTerminalSettings(
   };
 }
 
+function normalizeThemeReference(
+  value: unknown,
+  fallback: TerminalThemeReference | undefined,
+): TerminalThemeReference | undefined {
+  return normalizeAppearanceReference(value, fallback) as TerminalThemeReference | undefined;
+}
+
+function themeReferenceToName(theme: TerminalThemeReference | undefined): string {
+  return appearanceReferenceToName(theme, DEFAULT_THEME_NAME);
+}
+
+function themeReferenceToId(theme: TerminalThemeReference | undefined): string {
+  if (typeof theme === "string" || !theme || typeof theme !== "object") {
+    return theme ?? DEFAULT_THEME_NAME;
+  }
+
+  const light = theme.light ?? "";
+  const dark = theme.dark ?? "";
+  return `${AUTO_THEME_PREFIX}${light}|${dark}`;
+}
+
+function themeReferenceToLabel(theme: TerminalThemeReference | undefined): string {
+  if (typeof theme === "string" || !theme || typeof theme !== "object") {
+    return theme ?? DEFAULT_THEME_NAME;
+  }
+
+  const light = theme.light?.trim();
+  const dark = theme.dark?.trim();
+  if (light && dark && light !== dark) {
+    return `Auto (${light} / ${dark})`;
+  }
+
+  const single = dark ?? light;
+  return single ? `Auto (${single})` : "Auto";
+}
+
+function themeIdToReference(themeId: string): TerminalThemeReference {
+  if (!themeId.startsWith(AUTO_THEME_PREFIX)) {
+    return themeId;
+  }
+
+  const payload = themeId.slice(AUTO_THEME_PREFIX.length);
+  const [lightRaw = "", darkRaw = ""] = payload.split("|");
+  const light = lightRaw.trim();
+  const dark = darkRaw.trim();
+
+  return {
+    light: light || undefined,
+    dark: dark || undefined,
+  };
+}
+
 export function normalizeTerminalSettings(
   value: unknown,
   startingDirectory?: string | null,
@@ -449,29 +650,11 @@ export function normalizeTerminalSettings(
     .map(normalizeScheme)
     .filter((entry): entry is TerminalColorScheme => Boolean(entry));
 
-  if (!schemes.some((scheme) => scheme.name === DEFAULT_SCHEME_NAME)) {
-    schemes.push({ ...DEFAULT_SCHEME });
-  }
-
   const themesSource = Array.isArray(value.themes) ? value.themes : fallback.themes ?? [];
   const themes = themesSource
     .map(normalizeTheme)
     .filter((entry): entry is TerminalTheme => Boolean(entry));
-
-  if (!themes.some((theme) => theme.name === DEFAULT_THEME_NAME)) {
-    themes.push({ ...DEFAULT_THEME });
-  }
-
-  const theme =
-    isString(value.theme) && themes.some((entry) => entry.name === value.theme)
-      ? value.theme
-      : fallback.theme;
-
-  const defaultProfile =
-    isString(value.defaultProfile) &&
-    list.some((profile) => profile.guid === value.defaultProfile || profile.name === value.defaultProfile)
-      ? value.defaultProfile
-      : fallback.defaultProfile;
+  const theme = normalizeThemeReference(value.theme, fallback.theme);
 
   const tabWidthMode =
     value.tabWidthMode === "equal" ||
@@ -481,8 +664,9 @@ export function normalizeTerminalSettings(
       : fallback.tabWidthMode;
 
   return {
+    ...value,
     $schema: pickString(value.$schema, fallback.$schema),
-    defaultProfile,
+    defaultProfile: pickString(value.defaultProfile, fallback.defaultProfile),
     theme,
     alwaysShowTabs: pickBoolean(value.alwaysShowTabs, fallback.alwaysShowTabs ?? true),
     showTabsInTitlebar: pickBoolean(
@@ -495,11 +679,12 @@ export function normalizeTerminalSettings(
     ),
     tabWidthMode,
     profiles: {
+      ...(value.profiles && isRecord(value.profiles) ? value.profiles : {}),
       defaults,
       list: list.length > 0 ? list : fallback.profiles?.list ?? [],
     },
-    schemes,
-    themes,
+    schemes: schemes.length > 0 ? schemes : fallback.schemes,
+    themes: themes.length > 0 ? themes : fallback.themes,
   };
 }
 
@@ -520,7 +705,10 @@ export function resolveTerminalProfile(settings: TerminalSettings): TerminalProf
 
 export function resolveTerminalScheme(settings: TerminalSettings): TerminalColorScheme {
   const profile = resolveTerminalProfile(settings);
-  const schemeName = profile.colorScheme ?? settings.profiles?.defaults?.colorScheme;
+  const schemeName = appearanceReferenceToName(
+    profile.colorScheme ?? settings.profiles?.defaults?.colorScheme,
+    DEFAULT_SCHEME_NAME,
+  );
   const scheme =
     settings.schemes?.find((entry) => entry.name === schemeName) ??
     settings.schemes?.[0] ??
@@ -533,8 +721,9 @@ export function resolveTerminalScheme(settings: TerminalSettings): TerminalColor
 }
 
 export function resolveTerminalTheme(settings: TerminalSettings): TerminalTheme {
-  const themeName = settings.theme ?? DEFAULT_THEME_NAME;
+  const themeName = themeReferenceToName(settings.theme);
   const theme =
+    BUILTIN_THEMES[themeName] ??
     settings.themes?.find((entry) => entry.name === themeName) ??
     settings.themes?.[0] ??
     DEFAULT_THEME;
@@ -577,6 +766,21 @@ export function buildTerminalUiPalette(
 
   const terminalBackground = scheme.background ?? DEFAULT_SCHEME.background ?? "#000000";
   const terminalForeground = scheme.foreground ?? DEFAULT_SCHEME.foreground ?? "#f5f5f5";
+  const resolveThemeColor = (value: string | undefined, fallback: string): string => {
+    if (!value) {
+      return fallback;
+    }
+
+    if (value === "terminalBackground") {
+      return terminalBackground;
+    }
+
+    if (value === "accent") {
+      return "#0078d4";
+    }
+
+    return value;
+  };
 
   return {
     fontFace: profile.font?.face ?? settings.profiles?.defaults?.font?.face ?? "Cascadia Mono",
@@ -584,12 +788,12 @@ export function buildTerminalUiPalette(
     terminalForeground,
     terminalMuted: scheme.brightBlack ?? "#8c8c8c",
     terminalBorder: scheme.brightBlack ?? "#2a2a2a",
-    railBackground: theme.tabRow?.background ?? "#ffffff",
+    railBackground: resolveThemeColor(theme.tabRow?.background, "#ffffff"),
     railForeground: "#111111",
     railBorder: "#cfcfcf",
-    activeTabBackground: theme.tab?.background ?? "#ffffff",
+    activeTabBackground: resolveThemeColor(theme.tab?.background, "#ffffff"),
     activeTabForeground: "#111111",
-    inactiveTabBackground: theme.tab?.unfocusedBackground ?? "#f4f4f4",
+    inactiveTabBackground: resolveThemeColor(theme.tab?.unfocusedBackground, "#f4f4f4"),
     inactiveTabForeground: "#555555",
     windowTheme: theme.window?.applicationTheme ?? "light",
   };
@@ -608,15 +812,23 @@ function getProfileLabel(profile: TerminalProfile): string {
 }
 
 function getThemeOptions(settings: TerminalSettings): TerminalAppearanceOption[] {
-  const names = new Set<string>(["system", "light", "dark"]);
+  const names = new Map<string, string>();
 
-  for (const theme of settings.themes ?? []) {
-    names.add(theme.name);
+  for (const name of BUILTIN_THEME_NAMES) {
+    names.set(name, name);
   }
 
-  return [...names].map((name) => ({
-    id: name,
-    label: name,
+  for (const theme of settings.themes ?? []) {
+    names.set(theme.name, theme.name);
+  }
+
+  if (settings.theme && typeof settings.theme === "object") {
+    names.set(themeReferenceToId(settings.theme), themeReferenceToLabel(settings.theme));
+  }
+
+  return [...names.entries()].map(([id, label]) => ({
+    id,
+    label,
   }));
 }
 
@@ -653,7 +865,7 @@ export function updateThemeName(
   const normalized = normalizeTerminalSettings(settings);
   return {
     ...normalized,
-    theme: themeName,
+    theme: themeIdToReference(themeName),
   };
 }
 
@@ -676,7 +888,7 @@ function buildParsedAppearance(settings: TerminalSettings): ParsedWindowsTermina
     ...palette,
     profileId: getProfileId(profile),
     profileName: getProfileLabel(profile),
-    themeName: settings.theme ?? DEFAULT_THEME_NAME,
+    themeName: themeReferenceToId(settings.theme),
     availableProfiles:
       availableProfiles.length > 0
         ? availableProfiles

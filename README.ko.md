@@ -62,10 +62,11 @@
 - Rust 엔트리포인트: 기본 실행 경로는 `webpty up`입니다.
 - Windows Terminal 스타일 셸: 상단 바 없이 전체 화면 transcript와 우측 좁은 탭 레일을 사용합니다.
 - Windows Terminal JSON 설정: `defaultProfile`, `profiles`, `schemes`, `theme`, `themes` 구조를 Settings 탭에서 다룹니다.
+- 더 안전한 설정 round-trip: 우측 Settings 패널에서 `settings.json`을 수정하고 저장해도, WebPTY가 직접 다루지 않는 Windows Terminal 키를 최대한 보존합니다.
 - 기본 시각 규약: 검은 터미널 본체, 흰 탭 레일, 평평한 보더, `Cascadia Mono`.
 - Tailscale Funnel: `webpty up --funnel` 한 줄로 외부 공개를 시도합니다.
 - 워크스페이스 중심 thread 시작: 새 thread는 여전히 디렉토리 브라우징과 검증을 거친 뒤 시작합니다.
-- 정적 프런트 번들: Next.js 셸을 `out/`으로 export해서 Rust 런타임이 직접 서빙합니다.
+- 번들 런타임 자산: 전역 설치 시 정적 프런트엔드와 컴파일된 bridge worker를 함께 내장해서 repo checkout이나 추가 `npm install` 없이 `webpty up`을 실행할 수 있습니다.
 
 ## 아키텍처
 
@@ -77,13 +78,14 @@ Browser UI
 
 Rust runtime
   ├─ webpty up
-  ├─ static frontend 서빙
+  ├─ 번들/정적 frontend 서빙
   ├─ Funnel 시작 처리
-  └─ /api/*, /ws 를 로컬 legacy bridge로 프록시
+  └─ /api/*, /ws 를 로컬 bridge worker로 프록시
 
-Legacy bridge
-  ├─ server/legacy-bridge.ts
-  └─ server/codex-bridge.ts
+Bridge worker
+  ├─ repo 모드: server/legacy-bridge.ts
+  ├─ 설치 모드: bundled legacy-bridge.js
+  └─ server/codex-bridge.ts / compiled codex-bridge.js
        ├─ codex app-server stdio JSON-RPC
        └─ thread, turn, approval, live delta 스냅샷 정규화
 ```
@@ -103,6 +105,8 @@ Legacy bridge
 ```bash
 cargo install --git https://github.com/smturtle2/codex-ui webpty
 ```
+
+설치된 바이너리에는 `runtime-assets/` 기반 정적 프런트엔드와 컴파일된 bridge worker가 포함되므로, `cargo install` 이후에 별도로 `npm install`을 다시 실행할 필요가 없습니다.
 
 로컬 clone에서 바로 설치하려면:
 
@@ -138,13 +142,16 @@ webpty up --funnel
 ## 개발
 
 ```bash
+npm run test
 npm run typecheck
+npm run check
 npm run build
+npm run refresh:runtime-assets
 cargo check
 cargo run -- up --port 3000
 python scripts/generate_preview_images.py
 ```
 
-`npm run build`는 프런트를 `out/`으로 export하고, `cargo run -- up`은 그 결과를 Rust 런타임으로 서빙합니다.
+`npm run build`는 프런트를 `out/`으로 export합니다. `npm run refresh:runtime-assets`는 전역 설치용으로 Rust 바이너리가 추출할 번들 자산을 갱신합니다. `npm run check`는 typecheck, Windows Terminal 설정 테스트, production build를 한 번에 검증합니다.
 
 `python scripts/generate_preview_images.py`는 `/?demo=1` 기준으로 `docs/` 스크린샷을 갱신합니다.

@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsString;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ use axum::routing::{any, get};
 use axum::Router;
 use clap::{Args, Parser, Subcommand};
 use futures_util::{SinkExt, StreamExt};
+use include_dir::{include_dir, Dir, DirEntry};
 use reqwest::Client;
 use serde_json::Value;
 use tokio::net::TcpListener;
@@ -61,6 +63,20 @@ struct BridgeProcess {
     child: Child,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum RuntimeRootKind {
+    SourceRepo,
+    Bundled,
+}
+
+#[derive(Clone, Debug)]
+struct RuntimeRoot {
+    path: PathBuf,
+    kind: RuntimeRootKind,
+}
+
+static BUNDLED_RUNTIME: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/runtime-assets");
+
 impl BridgeProcess {
     async fn kill(&mut self) {
         if let Err(error) = self.child.kill().await {
@@ -79,17 +95,17 @@ async fn main() -> Result<()> {
 }
 
 async fn run_up(args: UpArgs) -> Result<()> {
-    let cwd = resolve_runtime_root()?;
+    let runtime_root = resolve_runtime_root()?;
 
-    if !args.no_build {
-        if let Err(error) = build_runtime_assets(&cwd).await {
+    if runtime_root.kind == RuntimeRootKind::SourceRepo && !args.no_build {
+        if let Err(error) = build_runtime_assets(&runtime_root.path).await {
             eprintln!("Build step failed: {error}");
             eprintln!("Continuing without a refreshed frontend bundle.");
         }
     }
 
     let bridge_port = pick_free_port()?;
-    let mut bridge = spawn_legacy_bridge(&cwd, bridge_port).await?;
+    let mut bridge = spawn_legacy_bridge(&runtime_root, bridge_port).await?;
     wait_for_bridge(bridge_port).await?;
 
     let state = Arc::new(AppState {
@@ -101,7 +117,7 @@ async fn run_up(args: UpArgs) -> Result<()> {
             .context("Failed to create HTTP client.")?,
     });
 
-    let app = build_router(&cwd, state);
+    let app = build_router(&runtime_root.path, state);
     let listener = TcpListener::bind(format!("{}:{}", args.host, args.port))
         .await
         .with_context(|| format!("Failed to bind {}:{}.", args.host, args.port))?;
@@ -128,27 +144,114 @@ async fn run_up(args: UpArgs) -> Result<()> {
     Ok(())
 }
 
-fn resolve_runtime_root() -> Result<PathBuf> {
+fn resolve_runtime_root() -> Result<RuntimeRoot> {
     if let Ok(path) = env::var("WEBPTY_ROOT") {
         let explicit = PathBuf::from(path);
-        if explicit.join("server").join("legacy-bridge.ts").is_file() {
-            return Ok(explicit);
+        if let Some(kind) = detect_runtime_root_kind(&explicit) {
+            return Ok(RuntimeRoot {
+                path: explicit,
+                kind,
+            });
         }
     }
 
     let cwd = env::current_dir().context("Failed to resolve current working directory.")?;
-    if cwd.join("server").join("legacy-bridge.ts").is_file() {
-        return Ok(cwd);
+    if let Some(kind) = detect_runtime_root_kind(&cwd) {
+        return Ok(RuntimeRoot { path: cwd, kind });
     }
 
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    if manifest_dir.join("server").join("legacy-bridge.ts").is_file() {
-        return Ok(manifest_dir);
+    if let Some(kind) = detect_runtime_root_kind(&manifest_dir) {
+        return Ok(RuntimeRoot {
+            path: manifest_dir,
+            kind,
+        });
+    }
+
+    let bundled = extract_bundled_runtime_root()?;
+    if let Some(kind) = detect_runtime_root_kind(&bundled) {
+        return Ok(RuntimeRoot {
+            path: bundled,
+            kind,
+        });
     }
 
     bail!(
-        "Could not locate the WebPTY runtime root. Run `webpty up` from the repo, or set WEBPTY_ROOT."
+        "Could not locate the WebPTY runtime root. Run `webpty up` from the repo with Node dependencies installed, or set WEBPTY_ROOT."
     );
+}
+
+fn detect_runtime_root_kind(path: &Path) -> Option<RuntimeRootKind> {
+    let source_bridge = path.join("server").join("legacy-bridge.ts");
+    let tsx_loader = path.join("node_modules").join("tsx").join("dist").join("loader.mjs");
+    if source_bridge.is_file() && tsx_loader.is_file() {
+        return Some(RuntimeRootKind::SourceRepo);
+    }
+
+    let bundled_bridge = path.join("server").join("legacy-bridge.js");
+    let bundled_ws = path.join("node_modules").join("ws").join("package.json");
+    if bundled_bridge.is_file() && bundled_ws.is_file() && detect_static_dir(path).is_some() {
+        return Some(RuntimeRootKind::Bundled);
+    }
+
+    None
+}
+
+fn bundled_runtime_cache_dir() -> Result<PathBuf> {
+    if cfg!(windows) {
+        let base = env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| env::temp_dir());
+        return Ok(base.join("webpty").join("runtime").join(env!("CARGO_PKG_VERSION")));
+    }
+
+    let base = env::var_os("XDG_CACHE_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache")))
+        .unwrap_or_else(env::temp_dir);
+
+    Ok(base.join("webpty").join("runtime").join(env!("CARGO_PKG_VERSION")))
+}
+
+fn write_bundled_dir(dir: &Dir<'_>, destination: &Path) -> Result<()> {
+    fs::create_dir_all(destination)
+        .with_context(|| format!("Failed to create {}.", destination.display()))?;
+
+    for entry in dir.entries() {
+        match entry {
+            DirEntry::Dir(child) => {
+                write_bundled_dir(child, destination)?;
+            }
+            DirEntry::File(file) => {
+                let path = destination.join(file.path());
+                if let Some(parent) = path.parent() {
+                    fs::create_dir_all(parent).with_context(|| {
+                        format!("Failed to create bundled runtime directory {}.", parent.display())
+                    })?;
+                }
+
+                fs::write(&path, file.contents())
+                    .with_context(|| format!("Failed to write bundled runtime file {}.", path.display()))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn extract_bundled_runtime_root() -> Result<PathBuf> {
+    let destination = bundled_runtime_cache_dir()?;
+    let ready_marker = destination.join(".ready");
+
+    if ready_marker.is_file() && detect_runtime_root_kind(&destination).is_some() {
+        return Ok(destination);
+    }
+
+    write_bundled_dir(&BUNDLED_RUNTIME, &destination)?;
+    fs::write(&ready_marker, b"ok")
+        .with_context(|| format!("Failed to write bundled runtime marker {}.", ready_marker.display()))?;
+
+    Ok(destination)
 }
 
 fn build_router(cwd: &Path, state: Arc<AppState>) -> Router {
@@ -402,29 +505,52 @@ fn npm_command() -> OsString {
     }
 }
 
-async fn spawn_legacy_bridge(cwd: &Path, port: u16) -> Result<BridgeProcess> {
-    let tsx_loader = cwd.join("node_modules").join("tsx").join("dist").join("loader.mjs");
-    if !tsx_loader.is_file() {
-        bail!(
-            "Missing tsx loader at {}. Run `npm install` in the WebPTY repo first.",
-            tsx_loader.display()
-        );
-    }
-
-    let bridge_entry = cwd.join("server").join("legacy-bridge.ts");
-    if !bridge_entry.is_file() {
-        bail!(
-            "Missing legacy bridge entrypoint at {}.",
-            bridge_entry.display()
-        );
-    }
-
+async fn spawn_legacy_bridge(runtime_root: &RuntimeRoot, port: u16) -> Result<BridgeProcess> {
     let mut command = Command::new("node");
+
+    match runtime_root.kind {
+        RuntimeRootKind::SourceRepo => {
+            let tsx_loader = runtime_root
+                .path
+                .join("node_modules")
+                .join("tsx")
+                .join("dist")
+                .join("loader.mjs");
+            if !tsx_loader.is_file() {
+                bail!(
+                    "Missing tsx loader at {}. Install the repo dependencies or use the bundled runtime.",
+                    tsx_loader.display()
+                );
+            }
+
+            let bridge_entry = runtime_root.path.join("server").join("legacy-bridge.ts");
+            if !bridge_entry.is_file() {
+                bail!(
+                    "Missing legacy bridge entrypoint at {}.",
+                    bridge_entry.display()
+                );
+            }
+
+            command.arg("--import").arg(tsx_loader).arg(bridge_entry);
+        }
+        RuntimeRootKind::Bundled => {
+            let bridge_entry = runtime_root.path.join("server").join("legacy-bridge.js");
+            if !bridge_entry.is_file() {
+                bail!(
+                    "Missing bundled legacy bridge entrypoint at {}.",
+                    bridge_entry.display()
+                );
+            }
+
+            command.arg(bridge_entry).env(
+                "NODE_PATH",
+                runtime_root.path.join("node_modules"),
+            );
+        }
+    }
+
     command
-        .arg("--import")
-        .arg(tsx_loader)
-        .arg(bridge_entry)
-        .current_dir(cwd)
+        .current_dir(&runtime_root.path)
         .env("HOST", "127.0.0.1")
         .env("PORT", port.to_string())
         .stdin(Stdio::null())
@@ -494,7 +620,7 @@ async fn start_tailscale_funnel(port: u16) -> Result<()> {
     }
 
     if combined.contains("Access denied: serve config denied") {
-        print_operator_hint();
+        print_operator_hint(port);
         bail!("Tailscale denied serve config access for the current user.");
     }
 
@@ -537,11 +663,11 @@ async fn print_enable_hint() -> Result<()> {
     Ok(())
 }
 
-fn print_operator_hint() {
+fn print_operator_hint(port: u16) {
     eprintln!("Tailscale serve/funnel permission is denied for the current user.");
     eprintln!("Run one of these commands:");
     eprintln!("sudo tailscale set --operator=$USER");
-    eprintln!("sudo tailscale funnel --bg --yes 3000");
+    eprintln!("sudo tailscale funnel --bg --yes {port}");
 }
 
 async fn tailscale_status() -> Result<Value> {

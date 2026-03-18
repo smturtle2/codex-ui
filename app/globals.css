@@ -2830,3 +2830,593 @@ pre {
     max-width: none;
   }
 }
+
+/* Windows Terminal / Windows 11 fidelity overrides */
+
+:root {
+  --font-ui:
+    "Segoe UI Variable Text",
+    "Segoe UI",
+    "Microsoft Sans Serif",
+    sans-serif;
+  --font-terminal:
+    "Cascadia Mono",
+    "Cascadia Code",
+    "Consolas",
+    "SFMono-Regular",
+    monospace;
+}
+
+html,
+body {
+  background: #000000;
+  color: #f5f5f5;
+  font-family: var(--font-ui), sans-serif;
+}
+
+.terminal-page {
+  font-family: var(--font-ui), sans-serif;
+}
+
+.terminal-page .history-empty-copy,
+.terminal-page .history-message-line,
+.terminal-page .history-turn-divider,
+.terminal-page .history-message-role,
+.terminal-page .history-message-state,
+.terminal-page .history-event-kind,
+.terminal-page .history-event-state,
+.terminal-page .terminal-footer-meta,
+.terminal-page .composer-input,
+.terminal-page .composer-select,
+.terminal-page .settings-select,
+.terminal-page .raw-json-editor,
+.terminal-page .status-pre,
+.terminal-page .workspace-picker-path,
+.terminal-page .workspace-picker-row-main span,
+.terminal-page .thread-drawer-item-time,
+.terminal-page .thread-drawer-item-cwd,
+.terminal-page .thread-drawer-item-meta {
+  font-family: var(--font-terminal), monospace;
+}
+
+.terminal-shell {
+  grid-template-columns: minmax(0, 1fr) 4.7rem;
+}
+
+.terminal-stage {
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.shell-rail {
+  background: #ffffff;
+}
+
+.shell-rail-tab {
+  min-height: 4.6rem;
+  padding: 0.75rem 0.38rem;
+  background: #ffffff;
+  color: #171717;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  overflow: hidden;
+}
+
+.shell-rail-tab.active {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: inset 3px 0 0 #111111;
+}
+
+.shell-rail-tab:hover,
+.shell-rail-tab:focus-visible {
+  background: #f5f5f5;
+  filter: none;
+}
+
+.shell-rail-label,
+.shell-rail-badge {
+  font-family: var(--font-ui), sans-serif;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  pointer-events: none;
+}
+
+.shell-rail-badge {
+  font-size: 0.78rem;
+}
+
+.terminal-footer {
+  background: #000000;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.terminal-footer-meta {
+  padding: 0.58rem 1.15rem 0;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.terminal-footer-title {
+  color: #ffffff;
+}
+
+.composer-frame {
+  gap: 0.65rem;
+  padding: 0.76rem 1.15rem 1rem;
+  background: #000000;
+}
+
+.composer-select-shell {
+  background: #0c0c0c;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.plain-action,
+.picker-chip,
+.approval-option,
+.command-menu-row {
+  background: #0d0d0d;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.plain-action:hover,
+.picker-chip:hover,
+.approval-option:hover,
+.command-menu-row:hover {
+  background: #151515;
+  border-color: #ffffff;
+}
+
+.plain-action.selected,
+.picker-chip.selected,
+.approval-option.selected,
+.command-menu-row.selected {
+  background: #161616;
+  border-color: #ffffff;
+}
+
+.composer-mode-group .picker-chip,
+.composer-mobile-session-toggle,
+.composer-mobile-utility,
+.composer-compact-row .plain-action {
+  background: #0d0d0d;
+  color: #f5f5f5;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.composer-input {
+  background: #050505;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.surface-dialog,
+.approval-modal,
+.thread-drawer-surface {
+  background: #f8f8f8;
+  color: #111111;
+  border-color: #d7d7d7;
+  font-family: var(--font-ui), sans-serif;
+}
+
+.surface-dialog .plain-action,
+.thread-drawer .plain-action,
+.surface-dialog .picker-chip,
+.thread-drawer .picker-chip {
+  background: #ffffff;
+  color: #111111;
+  border-color: #cfcfcf;
+}
+
+.surface-dialog .plain-action:hover,
+.thread-drawer .plain-action:hover,
+.surface-dialog .picker-chip:hover,
+.thread-drawer .picker-chip:hover {
+  background: #f1f1f1;
+  border-color: #111111;
+}
+
+.surface-dialog .action-button,
+.thread-drawer .action-button {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.surface-dialog .action-button:hover,
+.thread-drawer .action-button:hover {
+  background: #000000;
+}
+
+.surface-dialog .settings-select-shell,
+.surface-dialog .surface-input,
+.surface-dialog .raw-json-editor,
+.thread-drawer .surface-input,
+.workspace-picker .surface-input {
+  background: #ffffff;
+  color: #111111;
+  border-color: #d3d3d3;
+}
+
+.surface-dialog .settings-select,
+.surface-dialog .raw-json-editor,
+.thread-drawer .surface-input,
+.workspace-picker .surface-input {
+  color: #111111;
+}
+
+.surface-dialog .settings-select-caret {
+  color: #6b6b6b;
+}
+
+.settings-section-note,
+.settings-error,
+.thread-drawer-header-copy span,
+.thread-drawer-list-header span,
+.thread-drawer-item-time,
+.thread-drawer-item-cwd,
+.thread-drawer-item-meta,
+.workspace-picker-row-meta,
+.workspace-picker-empty,
+.workspace-picker-path-full {
+  color: #5b5b5b;
+}
+
+.settings-error {
+  background: #ffffff;
+  border-color: #d3d3d3;
+}
+
+.thread-drawer-item,
+.workspace-picker-row {
+  color: #111111;
+  border-top-color: #e2e2e2;
+}
+
+.thread-drawer-item:hover,
+.thread-drawer-item:focus-visible,
+.workspace-picker-row:hover,
+.workspace-picker-row:focus-visible {
+  background: #efefef;
+}
+
+@media (max-width: 900px) {
+  .shell-rail-tab.active {
+    box-shadow: inset 0 3px 0 #111111;
+  }
+
+  .terminal-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .terminal-stage {
+    border-right: 0;
+  }
+
+  .shell-rail {
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .shell-rail-stack {
+    flex-direction: row;
+  }
+
+  .shell-rail-tab {
+    min-height: auto;
+    min-width: 0;
+    flex: 1 1 0;
+    padding: 0.8rem 0.45rem;
+    border-right: 1px solid rgba(17, 17, 17, 0.08);
+    border-bottom: 0;
+  }
+
+  .shell-rail-tab:last-child {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .composer-frame {
+    padding: 0.65rem 0.95rem 0.9rem;
+  }
+
+  .terminal-footer-meta {
+    padding-inline: 0.95rem;
+  }
+}
+
+/* Windows Terminal refinement */
+
+.terminal-page {
+  --terminal-rail-width: 4.45rem;
+  --font-ui:
+    "Segoe UI Variable Text",
+    "Segoe UI",
+    "Pretendard Variable",
+    "Pretendard",
+    sans-serif;
+}
+
+.terminal-shell {
+  grid-template-columns: minmax(0, 1fr) var(--terminal-rail-width);
+}
+
+.shell-rail {
+  border-left: 1px solid #d9d9d9;
+  background: #fafafa;
+}
+
+.shell-rail-stack {
+  gap: 0;
+}
+
+.shell-rail-tab {
+  min-height: 4.55rem;
+  padding: 0.62rem 0.32rem 0.68rem;
+  background: #ffffff;
+  color: #1a1a1a;
+  border: 0;
+  border-bottom: 1px solid #e4e4e4;
+  gap: 0.22rem;
+  position: relative;
+}
+
+.shell-rail-tab.active {
+  background: #ffffff;
+  color: #111111;
+  box-shadow: inset 3px 0 0 #111111;
+}
+
+.shell-rail-tab:hover,
+.shell-rail-tab:focus-visible {
+  background: #f3f3f3;
+  color: #111111;
+  filter: none;
+}
+
+.shell-rail-label,
+.shell-rail-badge {
+  font-family: var(--font-ui), sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  pointer-events: none;
+}
+
+.shell-rail-badge {
+  font-size: 0.72rem;
+  color: #686868;
+}
+
+.shell-rail-tab.active .shell-rail-badge {
+  color: #111111;
+}
+
+.screen-overlay,
+.thread-drawer-backdrop {
+  inset: 0 var(--terminal-rail-width) 0 0;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.surface-dialog,
+.approval-modal,
+.thread-drawer,
+.thread-drawer-surface {
+  background: #ffffff;
+  color: #111111;
+  border-color: #d9d9d9;
+  font-family: var(--font-ui), sans-serif;
+}
+
+.surface-dialog,
+.approval-modal {
+  width: min(31rem, calc(100vw - var(--terminal-rail-width)));
+  padding: 1rem 1rem 1.05rem;
+}
+
+.surface-dialog.wide {
+  width: min(36rem, calc(100vw - var(--terminal-rail-width)));
+}
+
+.thread-drawer {
+  width: min(24rem, calc(100vw - var(--terminal-rail-width)));
+}
+
+.thread-drawer-surface {
+  padding: 1rem 1rem 1.05rem;
+}
+
+.surface-dialog-header,
+.thread-drawer-header {
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.surface-dialog-copy,
+.thread-drawer-header-copy {
+  gap: 0.18rem;
+}
+
+.surface-dialog-copy strong,
+.thread-drawer-header-copy strong {
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.surface-dialog-subtitle,
+.surface-dialog-footer,
+.thread-drawer-header-copy span,
+.thread-drawer-item-time,
+.thread-drawer-item-cwd,
+.thread-drawer-item-meta,
+.thread-drawer-empty,
+.workspace-picker-row-meta,
+.workspace-picker-empty,
+.workspace-picker-path-full,
+.settings-section-note,
+.settings-error {
+  color: #5e5e5e;
+}
+
+.surface-dialog .plain-action,
+.thread-drawer .plain-action,
+.surface-dialog .picker-chip,
+.thread-drawer .picker-chip,
+.surface-dialog .approval-option,
+.thread-drawer .approval-option {
+  background: #ffffff;
+  color: #111111;
+  border-color: #d0d0d0;
+}
+
+.surface-dialog .plain-action:hover,
+.thread-drawer .plain-action:hover,
+.surface-dialog .picker-chip:hover,
+.thread-drawer .picker-chip:hover,
+.surface-dialog .approval-option:hover,
+.thread-drawer .approval-option:hover {
+  background: #f3f3f3;
+  border-color: #111111;
+}
+
+.surface-dialog .plain-action.selected,
+.thread-drawer .plain-action.selected,
+.surface-dialog .picker-chip.selected,
+.thread-drawer .picker-chip.selected,
+.surface-dialog .approval-option.selected,
+.thread-drawer .approval-option.selected {
+  background: #ededed;
+  border-color: #111111;
+}
+
+.surface-dialog .action-button,
+.thread-drawer .action-button {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.surface-dialog .action-button:hover,
+.thread-drawer .action-button:hover {
+  background: #000000;
+}
+
+.settings-section {
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid #ededed;
+}
+
+.surface-dialog .settings-select-shell,
+.surface-dialog .surface-input,
+.surface-dialog .raw-json-editor,
+.thread-drawer .surface-input,
+.workspace-picker .surface-input {
+  background: #ffffff;
+  color: #111111;
+  border-color: #d1d1d1;
+}
+
+.surface-dialog .settings-select-shell:hover,
+.surface-dialog .surface-input:hover,
+.surface-dialog .raw-json-editor:hover,
+.thread-drawer .surface-input:hover,
+.workspace-picker .surface-input:hover,
+.surface-dialog .settings-select-shell:has(.settings-select:focus-visible) {
+  border-color: #111111;
+}
+
+.surface-dialog .settings-select,
+.surface-dialog .surface-input,
+.surface-dialog .raw-json-editor,
+.thread-drawer .surface-input,
+.workspace-picker .surface-input {
+  color: #111111;
+}
+
+.surface-dialog .settings-select-caret {
+  color: #6b6b6b;
+}
+
+.settings-error {
+  background: #ffffff;
+  border-color: #d1d1d1;
+}
+
+.thread-drawer-item,
+.workspace-picker-row {
+  color: #111111;
+  border-top-color: #e4e4e4;
+}
+
+.thread-drawer-item:hover,
+.thread-drawer-item:focus-visible,
+.workspace-picker-row:hover,
+.workspace-picker-row:focus-visible {
+  background: #efefef;
+}
+
+.terminal-footer {
+  background: #050505;
+}
+
+@media (max-width: 900px) {
+  .terminal-page {
+    --terminal-rail-width: 100vw;
+  }
+
+  .terminal-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .terminal-stage {
+    border-right: 0;
+  }
+
+  .shell-rail {
+    border-left: 0;
+    border-top: 1px solid #d9d9d9;
+  }
+
+  .shell-rail-stack {
+    flex-direction: row;
+  }
+
+  .shell-rail-tab {
+    min-height: auto;
+    min-width: 0;
+    flex: 1 1 0;
+    border-right: 1px solid #e4e4e4;
+    border-bottom: 0;
+  }
+
+  .shell-rail-tab:last-child {
+    border-right: 0;
+  }
+
+  .shell-rail-tab.active {
+    box-shadow: inset 0 3px 0 #111111;
+  }
+
+  .screen-overlay,
+  .thread-drawer-backdrop {
+    inset: 0;
+  }
+
+  .surface-dialog,
+  .surface-dialog.wide,
+  .approval-modal,
+  .thread-drawer {
+    width: 100%;
+    max-height: 100dvh;
+    border-left: 0;
+    border-top: 1px solid #d9d9d9;
+  }
+
+  .thread-drawer-surface {
+    border-left: 0;
+    border-top: 1px solid #d9d9d9;
+  }
+}

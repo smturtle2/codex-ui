@@ -8,3 +8,7 @@ out/
 target/
 docs/*.html
 scripts/__pycache__/
+!docs/preview-desktop.html
+!docs/preview-mobile.html
+!runtime-assets/out/
+!runtime-assets/out/**

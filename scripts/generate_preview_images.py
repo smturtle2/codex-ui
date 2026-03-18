@@ -28,7 +28,10 @@ def open_demo(page: Page) -> None:
 def close_overlay_if_open(page: Page) -> None:
     close_button = page.get_by_role("button", name=re.compile(r"^(Close|닫기)$"))
     if close_button.count() > 0 and close_button.first.is_visible():
-        close_button.first.click()
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(250)
+        if close_button.first.is_visible():
+            close_button.first.evaluate("(element) => element.click()")
         wait_for_shell(page)
 
 
